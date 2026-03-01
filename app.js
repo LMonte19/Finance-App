@@ -2,8 +2,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 // 1) Paste your Supabase values here:
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
-const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY";
-const supabase = createClient(sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q);
+const SUPABASE_ANON_KEY = "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // UI helpers
 const qs = (id) => document.getElementById(id);
