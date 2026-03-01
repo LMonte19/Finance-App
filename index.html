@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Loan Ledger</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#111111">
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;background:#0b0b0c;color:#fff}
+    header{padding:14px 16px;border-bottom:1px solid #222;position:sticky;top:0;background:#0b0b0c}
+    .wrap{padding:16px;max-width:880px;margin:0 auto}
+    .card{background:#121214;border:1px solid #222;border-radius:14px;padding:14px;margin:12px 0}
+    input,select,button{width:100%;padding:12px;border-radius:12px;border:1px solid #2a2a2e;background:#0f0f11;color:#fff;margin:8px 0}
+    button{background:#2b63ff;border:none;font-weight:700}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .muted{color:#b8b8c2;font-size:13px}
+    .pill{display:inline-block;padding:4px 10px;border:1px solid #333;border-radius:999px;font-size:12px;color:#cfcfe6}
+    a{color:#8fb1ff}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <div style="font-weight:800;">Loan Ledger</div>
+          <div class="muted" id="whoami">Not signed in</div>
+        </div>
+        <div>
+          <button id="btnSignOut" style="display:none;background:#333;">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="card" id="authCard">
+      <div style="font-weight:800;margin-bottom:8px;">Sign in</div>
+      <input id="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Password" />
+      <button id="btnSignIn">Sign in</button>
+      <div class="muted">Admin creates users in Supabase (so no one self-registers).</div>
+    </div>
+
+    <div id="app" style="display:none;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:800;">Borrowers</div>
+          <span class="pill" id="rolePill">role</span>
+        </div>
+        <div class="row">
+          <input id="bName" placeholder="Borrower full name" />
+          <input id="bPhone" placeholder="Phone (optional)" />
+        </div>
+        <input id="bNotes" placeholder="Notes (late payer, etc.)" />
+        <button id="btnAddBorrower">Add borrower</button>
+        <div id="borrowerList" class="muted"></div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:800;">Create loan (Agent/Admin)</div>
+        <select id="loanBorrower"></select>
+        <div class="row">
+          <input id="principal" type="number" step="0.01" placeholder="Principal (e.g., 1000)" />
+          <input id="startDate" type="date" />
+        </div>
+        <input id="mgmtFee" type="number" step="0.01" placeholder="Mgmt fee per cycle (fixed) e.g., 5" />
+        <button id="btnCreateLoan">Create loan + generate due dates</button>
+        <div class="muted">Funding split is set by Admin in Supabase for now (to keep it safe).</div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:800;">Loans</div>
+        <div id="loanList" class="muted"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
