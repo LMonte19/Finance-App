@@ -1,8 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const setDebug = (msg) => {
-  const el = document.getElementById("debug");
-  if (el) el.textContent = msg;
-};
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 // 1) Paste your Supabase values here:
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
