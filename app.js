@@ -1,4 +1,4 @@
-import { createClient } from "./supabase.esm.js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const setDebug = (msg) => {
   const el = document.getElementById("debug");
   if (el) el.textContent = msg;
