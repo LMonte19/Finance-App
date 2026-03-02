@@ -1,4 +1,8 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+const setDebug = (msg) => {
+  const el = document.getElementById("debug");
+  if (el) el.textContent = msg;
+};
 
 // 1) Paste your Supabase values here:
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
@@ -105,10 +109,24 @@ async function setSignedOutUI() {
 
 // Auth
 qs("btnSignIn").onclick = async () => {
-  const email = qs("email").value.trim();
-  const password = qs("password").value.trim();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) alert(error.message);
+  try {
+    setDebug("Signing in...");
+    const email = qs("email").value.trim();
+    const password = qs("password").value.trim();
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setDebug("Sign-in error: " + error.message);
+      alert(error.message);
+      return;
+    }
+
+    setDebug("Signed in. Loading profile...");
+  } catch (e) {
+    setDebug("Unexpected error: " + (e?.message || String(e)));
+    alert(e?.message || String(e));
+  }
 };
 
 btnSignOut.onclick = async () => {
