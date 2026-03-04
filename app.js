@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const setDebug = (msg) => {
+  const el = document.getElementById("debug");
+  if (el) el.textContent = msg;
+};
+
 // 1) Paste your Supabase values here:
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q";
@@ -96,12 +101,21 @@ async function setSignedInUI(profile) {
   await refreshLoans();
 }
 
-async function setSignedOutUI() {
-  currentProfile = null;
-  authCard.style.display = "block";
-  appDiv.style.display = "none";
-  btnSignOut.style.display = "none";
-  whoami.textContent = "Not signed in";
+async function setSignedInUI(profile) {
+  currentProfile = profile;
+  authCard.style.display = "none";
+  appDiv.style.display = "block";
+  btnSignOut.style.display = "inline-block";
+  whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
+  rolePill.textContent = profile.role;
+
+  setDebug("Loading borrowers...");
+  await refreshBorrowers();
+
+  setDebug("Loading loans...");
+  await refreshLoans();
+
+  setDebug("");
 }
 
 // Auth
@@ -211,11 +225,19 @@ qs("btnCreateLoan").onclick = async () => {
 // init
 supabase.auth.onAuthStateChange(async (_event, session) => {
   if (!session) return setSignedOutUI();
+
   try {
+    setDebug("Loading profile...");
     const profile = await loadProfile();
+
+    setDebug("Loading app data...");
     await setSignedInUI(profile);
+
+    setDebug("");
   } catch (e) {
-    alert("Profile missing. Admin needs to add you to profiles table.");
+    console.error(e);
+    setDebug("Error after sign-in: " + (e?.message || String(e)));
+    alert("Error after sign-in: " + (e?.message || String(e)));
     await setSignedOutUI();
   }
 });
