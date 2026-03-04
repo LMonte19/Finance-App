@@ -29,23 +29,38 @@ const btnSignOut = qs("btnSignOut");
 let currentProfile = null;
 
 async function loadProfile() {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  console.log("[PROFILE] getUser start");
+
+  const userPromise = supabase.auth.getUser();
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Timeout in getUser()")), 8000)
+  );
+
+  const { data: userData, error: userErr } = await Promise.race([userPromise, timeout]);
   if (userErr) throw userErr;
 
   const user = userData?.user;
-  if (!user) throw new Error("No user after sign-in.");
+  if (!user) throw new Error("No user returned by getUser().");
 
-  const { data, error } = await supabase
+  console.log("[PROFILE] select profile for", user.id);
+
+  const profPromise = supabase
     .from("profiles")
     .select("*")
     .eq("user_id", user.id)
-    .maybeSingle(); // <-- important
+    .maybeSingle();
 
+  const timeout2 = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Timeout selecting profile (RLS or network)")), 8000)
+  );
+
+  const { data, error } = await Promise.race([profPromise, timeout2]);
   if (error) throw error;
-  if (!data) throw new Error("Profile row not found for this user_id: " + user.id);
+  if (!data) throw new Error("Profile missing for user_id: " + user.id);
 
   return data;
 }
+
 function lastDayOfMonth(d) {
   const dt = new Date(d.getFullYear(), d.getMonth() + 1, 0);
   return dt;
@@ -251,19 +266,27 @@ qs("btnCreateLoan").onclick = async () => {
 
 // init
 supabase.auth.onAuthStateChange(async (_event, session) => {
-  if (!session) return setSignedOutUI();
+  console.log("[AUTH] event:", _event, "hasSession:", !!session);
+
+  if (!session) {
+    setDebug("");
+    return setSignedOutUI();
+  }
 
   try {
-    setDebug("Loading profile...");
+    setDebug("Step 1/4: get profile...");
+    console.log("[AUTH] step1 loadProfile start");
     const profile = await loadProfile();
+    console.log("[AUTH] step1 loadProfile ok", profile);
 
-    setDebug("Loading app data...");
+    setDebug("Step 2/4: show UI...");
     await setSignedInUI(profile);
+    console.log("[AUTH] step2 setSignedInUI ok");
 
     setDebug("");
   } catch (e) {
-    console.error(e);
-    setDebug("Error after sign-in: " + (e?.message || String(e)));
+    console.error("[AUTH] error after sign-in:", e);
+    setDebug("Error: " + (e?.message || String(e)));
     alert("Error after sign-in: " + (e?.message || String(e)));
     await setSignedOutUI();
   }
