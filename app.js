@@ -120,10 +120,36 @@ async function setSignedInUI(profile) {
 
 // Auth
 qs("btnSignIn").onclick = async () => {
-  const email = qs("email").value.trim();
-  const password = qs("password").value.trim();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) alert(error.message);
+  try {
+    const email = qs("email").value.trim();
+    const password = qs("password").value.trim();
+
+    setDebug("Signing in...");
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setDebug("Sign-in error: " + error.message);
+      alert(error.message);
+      return;
+    }
+
+    // If Edge/phone ever fails to fire onAuthStateChange, this prevents "nothing happened"
+    if (!data?.session) {
+      const s = (await supabase.auth.getSession()).data.session;
+      if (!s) {
+        setDebug("Signed in, but no session found (storage issue).");
+        alert("Signed in, but no session found (storage issue).");
+        return;
+      }
+    }
+
+    setDebug("Signed in. Loading...");
+  } catch (e) {
+    const msg = e?.message || String(e);
+    setDebug("Unexpected error: " + msg);
+    alert("Unexpected error: " + msg);
+  }
 };
 
 btnSignOut.onclick = async () => {
