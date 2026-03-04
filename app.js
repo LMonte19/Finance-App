@@ -5,6 +5,14 @@ const setDebug = (msg) => {
   if (el) el.textContent = msg;
 };
 
+const withTimeout = (promise, ms, label) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout: ${label} (${ms}ms)`)), ms)
+    ),
+  ]);
+
 let isBooting = false;
 
 // 1) Paste your Supabase values here:
@@ -66,9 +74,22 @@ async function bootFromSession(session, source = "unknown") {
 
   try {
     setDebug("Step 1/4: get profile...");
-    const profile = await loadProfileByUserId(session.user.id);
+    console.log("[BOOT] fetching profile...");
+    const profile = await withTimeout(
+      loadProfileByUserId(session.user.id),
+      8000,
+      "loadProfileByUserId"
+    );
 
-    setDebug("Step 2/4: load app...");
+    setDebug("Step 2/4: load borrowers...");
+    console.log("[BOOT] fetching borrowers...");
+    await withTimeout(refreshBorrowers(), 8000, "refreshBorrowers");
+
+    setDebug("Step 3/4: load loans...");
+    console.log("[BOOT] fetching loans...");
+    await withTimeout(refreshLoans(), 8000, "refreshLoans");
+
+    setDebug("Step 4/4: show app...");
     await setSignedInUI(profile);
 
     setDebug("");
@@ -132,12 +153,6 @@ async function setSignedInUI(profile) {
   btnSignOut.style.display = "inline-block";
   whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
   rolePill.textContent = profile.role;
-
-  setDebug("Loading borrowers...");
-  await refreshBorrowers();
-
-  setDebug("Loading loans...");
-  await refreshLoans();
 
   setDebug("");
 }
