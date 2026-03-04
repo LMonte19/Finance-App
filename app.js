@@ -5,6 +5,8 @@ const setDebug = (msg) => {
   if (el) el.textContent = msg;
 };
 
+let isBooting = false;
+
 // 1) Paste your Supabase values here:
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q";
@@ -29,32 +31,18 @@ const btnSignOut = qs("btnSignOut");
 let currentProfile = null;
 
 async function loadProfile() {
-  console.log("[PROFILE] getUser start");
-
-  const userPromise = supabase.auth.getUser();
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Timeout in getUser()")), 8000)
-  );
-
-  const { data: userData, error: userErr } = await Promise.race([userPromise, timeout]);
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr) throw userErr;
 
   const user = userData?.user;
-  if (!user) throw new Error("No user returned by getUser().");
+  if (!user) throw new Error("No user after sign-in.");
 
-  console.log("[PROFILE] select profile for", user.id);
-
-  const profPromise = supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const timeout2 = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Timeout selecting profile (RLS or network)")), 8000)
-  );
-
-  const { data, error } = await Promise.race([profPromise, timeout2]);
   if (error) throw error;
   if (!data) throw new Error("Profile missing for user_id: " + user.id);
 
@@ -266,35 +254,56 @@ qs("btnCreateLoan").onclick = async () => {
 
 // init
 supabase.auth.onAuthStateChange(async (_event, session) => {
-  console.log("[AUTH] event:", _event, "hasSession:", !!session);
+  console.log("[AUTH]", _event, "session?", !!session);
 
   if (!session) {
     setDebug("");
+    isBooting = false;
     return setSignedOutUI();
   }
 
+  if (isBooting) {
+    console.log("[AUTH] Ignoring duplicate boot");
+    return;
+  }
+
+  isBooting = true;
+
   try {
     setDebug("Step 1/4: get profile...");
-    console.log("[AUTH] step1 loadProfile start");
     const profile = await loadProfile();
-    console.log("[AUTH] step1 loadProfile ok", profile);
 
-    setDebug("Step 2/4: show UI...");
+    setDebug("Step 2/4: load app...");
     await setSignedInUI(profile);
-    console.log("[AUTH] step2 setSignedInUI ok");
 
     setDebug("");
   } catch (e) {
-    console.error("[AUTH] error after sign-in:", e);
-    setDebug("Error: " + (e?.message || String(e)));
+    console.error("[AUTH] boot error:", e);
+    setDebug("Error after sign-in: " + (e?.message || String(e)));
     alert("Error after sign-in: " + (e?.message || String(e)));
     await setSignedOutUI();
+  } finally {
+    isBooting = false;
   }
 });
 
 (async () => {
   const { data } = await supabase.auth.getSession();
-  if (!data.session) return setSignedOutUI();
-  const profile = await loadProfile();
-  await setSignedInUI(profile);
+  if (!data.session) {
+    setDebug("");
+    return setSignedOutUI();
+  }
+
+  // If there IS a session, let onAuthStateChange handle the rest.
+  // (Some browsers won't fire an auth event on reload)
+  setDebug("Restoring session...");
+  try {
+    const profile = await loadProfile();
+    await setSignedInUI(profile);
+    setDebug("");
+  } catch (e) {
+    console.error(e);
+    setDebug("Error restoring session: " + (e?.message || String(e)));
+    await setSignedOutUI();
+  }
 })();
