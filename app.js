@@ -166,7 +166,9 @@ qs("btnCreateLoan").onclick = async () => {
       start_date,
       principal_original: principal,
       principal_outstanding: principal,
-      monthly_interest_rate: 0.10,
+      monthly_rate_total: 0.10,
+      monthly_rate_mgmt: 0.03,
+      status: "ACTIVE",
       mgmt_fee_per_cycle
     })
     .select("*")
@@ -176,13 +178,24 @@ qs("btnCreateLoan").onclick = async () => {
 
   // Generate due events for next 6 months:
   const dueDates = generateDueDates(start_date, 6);
-  const expectedRatePerCycle = 0.10 / 2; // 5%
-  const dueRows = dueDates.map(d => ({
-    loan_id: loan.id,
-    due_date: d,
-    expected_interest: Number((principal * expectedRatePerCycle).toFixed(2)),
-    status: "DUE"
-  }));
+  const totalRatePerCycle = (loan.monthly_rate_total ?? 0.10) / 2; // 10% monthly -> 5% per cycle
+  const mgmtRatePerCycle  = (loan.monthly_rate_mgmt  ?? 0.03) / 2; // 3% monthly -> 1.5% per cycle
+  const fundersRatePerCycle = totalRatePerCycle - mgmtRatePerCycle; // 3.5% per cycle by default
+  
+  const dueRows = dueDates.map(d => {
+    const expected_total = Number((principal * totalRatePerCycle).toFixed(2));
+    const expected_mgmt = Number((principal * mgmtRatePerCycle).toFixed(2));
+    const expected_funders = Number((principal * fundersRatePerCycle).toFixed(2));
+  
+    return {
+      loan_id: loan.id,
+      due_date: d,
+      expected_total,
+      expected_mgmt,
+      expected_funders,
+      status: "DUE"
+    };
+  });
 
   const { error: dueErr } = await supabase.from("loan_due_events").insert(dueRows);
   if (dueErr) return alert(dueErr.message);
