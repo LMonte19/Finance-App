@@ -97,24 +97,22 @@ async function setSignedInUI(profile) {
   whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
   rolePill.textContent = profile.role;
 
-  await refreshBorrowers();
-  await refreshLoans();
-}
-
-async function setSignedInUI(profile) {
-  currentProfile = profile;
-  authCard.style.display = "none";
-  appDiv.style.display = "block";
-  btnSignOut.style.display = "inline-block";
-  whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
-  rolePill.textContent = profile.role;
-
   setDebug("Loading borrowers...");
   await refreshBorrowers();
 
   setDebug("Loading loans...");
   await refreshLoans();
 
+  setDebug("");
+}
+
+async function setSignedOutUI() {
+  currentProfile = null;
+  authCard.style.display = "block";
+  appDiv.style.display = "none";
+  btnSignOut.style.display = "none";
+  whoami.textContent = "Not signed in";
+  rolePill.textContent = "role";
   setDebug("");
 }
 
