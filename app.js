@@ -65,9 +65,13 @@ async function bootFromSession(session, source = "unknown") {
 
   isBooting = true;
   try {
-    setDebug("Step 1/2: profile...");
-    const profile = await loadProfileByUserId(session.user.id);
 
+    setDebug("Step 1/2: profile...");
+    const profile = await withTimeout(
+      loadProfileByUserId(session.user.id),
+      8000,
+      "loadProfileByUserId"
+    );
     setDebug("Step 2/2: app...");
     await setSignedInUI(profile);
 
