@@ -125,22 +125,6 @@ async function refreshLoans() {
   ).join("<br>");
 }
 
-setDebug("Loading borrowers...");
-try {
-  await refreshBorrowers();
-} catch (e) {
-  console.error("Failed to load borrowers:", e);
-  setDebug("Loaded app (some parts failed)");
-}
-
-setDebug("Loading loans...");
-try {
-  await refreshLoans();
-} catch (e) {
-  console.error("Failed to load loans:", e);
-  setDebug("Loaded app (some parts failed)");
-}
-
 async function setSignedInUI(profile) {
   currentProfile = profile;
   authCard.style.display = "none";
@@ -155,6 +139,16 @@ async function setSignedInUI(profile) {
   setDebug("Loading loans...");
   await refreshLoans();
 
+  setDebug("");
+}
+
+async function setSignedOutUI() {
+  currentProfile = null;
+  authCard.style.display = "block";
+  appDiv.style.display = "none";
+  btnSignOut.style.display = "none";
+  whoami.textContent = "Not signed in";
+  rolePill.textContent = "role";
   setDebug("");
 }
 
@@ -186,7 +180,6 @@ qs("btnSignIn").onclick = async () => {
   } finally {
     btn.disabled = false;
   }
-};
 };
 
 btnSignOut.onclick = async () => {
@@ -296,16 +289,3 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   await bootFromSession(data.session, "initialGetSession");
 })();
 
-  // If there IS a session, let onAuthStateChange handle the rest.
-  // (Some browsers won't fire an auth event on reload)
-  setDebug("Restoring session...");
-  try {
-    const profile = await loadProfile();
-    await setSignedInUI(profile);
-    setDebug("");
-  } catch (e) {
-    console.error(e);
-    setDebug("Error restoring session: " + (e?.message || String(e)));
-    await setSignedOutUI();
-  }
-})();
