@@ -95,21 +95,20 @@ async function refreshLoans() {
   ).join("<br>");
 }
 
-async function setSignedInUI(profile) {
-  currentProfile = profile;
-  authCard.style.display = "none";
-  appDiv.style.display = "block";
-  btnSignOut.style.display = "inline-block";
-  whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
-  rolePill.textContent = profile.role;
-
-  setDebug("Loading borrowers...");
+setDebug("Loading borrowers...");
+try {
   await refreshBorrowers();
+} catch (e) {
+  console.error("Failed to load borrowers:", e);
+  setDebug("Loaded app (some parts failed)");
+}
 
-  setDebug("Loading loans...");
+setDebug("Loading loans...");
+try {
   await refreshLoans();
-
-  setDebug("");
+} catch (e) {
+  console.error("Failed to load loans:", e);
+  setDebug("Loaded app (some parts failed)");
 }
 
 async function setSignedOutUI() {
@@ -124,19 +123,22 @@ async function setSignedOutUI() {
 
 // Auth
 qs("btnSignIn").onclick = async () => {
+  const btn = qs("btnSignIn");
   try {
+    btn.disabled = true;
+    setDebug("Signing in...");
     const email = qs("email").value.trim();
     const password = qs("password").value.trim();
-
-    setDebug("Signing in...");
-
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setDebug("Sign-in error: " + error.message);
-      alert(error.message);
-      return;
-    }
+    if (error) { setDebug("Sign-in error: " + error.message); alert(error.message); return; }
+    setDebug("Signed in. Waiting for session...");
+  } catch (e) {
+    setDebug("Unexpected error: " + (e?.message || e));
+    alert("Unexpected error: " + (e?.message || e));
+  } finally {
+    btn.disabled = false;
+  }
+};
 
     // If Edge/phone ever fails to fire onAuthStateChange, this prevents "nothing happened"
     if (!data?.session) {
