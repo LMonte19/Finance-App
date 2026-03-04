@@ -13,8 +13,6 @@ const withTimeout = (promise, ms, label) =>
     ),
   ]);
 
-let isBooting = false;
-
 // 1) Paste your Supabase values here:
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q";
@@ -58,42 +56,23 @@ function lastDayOfMonth(d) {
   return dt;
 }
 
-async function bootFromSession(session, source = "unknown") {
-  if (!session) {
-    setDebug("");
-    return setSignedOutUI();
-  }
+let isBooting = false;
+let bootedOnce = false;
 
-  if (isBooting) {
-    console.log("[BOOT] skip (already booting) source:", source);
-    return;
-  }
+async function bootFromSession(session, source = "unknown") {
+  if (!session) return setSignedOutUI();
+  if (isBooting) return;
 
   isBooting = true;
-  console.log("[BOOT] start source:", source);
-
   try {
-    setDebug("Step 1/4: get profile...");
-    console.log("[BOOT] fetching profile...");
-    const profile = await withTimeout(
-      loadProfileByUserId(session.user.id),
-      8000,
-      "loadProfileByUserId"
-    );
+    setDebug("Step 1/2: profile...");
+    const profile = await loadProfileByUserId(session.user.id);
 
-    setDebug("Step 2/4: load borrowers...");
-    console.log("[BOOT] fetching borrowers...");
-    await withTimeout(refreshBorrowers(), 8000, "refreshBorrowers");
-
-    setDebug("Step 3/4: load loans...");
-    console.log("[BOOT] fetching loans...");
-    await withTimeout(refreshLoans(), 8000, "refreshLoans");
-
-    setDebug("Step 4/4: show app...");
+    setDebug("Step 2/2: app...");
     await setSignedInUI(profile);
 
+    bootedOnce = true;
     setDebug("");
-    console.log("[BOOT] success");
   } catch (e) {
     console.error("[BOOT] error:", e);
     setDebug("Error after sign-in: " + (e?.message || String(e)));
@@ -101,9 +80,22 @@ async function bootFromSession(session, source = "unknown") {
     await setSignedOutUI();
   } finally {
     isBooting = false;
-    console.log("[BOOT] end");
   }
 }
+
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log("[AUTH]", event, "session?", !!session);
+  if (!session) return setSignedOutUI();
+  bootFromSession(session, "auth:" + event);
+});
+
+// fallback only if auth event never fires
+setTimeout(async () => {
+  if (bootedOnce) return;
+  const { data } = await supabase.auth.getSession();
+  if (data.session) bootFromSession(data.session, "fallback:getSession");
+  else setSignedOutUI();
+}, 800);
 
 // Generate due dates: 15th + last day of month (next 6 months)
 function generateDueDates(startDateStr, monthsAhead = 6) {
@@ -153,6 +145,12 @@ async function setSignedInUI(profile) {
   btnSignOut.style.display = "inline-block";
   whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
   rolePill.textContent = profile.role;
+
+  setDebug("Loading borrowers...");
+  await refreshBorrowers();
+
+  setDebug("Loading loans...");
+  await refreshLoans();
 
   setDebug("");
 }
@@ -292,15 +290,4 @@ qs("btnCreateLoan").onclick = async () => {
   await refreshLoans();
   alert("Loan created + due dates generated.");
 };
-
-// init
-supabase.auth.onAuthStateChange(async (event, session) => {
-  console.log("[AUTH]", event, "session?", !!session);
-  await bootFromSession(session, "onAuthStateChange:" + event);
-});
-
-(async () => {
-  const { data } = await supabase.auth.getSession();
-  await bootFromSession(data.session, "initialGetSession");
-})();
 
