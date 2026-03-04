@@ -30,21 +30,17 @@ const btnSignOut = qs("btnSignOut");
 
 let currentProfile = null;
 
-async function loadProfile() {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw userErr;
-
-  const user = userData?.user;
-  if (!user) throw new Error("No user after sign-in.");
+async function loadProfileByUserId(userId) {
+  if (!userId) throw new Error("Missing userId for profile lookup.");
 
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error("Profile missing for user_id: " + user.id);
+  if (!data) throw new Error("Profile missing for user_id: " + userId);
 
   return data;
 }
@@ -52,6 +48,40 @@ async function loadProfile() {
 function lastDayOfMonth(d) {
   const dt = new Date(d.getFullYear(), d.getMonth() + 1, 0);
   return dt;
+}
+
+async function bootFromSession(session, source = "unknown") {
+  if (!session) {
+    setDebug("");
+    return setSignedOutUI();
+  }
+
+  if (isBooting) {
+    console.log("[BOOT] skip (already booting) source:", source);
+    return;
+  }
+
+  isBooting = true;
+  console.log("[BOOT] start source:", source);
+
+  try {
+    setDebug("Step 1/4: get profile...");
+    const profile = await loadProfileByUserId(session.user.id);
+
+    setDebug("Step 2/4: load app...");
+    await setSignedInUI(profile);
+
+    setDebug("");
+    console.log("[BOOT] success");
+  } catch (e) {
+    console.error("[BOOT] error:", e);
+    setDebug("Error after sign-in: " + (e?.message || String(e)));
+    alert("Error after sign-in: " + (e?.message || String(e)));
+    await setSignedOutUI();
+  } finally {
+    isBooting = false;
+    console.log("[BOOT] end");
+  }
 }
 
 // Generate due dates: 15th + last day of month (next 6 months)
@@ -111,13 +141,20 @@ try {
   setDebug("Loaded app (some parts failed)");
 }
 
-async function setSignedOutUI() {
-  currentProfile = null;
-  authCard.style.display = "block";
-  appDiv.style.display = "none";
-  btnSignOut.style.display = "none";
-  whoami.textContent = "Not signed in";
-  rolePill.textContent = "role";
+async function setSignedInUI(profile) {
+  currentProfile = profile;
+  authCard.style.display = "none";
+  appDiv.style.display = "block";
+  btnSignOut.style.display = "inline-block";
+  whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
+  rolePill.textContent = profile.role;
+
+  setDebug("Loading borrowers...");
+  await refreshBorrowers();
+
+  setDebug("Loading loans...");
+  await refreshLoans();
+
   setDebug("");
 }
 
@@ -126,36 +163,30 @@ qs("btnSignIn").onclick = async () => {
   const btn = qs("btnSignIn");
   try {
     btn.disabled = true;
-    setDebug("Signing in...");
+
     const email = qs("email").value.trim();
     const password = qs("password").value.trim();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setDebug("Sign-in error: " + error.message); alert(error.message); return; }
-    setDebug("Signed in. Waiting for session...");
-  } catch (e) {
-    setDebug("Unexpected error: " + (e?.message || e));
-    alert("Unexpected error: " + (e?.message || e));
-  } finally {
-    btn.disabled = false;
-  }
-};
 
-    // If Edge/phone ever fails to fire onAuthStateChange, this prevents "nothing happened"
-    if (!data?.session) {
-      const s = (await supabase.auth.getSession()).data.session;
-      if (!s) {
-        setDebug("Signed in, but no session found (storage issue).");
-        alert("Signed in, but no session found (storage issue).");
-        return;
-      }
+    setDebug("Signing in...");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setDebug("Sign-in error: " + error.message);
+      alert(error.message);
+      return;
     }
 
     setDebug("Signed in. Loading...");
+    const session = data?.session || (await supabase.auth.getSession()).data.session;
+    await bootFromSession(session, "signInHandler");
   } catch (e) {
     const msg = e?.message || String(e);
     setDebug("Unexpected error: " + msg);
     alert("Unexpected error: " + msg);
+  } finally {
+    btn.disabled = false;
   }
+};
 };
 
 btnSignOut.onclick = async () => {
@@ -255,46 +286,15 @@ qs("btnCreateLoan").onclick = async () => {
 };
 
 // init
-supabase.auth.onAuthStateChange(async (_event, session) => {
-  console.log("[AUTH]", _event, "session?", !!session);
-
-  if (!session) {
-    setDebug("");
-    isBooting = false;
-    return setSignedOutUI();
-  }
-
-  if (isBooting) {
-    console.log("[AUTH] Ignoring duplicate boot");
-    return;
-  }
-
-  isBooting = true;
-
-  try {
-    setDebug("Step 1/4: get profile...");
-    const profile = await loadProfile();
-
-    setDebug("Step 2/4: load app...");
-    await setSignedInUI(profile);
-
-    setDebug("");
-  } catch (e) {
-    console.error("[AUTH] boot error:", e);
-    setDebug("Error after sign-in: " + (e?.message || String(e)));
-    alert("Error after sign-in: " + (e?.message || String(e)));
-    await setSignedOutUI();
-  } finally {
-    isBooting = false;
-  }
+supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log("[AUTH]", event, "session?", !!session);
+  await bootFromSession(session, "onAuthStateChange:" + event);
 });
 
 (async () => {
   const { data } = await supabase.auth.getSession();
-  if (!data.session) {
-    setDebug("");
-    return setSignedOutUI();
-  }
+  await bootFromSession(data.session, "initialGetSession");
+})();
 
   // If there IS a session, let onAuthStateChange handle the rest.
   // (Some browsers won't fire an auth event on reload)
