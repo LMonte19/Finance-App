@@ -29,20 +29,23 @@ const btnSignOut = qs("btnSignOut");
 let currentProfile = null;
 
 async function loadProfile() {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw userErr;
+
   const user = userData?.user;
-  if (!user) return null;
+  if (!user) throw new Error("No user after sign-in.");
 
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle(); // <-- important
 
   if (error) throw error;
+  if (!data) throw new Error("Profile row not found for this user_id: " + user.id);
+
   return data;
 }
-
 function lastDayOfMonth(d) {
   const dt = new Date(d.getFullYear(), d.getMonth() + 1, 0);
   return dt;
