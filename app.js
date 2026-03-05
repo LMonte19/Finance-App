@@ -142,20 +142,6 @@ async function refreshLoans() {
   ).join("<br>");
 }
 
-async function refreshPayments() {
-  const { data, error } = await supabase
-    .from("payments")
-    .select("id, paid_on, amount, notes, loans(id), borrowers(full_name)")
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (error) throw error;
-
-  qs("paymentList").innerHTML = data.map(p =>
-    `• ${p.borrowers?.full_name ?? "Unknown"} — $${Number(p.amount).toFixed(2)} <span class="muted">(${p.paid_on})</span> ${p.notes ? `<span class="muted">— ${p.notes}</span>` : ""}`
-  ).join("<br>");
-}
-
 async function refreshLoanDropdownForPayments() {
   const { data, error } = await supabase
     .from("loans")
@@ -167,6 +153,22 @@ async function refreshLoanDropdownForPayments() {
   qs("paymentLoan").innerHTML = data.map(l =>
     `<option value="${l.id}">${l.borrowers?.full_name ?? "Unknown"} (${l.id.slice(0,6)}…)</option>`
   ).join("");
+}
+
+async function refreshPayments() {
+  const { data, error } = await supabase
+    .from("payments")
+    .select("paid_on, amount, applied_interest, applied_principal, borrowers(full_name), notes")
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  if (error) throw error;
+
+  qs("paymentList").innerHTML = data.map(p =>
+    `• ${p.borrowers?.full_name ?? "Unknown"} — $${Number(p.amount).toFixed(2)} <span class="muted">(${p.paid_on})</span>
+     <span class="muted">interest $${Number(p.applied_interest).toFixed(2)}, principal $${Number(p.applied_principal).toFixed(2)}</span>
+     ${p.notes ? `<span class="muted">— ${p.notes}</span>` : ""}`
+  ).join("<br>");
 }
 
 async function setSignedInUI(profile) {
@@ -186,6 +188,47 @@ async function setSignedInUI(profile) {
   setDebug("Loading payments...");
   await refreshLoanDropdownForPayments();
   await refreshPayments();
+
+  qs("btnAddPayment").onclick = async () => {
+  if (!currentProfile || !["ADMIN","AGENT"].includes(currentProfile.role)) {
+    alert("Only Admin/Agent can record payments.");
+    return;
+  }
+
+  const loan_id = qs("paymentLoan").value;
+  const paid_on = qs("paymentDate").value;
+  const amount = Number(qs("paymentAmount").value);
+  const notes = qs("paymentNotes").value.trim() || null;
+
+  if (!loan_id || !paid_on || !amount) {
+    return alert("Loan, date, and amount are required.");
+  }
+
+  setDebug("Applying payment...");
+
+  const { data, error } = await supabase.rpc("apply_payment", {
+    p_loan_id: loan_id,
+    p_paid_on: paid_on,
+    p_amount: amount,
+    p_notes: notes
+  });
+
+  if (error) {
+    console.error(error);
+    setDebug("Payment error: " + error.message);
+    alert(error.message);
+    return;
+  }
+
+  qs("paymentAmount").value = "";
+  qs("paymentNotes").value = "";
+
+  await refreshLoans();
+  await refreshPayments();
+
+  setDebug("");
+  alert("Payment applied.");
+};
 
   setDebug("");
 }
