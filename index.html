@@ -73,6 +73,23 @@
       </div>
 
       <div class="card">
+        <div style="font-weight:800;">Record payment (Agent/Admin)</div>
+      
+        <select id="paymentLoan"></select>
+      
+        <div class="row">
+          <input id="paymentDate" type="date" />
+          <input id="paymentAmount" type="number" step="0.01" placeholder="Amount paid (e.g., 120)" />
+        </div>
+      
+        <input id="paymentNotes" placeholder="Notes (optional)" />
+        <button id="btnAddPayment">Add payment</button>
+      
+        <div class="muted" style="margin-top:10px;">Recent payments</div>
+        <div id="paymentList" class="muted"></div>
+      </div>
+
+      <div class="card">
         <div style="font-weight:800;">Loans</div>
         <div id="loanList" class="muted"></div>
       </div>
