@@ -101,6 +101,23 @@ setTimeout(async () => {
   else setSignedOutUI();
 }, 800);
 
+function initTabs() {
+  const tabButtons = document.querySelectorAll(".tab-btn");
+  const pages = document.querySelectorAll(".page");
+
+  tabButtons.forEach((btn) => {
+    btn.onclick = () => {
+      const targetId = btn.dataset.page;
+
+      tabButtons.forEach((b) => b.classList.remove("active"));
+      pages.forEach((p) => p.classList.remove("active-page"));
+
+      btn.classList.add("active");
+      qs(targetId).classList.add("active-page");
+    };
+  });
+}
+
 // Generate due dates: 15th + last day of month (next 6 months)
 function generateDueDates(startDateStr, monthsAhead = 6) {
   const start = new Date(startDateStr + "T00:00:00");
@@ -195,6 +212,36 @@ async function refreshPayments() {
   ).join("<br>");
 }
 
+async function refreshDashboard() {
+  const [{ data: loans }, { data: borrowers }, { data: payments }] = await Promise.all([
+    supabase.from("loans").select("id, principal_outstanding, borrowers(full_name)"),
+    supabase.from("borrowers").select("id"),
+    supabase.from("payments").select("amount, paid_on, borrowers(full_name)").order("created_at", { ascending: false }).limit(5)
+  ]);
+
+  const activeLoans = loans?.length ?? 0;
+  const totalOutstanding = (loans ?? []).reduce((sum, l) => sum + Number(l.principal_outstanding || 0), 0);
+  const paymentsCount = payments?.length ?? 0;
+  const borrowersCount = borrowers?.length ?? 0;
+
+  qs("statActiveLoans").textContent = activeLoans;
+  qs("statOutstanding").textContent = `$${totalOutstanding.toFixed(2)}`;
+  qs("statPaymentsCount").textContent = paymentsCount;
+  qs("statBorrowersCount").textContent = borrowersCount;
+
+  qs("dashboardRecentPayments").innerHTML = (payments ?? []).length
+    ? payments.map(p =>
+        `• ${p.borrowers?.full_name ?? "Unknown"} — $${Number(p.amount).toFixed(2)} <span class="muted">(${p.paid_on})</span>`
+      ).join("<br>")
+    : "No payments yet.";
+
+  qs("dashboardLoansSnapshot").innerHTML = (loans ?? []).length
+    ? loans.slice(0, 5).map(l =>
+        `• ${l.borrowers?.full_name ?? "Unknown"} — Balance: $${Number(l.principal_outstanding).toFixed(2)}`
+      ).join("<br>")
+    : "No loans yet.";
+}
+
 async function setSignedInUI(profile) {
   currentProfile = profile;
   authCard.style.display = "none";
@@ -202,6 +249,8 @@ async function setSignedInUI(profile) {
   btnSignOut.style.display = "inline-block";
   whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
   rolePill.textContent = profile.role;
+
+  initTabs();
 
   setDebug("Loading borrowers...");
   await refreshBorrowers();
@@ -283,6 +332,7 @@ qs("btnAddBorrower").onclick = async () => {
   qs("bPhone").value = "";
   qs("bNotes").value = "";
   await refreshBorrowers();
+  await refreshDashboard();
 };
 
 // Create loan + due events
@@ -351,6 +401,8 @@ qs("btnCreateLoan").onclick = async () => {
 
   await refreshLoans();
   await refreshLoanDropdownForPayments();
+  await refreshLoans();
+  await refreshDashboard();
   alert("Loan created + due dates generated.");
 };
 
@@ -391,6 +443,7 @@ qs("btnAddPayment").onclick = async () => {
 
   await refreshLoans();
   await refreshPayments();
+  await refreshDashboard();
 
   setDebug("");
   alert("Payment applied.");
