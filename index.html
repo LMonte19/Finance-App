@@ -17,6 +17,59 @@
     .muted{color:#b8b8c2;font-size:13px}
     .pill{display:inline-block;padding:4px 10px;border:1px solid #333;border-radius:999px;font-size:12px;color:#cfcfe6}
     a{color:#8fb1ff}
+    .tabs{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:8px;
+      margin:12px 0;
+    }
+    
+    .tab-btn{
+      background:#16161a;
+      border:1px solid #2b2b31;
+      color:#d9d9e3;
+      padding:12px;
+      border-radius:12px;
+      cursor:pointer;
+    }
+    
+    .tab-btn.active{
+      background:#2b63ff;
+      color:#fff;
+    }
+    
+    .page{
+      display:none;
+    }
+    
+    .active-page{
+      display:block;
+    }
+    
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:12px;
+      margin-top:12px;
+    }
+    
+    .stat-card{
+      background:#0f0f11;
+      border:1px solid #2a2a2e;
+      border-radius:14px;
+      padding:14px;
+    }
+    
+    .stat-label{
+      color:#b8b8c2;
+      font-size:13px;
+      margin-bottom:6px;
+    }
+    
+    .stat-value{
+      font-size:22px;
+      font-weight:800;
+    }
   </style>
 </head>
 <body>
@@ -45,53 +98,115 @@
     </div>
 
     <div id="app" style="display:none;">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-weight:800;">Borrowers</div>
-          <span class="pill" id="rolePill">role</span>
-        </div>
-        <div class="row">
-          <input id="bName" placeholder="Borrower full name" />
-          <input id="bPhone" placeholder="Phone (optional)" />
-        </div>
-        <input id="bNotes" placeholder="Notes (late payer, etc.)" />
-        <button id="btnAddBorrower">Add borrower</button>
-        <div id="borrowerList" class="muted"></div>
+      <div class="tabs">
+        <button class="tab-btn active" data-page="dashboardPage">Dashboard</button>
+        <button class="tab-btn" data-page="loansPage">Loans</button>
+        <button class="tab-btn" data-page="paymentsPage">Payments</button>
+        <button class="tab-btn" data-page="borrowersPage">Borrowers</button>
       </div>
-
-      <div class="card">
-        <div style="font-weight:800;">Create loan (Agent/Admin)</div>
-        <select id="loanBorrower"></select>
-        <div class="row">
-          <input id="principal" type="number" step="0.01" placeholder="Principal (e.g., 1000)" />
-          <input id="startDate" type="date" />
+    
+      <!-- DASHBOARD -->
+      <div id="dashboardPage" class="page active-page">
+        <div class="card">
+          <div style="font-weight:800;">Overview</div>
+    
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Active Loans</div>
+              <div class="stat-value" id="statActiveLoans">0</div>
+            </div>
+    
+            <div class="stat-card">
+              <div class="stat-label">Outstanding</div>
+              <div class="stat-value" id="statOutstanding">$0</div>
+            </div>
+    
+            <div class="stat-card">
+              <div class="stat-label">Payments Logged</div>
+              <div class="stat-value" id="statPaymentsCount">0</div>
+            </div>
+    
+            <div class="stat-card">
+              <div class="stat-label">Borrowers</div>
+              <div class="stat-value" id="statBorrowersCount">0</div>
+            </div>
+          </div>
         </div>
-        
-        <input id="mgmtFee" type="number" step="0.01" placeholder="Mgmt fee per cycle (fixed) e.g., 5" />
-        <button id="btnCreateLoan">Create loan + generate due dates</button>
-        <div class="muted">Funding split is set by Admin in Supabase for now (to keep it safe).</div>
-      </div>
-
-      <div class="card">
-        <div style="font-weight:800;">Record payment (Agent/Admin)</div>
-      
-        <select id="paymentLoan"></select>
-      
-        <div class="row">
-          <input id="paymentDate" type="date" />
-          <input id="paymentAmount" type="number" step="0.01" placeholder="Amount paid (e.g., 120)" />
+    
+        <div class="card">
+          <div style="font-weight:800;">Recent Payments</div>
+          <div id="dashboardRecentPayments" class="muted"></div>
         </div>
-      
-        <input id="paymentNotes" placeholder="Notes (optional)" />
-        <button id="btnAddPayment">Add payment</button>
-      
-        <div class="muted" style="margin-top:10px;">Recent payments</div>
-        <div id="paymentList" class="muted"></div>
+    
+        <div class="card">
+          <div style="font-weight:800;">Loans Snapshot</div>
+          <div id="dashboardLoansSnapshot" class="muted"></div>
+        </div>
       </div>
-
-      <div class="card">
-        <div style="font-weight:800;">Loans</div>
-        <div id="loanList" class="muted"></div>
+    
+      <!-- LOANS -->
+      <div id="loansPage" class="page">
+        <div class="card">
+          <div style="font-weight:800;">Create loan (Agent/Admin)</div>
+          <select id="loanBorrower"></select>
+          <div class="row">
+            <input id="principal" type="number" step="0.01" placeholder="Principal (e.g., 1000)" />
+            <input id="startDate" type="date" />
+          </div>
+          <input id="mgmtFee" type="number" step="0.01" placeholder="Mgmt fee per cycle (fixed) e.g., 5" />
+          <button id="btnCreateLoan">Create loan + generate due dates</button>
+          <div class="muted">Funding split is set by Admin in Supabase for now.</div>
+        </div>
+    
+        <div class="card">
+          <div style="font-weight:800;">Loans</div>
+          <div id="loanList" class="muted"></div>
+        </div>
+      </div>
+    
+      <!-- PAYMENTS -->
+      <div id="paymentsPage" class="page">
+        <div class="card">
+          <div style="font-weight:800;">Record payment (Agent/Admin)</div>
+    
+          <select id="paymentLoan"></select>
+    
+          <div class="row">
+            <input id="paymentDate" type="date" />
+            <input id="paymentAmount" type="number" step="0.01" placeholder="Amount paid (e.g., 120)" />
+          </div>
+    
+          <input id="paymentNotes" placeholder="Notes (optional)" />
+          <button id="btnAddPayment">Add payment</button>
+        </div>
+    
+        <div class="card">
+          <div style="font-weight:800;">Recent payments</div>
+          <div id="paymentList" class="muted"></div>
+        </div>
+      </div>
+    
+      <!-- BORROWERS -->
+      <div id="borrowersPage" class="page">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:800;">Borrowers</div>
+            <span class="pill" id="rolePill">role</span>
+          </div>
+    
+          <div class="row">
+            <input id="bName" placeholder="Borrower full name" />
+            <input id="bPhone" placeholder="Phone (optional)" />
+          </div>
+    
+          <input id="bNotes" placeholder="Notes (late payer, etc.)" />
+          <button id="btnAddBorrower">Add borrower</button>
+        </div>
+    
+        <div class="card">
+          <div style="font-weight:800;">Borrower list</div>
+          <div id="borrowerList" class="muted"></div>
+        </div>
       </div>
     </div>
   </div>
