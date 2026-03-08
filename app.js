@@ -144,6 +144,20 @@ function generateDueDates(startDateStr, monthsAhead = 6) {
   return uniq;
 }
 
+async function getNextDueByLoan(loanId) {
+  const { data, error } = await supabase
+    .from("loan_due_events")
+    .select("due_date, expected_total, paid_total, status")
+    .eq("loan_id", loanId)
+    .in("status", ["DUE", "PARTIAL"])
+    .order("due_date", { ascending: true })
+    .limit(1);
+
+  if (error) throw error;
+
+  return data?.[0] ?? null;
+}
+
 async function refreshBorrowers() {
   const { data, error } = await supabase
     .from("borrowers")
@@ -172,23 +186,49 @@ async function refreshBorrowers() {
 async function refreshLoans() {
   const { data, error } = await supabase
     .from("loans")
-    .select("id, start_date, principal_outstanding, principal_original, status, borrowers(full_name)")
+    .select("id, start_date, principal_original, principal_outstanding, status, borrowers(full_name)")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
 
-  qs("loanList").innerHTML = data.map(l =>
-    `
-    <div class="card" style="margin:10px 0; cursor:pointer; padding:12px;" data-loan-id="${l.id}">
-      <strong>${l.borrowers?.full_name ?? "Unknown"}</strong><br>
-      <span class="muted">
-        Original: $${Number(l.principal_original || 0).toFixed(2)} |
-        Balance: $${Number(l.principal_outstanding || 0).toFixed(2)} |
-        ${l.status}
-      </span>
-    </div>
-    `
-  ).join("");
+  const today = new Date().toISOString().slice(0, 10);
+
+  const loansWithDue = await Promise.all(
+    data.map(async (l) => {
+      const nextDue = await getNextDueByLoan(l.id);
+      return { ...l, nextDue };
+    })
+  );
+
+  qs("loanList").innerHTML = loansWithDue.map(l => {
+    const dueDate = l.nextDue?.due_date ?? "—";
+    const amountDue = l.nextDue
+      ? Number((Number(l.nextDue.expected_total || 0) - Number(l.nextDue.paid_total || 0))).toFixed(2)
+      : "0.00";
+
+    let dueLabel = "CURRENT";
+    if (l.nextDue?.due_date && l.nextDue.due_date < today) {
+      dueLabel = "OVERDUE";
+    } else if (l.nextDue?.due_date && l.nextDue.due_date === today) {
+      dueLabel = "DUE TODAY";
+    }
+
+    return `
+      <div class="card" style="margin:10px 0; cursor:pointer; padding:12px;" data-loan-id="${l.id}">
+        <strong>${l.borrowers?.full_name ?? "Unknown"}</strong><br>
+        <span class="muted">
+          Original: $${Number(l.principal_original || 0).toFixed(2)} |
+          Balance: $${Number(l.principal_outstanding || 0).toFixed(2)} |
+          ${l.status}
+        </span><br>
+        <span class="muted">
+          Next Due: ${dueDate} |
+          Amount Due: $${amountDue} |
+          ${dueLabel}
+        </span>
+      </div>
+    `;
+  }).join("");
 
   document.querySelectorAll("[data-loan-id]").forEach((el) => {
     el.onclick = () => openLoanDetails(el.dataset.loanId);
@@ -247,11 +287,23 @@ async function refreshDashboard() {
       ).join("<br>")
     : "No payments yet.";
 
-  qs("dashboardLoansSnapshot").innerHTML = (loans ?? []).length
-    ? loans.slice(0, 5).map(l =>
-        `• ${l.borrowers?.full_name ?? "Unknown"} — Balance: $${Number(l.principal_outstanding).toFixed(2)}`
-      ).join("<br>")
-    : "No loans yet.";
+  const today = new Date().toISOString().slice(0, 10);
+
+  const loansWithDue = await Promise.all(
+    (loans ?? []).map(async (l) => {
+      const nextDue = await getNextDueByLoan(l.id);
+      return { ...l, nextDue };
+    })
+  );
+
+  const overdueLoans = loansWithDue.filter(l => l.nextDue?.due_date && l.nextDue.due_date < today);
+
+  qs("dashboardLoansSnapshot").innerHTML = overdueLoans.length
+    ? overdueLoans.map(l => {
+        const amountDue = Number((Number(l.nextDue.expected_total || 0) - Number(l.nextDue.paid_total || 0))).toFixed(2);
+        return `• ${l.borrowers?.full_name ?? "Unknown"} — Overdue $${amountDue} <span class="muted">(Due ${l.nextDue.due_date})</span>`;
+      }).join("<br>")
+    : "No overdue loans.";
 }
 
 async function openLoanDetails(loanId) {
@@ -308,22 +360,25 @@ async function openLoanDetails(loanId) {
     <div><strong>Status:</strong> ${loan.status}</div>
   `;
 
-  qs("loanDetailsDueList").innerHTML = dueRows.length
-    ? dueRows.map(d => {
-        const remaining = Number(d.expected_total || 0) - Number(d.paid_total || 0);
-        return `
-          <div style="margin-bottom:10px;">
-            <strong>${d.due_date}</strong><br>
-            <span class="muted">
-              Expected: $${Number(d.expected_total || 0).toFixed(2)} |
-              Paid: $${Number(d.paid_total || 0).toFixed(2)} |
-              Remaining: $${remaining.toFixed(2)} |
-              ${d.status}
-            </span>
-          </div>
-        `;
-      }).join("")
-    : "No due events yet.";
+const today = new Date().toISOString().slice(0, 10);
+
+qs("loanDetailsDueList").innerHTML = dueRows.length
+  ? dueRows.map(d => {
+      const remaining = Number(d.expected_total || 0) - Number(d.paid_total || 0);
+      const overdue = d.due_date < today && remaining > 0;
+      return `
+        <div style="margin-bottom:10px; padding:10px; border:1px solid ${overdue ? '#7a2b2b' : '#2a2a2e'}; border-radius:12px;">
+          <strong>${d.due_date}</strong> ${overdue ? "— OVERDUE" : ""}<br>
+          <span class="muted">
+            Expected: $${Number(d.expected_total || 0).toFixed(2)} |
+            Paid: $${Number(d.paid_total || 0).toFixed(2)} |
+            Remaining: $${remaining.toFixed(2)} |
+            ${d.status}
+          </span>
+        </div>
+      `;
+    }).join("")
+  : "No due events yet.";
 
   qs("loanDetailsPaymentList").innerHTML = payments.length
     ? payments.map(p => `
@@ -369,6 +424,27 @@ async function openBorrowerDetails(borrowerId) {
     return;
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+    
+    let overdueCount = 0;
+    let overdueAmount = 0;
+    
+    for (const loan of loans) {
+      const { data: dueRows } = await supabase
+        .from("loan_due_events")
+        .select("due_date, expected_total, paid_total")
+        .eq("loan_id", loan.id)
+        .in("status", ["DUE", "PARTIAL"]);
+    
+      (dueRows ?? []).forEach(d => {
+        const remaining = Number(d.expected_total || 0) - Number(d.paid_total || 0);
+        if (d.due_date < today && remaining > 0) {
+          overdueCount += 1;
+          overdueAmount += remaining;
+        }
+      });
+    }
+
   const { data: payments, error: paymentsErr } = await supabase
     .from("payments")
     .select("paid_on, amount, applied_interest, applied_principal, notes")
@@ -392,6 +468,8 @@ async function openBorrowerDetails(borrowerId) {
     <div><strong>Total Borrowed:</strong> $${totalBorrowed.toFixed(2)}</div>
     <div><strong>Total Outstanding:</strong> $${totalOutstanding.toFixed(2)}</div>
     <div><strong>Total Paid:</strong> $${totalPaid.toFixed(2)}</div>
+    <div><strong>Overdue Items:</strong> ${overdueCount}</div>
+    <div><strong>Overdue Amount:</strong> $${overdueAmount.toFixed(2)}</div>
   `;
 
   qs("borrowerDetailsLoans").innerHTML = loans.length
