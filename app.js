@@ -145,13 +145,28 @@ function generateDueDates(startDateStr, monthsAhead = 6) {
 }
 
 async function refreshBorrowers() {
-  const { data, error } = await supabase.from("borrowers").select("*").order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("borrowers")
+    .select("*")
+    .order("created_at", { ascending: false });
+
   if (error) throw error;
 
-  qs("borrowerList").innerHTML = data.map(b => `• ${b.full_name} <span class="muted">${b.phone ?? ""}</span>`).join("<br>");
+  qs("borrowerList").innerHTML = data.map(b => `
+    <div class="card" style="margin:10px 0; cursor:pointer; padding:12px;" data-borrower-id="${b.id}">
+      <strong>${b.full_name}</strong><br>
+      <span class="muted">${b.phone ?? "No phone"} ${b.notes ? `| ${b.notes}` : ""}</span>
+    </div>
+  `).join("");
+
+  document.querySelectorAll("[data-borrower-id]").forEach((el) => {
+    el.onclick = () => openBorrowerDetails(el.dataset.borrowerId);
+  });
 
   const sel = qs("loanBorrower");
-  sel.innerHTML = data.map(b => `<option value="${b.id}">${b.full_name}</option>`).join("");
+  if (sel) {
+    sel.innerHTML = data.map(b => `<option value="${b.id}">${b.full_name}</option>`).join("");
+  }
 }
 
 async function refreshLoans() {
@@ -324,6 +339,88 @@ async function openLoanDetails(loanId) {
     : "No payments yet.";
 
   openPage("loanDetailsPage");
+  setDebug("");
+}
+
+async function openBorrowerDetails(borrowerId) {
+  setDebug("Loading borrower details...");
+
+  const { data: borrower, error: borrowerErr } = await supabase
+    .from("borrowers")
+    .select("*")
+    .eq("id", borrowerId)
+    .single();
+
+  if (borrowerErr) {
+    console.error(borrowerErr);
+    alert(borrowerErr.message);
+    return;
+  }
+
+  const { data: loans, error: loansErr } = await supabase
+    .from("loans")
+    .select("id, start_date, principal_original, principal_outstanding, status")
+    .eq("borrower_id", borrowerId)
+    .order("created_at", { ascending: false });
+
+  if (loansErr) {
+    console.error(loansErr);
+    alert(loansErr.message);
+    return;
+  }
+
+  const { data: payments, error: paymentsErr } = await supabase
+    .from("payments")
+    .select("paid_on, amount, applied_interest, applied_principal, notes")
+    .eq("borrower_id", borrowerId)
+    .order("paid_on", { ascending: false });
+
+  if (paymentsErr) {
+    console.error(paymentsErr);
+    alert(paymentsErr.message);
+    return;
+  }
+
+  const totalBorrowed = (loans ?? []).reduce((sum, l) => sum + Number(l.principal_original || 0), 0);
+  const totalOutstanding = (loans ?? []).reduce((sum, l) => sum + Number(l.principal_outstanding || 0), 0);
+  const totalPaid = (payments ?? []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  qs("borrowerDetailsHeader").innerHTML = `
+    <div><strong>Name:</strong> ${borrower.full_name}</div>
+    <div><strong>Phone:</strong> ${borrower.phone ?? "—"}</div>
+    <div><strong>Notes:</strong> ${borrower.notes ?? "—"}</div>
+    <div><strong>Total Borrowed:</strong> $${totalBorrowed.toFixed(2)}</div>
+    <div><strong>Total Outstanding:</strong> $${totalOutstanding.toFixed(2)}</div>
+    <div><strong>Total Paid:</strong> $${totalPaid.toFixed(2)}</div>
+  `;
+
+  qs("borrowerDetailsLoans").innerHTML = loans.length
+    ? loans.map(l => `
+        <div style="margin-bottom:10px;">
+          <strong>${l.start_date}</strong><br>
+          <span class="muted">
+            Original: $${Number(l.principal_original || 0).toFixed(2)} |
+            Balance: $${Number(l.principal_outstanding || 0).toFixed(2)} |
+            ${l.status}
+          </span>
+        </div>
+      `).join("")
+    : "No loans yet.";
+
+  qs("borrowerDetailsPayments").innerHTML = payments.length
+    ? payments.map(p => `
+        <div style="margin-bottom:10px;">
+          <strong>${p.paid_on}</strong> — $${Number(p.amount || 0).toFixed(2)}<br>
+          <span class="muted">
+            Interest: $${Number(p.applied_interest || 0).toFixed(2)} |
+            Principal: $${Number(p.applied_principal || 0).toFixed(2)}
+            ${p.notes ? `| ${p.notes}` : ""}
+          </span>
+        </div>
+      `).join("")
+    : "No payments yet.";
+
+  openPage("borrowerDetailsPage");
   setDebug("");
 }
 
@@ -536,4 +633,8 @@ qs("btnAddPayment").onclick = async () => {
 
 qs("btnBackToLoans").onclick = () => {
   openPage("loansPage");
+};
+
+qs("btnBackToBorrowers").onclick = () => {
+  openPage("borrowersPage");
 };
