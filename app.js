@@ -101,19 +101,26 @@ setTimeout(async () => {
   else setSignedOutUI();
 }, 800);
 
-function initTabs() {
+function openPage(targetId) {
   const tabButtons = document.querySelectorAll(".tab-btn");
   const pages = document.querySelectorAll(".page");
 
+  tabButtons.forEach((b) => b.classList.remove("active"));
+  pages.forEach((p) => p.classList.remove("active-page"));
+
+  const matchingTab = document.querySelector(`.tab-btn[data-page="${targetId}"]`);
+  if (matchingTab) matchingTab.classList.add("active");
+
+  const page = qs(targetId);
+  if (page) page.classList.add("active-page");
+}
+
+function initTabs() {
+  const tabButtons = document.querySelectorAll(".tab-btn");
+
   tabButtons.forEach((btn) => {
     btn.onclick = () => {
-      const targetId = btn.dataset.page;
-
-      tabButtons.forEach((b) => b.classList.remove("active"));
-      pages.forEach((p) => p.classList.remove("active-page"));
-
-      btn.classList.add("active");
-      qs(targetId).classList.add("active-page");
+      openPage(btn.dataset.page);
     };
   });
 }
@@ -150,37 +157,27 @@ async function refreshBorrowers() {
 async function refreshLoans() {
   const { data, error } = await supabase
     .from("loans")
-    .select(`
-      id,
-      start_date,
-      principal_outstanding,
-      status,
-      borrowers(full_name),
-      loan_next_due(due_date, amount_due, status)
-    `)
+    .select("id, start_date, principal_outstanding, principal_original, status, borrowers(full_name)")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
 
-  const today = new Date().toISOString().slice(0, 10);
+  qs("loanList").innerHTML = data.map(l =>
+    `
+    <div class="card" style="margin:10px 0; cursor:pointer; padding:12px;" data-loan-id="${l.id}">
+      <strong>${l.borrowers?.full_name ?? "Unknown"}</strong><br>
+      <span class="muted">
+        Original: $${Number(l.principal_original || 0).toFixed(2)} |
+        Balance: $${Number(l.principal_outstanding || 0).toFixed(2)} |
+        ${l.status}
+      </span>
+    </div>
+    `
+  ).join("");
 
-  qs("loanList").innerHTML = data.map(l => {
-    const nextDue = Array.isArray(l.loan_next_due) ? l.loan_next_due[0] : l.loan_next_due;
-    const dueDate = nextDue?.due_date ?? "—";
-    const amountDue = nextDue?.amount_due != null ? Number(nextDue.amount_due).toFixed(2) : "0.00";
-
-    let dueLabel = "CURRENT";
-    if (nextDue?.due_date && nextDue.due_date < today) {
-      dueLabel = "OVERDUE";
-    }
-
-    return `
-      <div style="margin-bottom:10px;">
-        <strong>${l.borrowers?.full_name ?? "Unknown"}</strong> — Balance: $${Number(l.principal_outstanding).toFixed(2)}<br>
-        <span class="muted">Due: ${dueDate} — Amount due: $${amountDue} — ${dueLabel}</span>
-      </div>
-    `;
-  }).join("");
+  document.querySelectorAll("[data-loan-id]").forEach((el) => {
+    el.onclick = () => openLoanDetails(el.dataset.loanId);
+  });
 }
 
 async function refreshLoanDropdownForPayments() {
@@ -240,6 +237,94 @@ async function refreshDashboard() {
         `• ${l.borrowers?.full_name ?? "Unknown"} — Balance: $${Number(l.principal_outstanding).toFixed(2)}`
       ).join("<br>")
     : "No loans yet.";
+}
+
+async function openLoanDetails(loanId) {
+  setDebug("Loading loan details...");
+
+  const { data: loan, error: loanErr } = await supabase
+    .from("loans")
+    .select(`
+      id,
+      start_date,
+      principal_original,
+      principal_outstanding,
+      status,
+      borrowers(full_name)
+    `)
+    .eq("id", loanId)
+    .single();
+
+  if (loanErr) {
+    console.error(loanErr);
+    alert(loanErr.message);
+    return;
+  }
+
+  const { data: dueRows, error: dueErr } = await supabase
+    .from("loan_due_events")
+    .select("due_date, expected_total, paid_total, status")
+    .eq("loan_id", loanId)
+    .order("due_date", { ascending: true });
+
+  if (dueErr) {
+    console.error(dueErr);
+    alert(dueErr.message);
+    return;
+  }
+
+  const { data: payments, error: payErr } = await supabase
+    .from("payments")
+    .select("paid_on, amount, applied_interest, applied_principal, notes")
+    .eq("loan_id", loanId)
+    .order("paid_on", { ascending: false });
+
+  if (payErr) {
+    console.error(payErr);
+    alert(payErr.message);
+    return;
+  }
+
+  qs("loanDetailsHeader").innerHTML = `
+    <div><strong>Borrower:</strong> ${loan.borrowers?.full_name ?? "Unknown"}</div>
+    <div><strong>Start Date:</strong> ${loan.start_date}</div>
+    <div><strong>Original Principal:</strong> $${Number(loan.principal_original).toFixed(2)}</div>
+    <div><strong>Outstanding:</strong> $${Number(loan.principal_outstanding).toFixed(2)}</div>
+    <div><strong>Status:</strong> ${loan.status}</div>
+  `;
+
+  qs("loanDetailsDueList").innerHTML = dueRows.length
+    ? dueRows.map(d => {
+        const remaining = Number(d.expected_total || 0) - Number(d.paid_total || 0);
+        return `
+          <div style="margin-bottom:10px;">
+            <strong>${d.due_date}</strong><br>
+            <span class="muted">
+              Expected: $${Number(d.expected_total || 0).toFixed(2)} |
+              Paid: $${Number(d.paid_total || 0).toFixed(2)} |
+              Remaining: $${remaining.toFixed(2)} |
+              ${d.status}
+            </span>
+          </div>
+        `;
+      }).join("")
+    : "No due events yet.";
+
+  qs("loanDetailsPaymentList").innerHTML = payments.length
+    ? payments.map(p => `
+        <div style="margin-bottom:10px;">
+          <strong>${p.paid_on}</strong> — $${Number(p.amount).toFixed(2)}<br>
+          <span class="muted">
+            Interest: $${Number(p.applied_interest || 0).toFixed(2)} |
+            Principal: $${Number(p.applied_principal || 0).toFixed(2)}
+            ${p.notes ? `| ${p.notes}` : ""}
+          </span>
+        </div>
+      `).join("")
+    : "No payments yet.";
+
+  openPage("loanDetailsPage");
+  setDebug("");
 }
 
 async function setSignedInUI(profile) {
@@ -447,4 +532,8 @@ qs("btnAddPayment").onclick = async () => {
 
   setDebug("");
   alert("Payment applied.");
+};
+
+qs("btnBackToLoans").onclick = () => {
+  openPage("loansPage");
 };
