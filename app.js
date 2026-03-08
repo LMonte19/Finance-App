@@ -133,13 +133,37 @@ async function refreshBorrowers() {
 async function refreshLoans() {
   const { data, error } = await supabase
     .from("loans")
-    .select("id, start_date, principal_outstanding, status, borrowers(full_name)")
+    .select(`
+      id,
+      start_date,
+      principal_outstanding,
+      status,
+      borrowers(full_name),
+      loan_next_due(due_date, amount_due, status)
+    `)
     .order("created_at", { ascending: false });
+
   if (error) throw error;
 
-  qs("loanList").innerHTML = data.map(l =>
-    `• ${l.borrowers?.full_name ?? "Unknown"} — Balance: ${Number(l.principal_outstanding).toFixed(2)} — ${l.status} <span class="muted">(start ${l.start_date})</span>`
-  ).join("<br>");
+  const today = new Date().toISOString().slice(0, 10);
+
+  qs("loanList").innerHTML = data.map(l => {
+    const nextDue = Array.isArray(l.loan_next_due) ? l.loan_next_due[0] : l.loan_next_due;
+    const dueDate = nextDue?.due_date ?? "—";
+    const amountDue = nextDue?.amount_due != null ? Number(nextDue.amount_due).toFixed(2) : "0.00";
+
+    let dueLabel = "CURRENT";
+    if (nextDue?.due_date && nextDue.due_date < today) {
+      dueLabel = "OVERDUE";
+    }
+
+    return `
+      <div style="margin-bottom:10px;">
+        <strong>${l.borrowers?.full_name ?? "Unknown"}</strong> — Balance: $${Number(l.principal_outstanding).toFixed(2)}<br>
+        <span class="muted">Due: ${dueDate} — Amount due: $${amountDue} — ${dueLabel}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 async function refreshLoanDropdownForPayments() {
