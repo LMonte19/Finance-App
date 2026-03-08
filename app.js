@@ -189,47 +189,6 @@ async function setSignedInUI(profile) {
   await refreshLoanDropdownForPayments();
   await refreshPayments();
 
-  qs("btnAddPayment").onclick = async () => {
-  if (!currentProfile || !["ADMIN","AGENT"].includes(currentProfile.role)) {
-    alert("Only Admin/Agent can record payments.");
-    return;
-  }
-
-  const loan_id = qs("paymentLoan").value;
-  const paid_on = qs("paymentDate").value;
-  const amount = Number(qs("paymentAmount").value);
-  const notes = qs("paymentNotes").value.trim() || null;
-
-  if (!loan_id || !paid_on || !amount) {
-    return alert("Loan, date, and amount are required.");
-  }
-
-  setDebug("Applying payment...");
-
-  const { data, error } = await supabase.rpc("apply_payment", {
-    p_loan_id: loan_id,
-    p_paid_on: paid_on,
-    p_amount: amount,
-    p_notes: notes
-  });
-
-  if (error) {
-    console.error(error);
-    setDebug("Payment error: " + error.message);
-    alert(error.message);
-    return;
-  }
-
-  qs("paymentAmount").value = "";
-  qs("paymentNotes").value = "";
-
-  await refreshLoans();
-  await refreshPayments();
-
-  setDebug("");
-  alert("Payment applied.");
-};
-
   setDebug("");
 }
 
@@ -351,6 +310,7 @@ qs("btnCreateLoan").onclick = async () => {
     return {
       loan_id: loan.id,
       due_date: d,
+      expected_interest: expected_total,
       expected_total,
       expected_mgmt,
       expected_funders,
@@ -366,11 +326,13 @@ qs("btnCreateLoan").onclick = async () => {
   qs("mgmtFee").value = "";
 
   await refreshLoans();
+  await refreshLoanDropdownForPayments();
   alert("Loan created + due dates generated.");
 };
 
+
 qs("btnAddPayment").onclick = async () => {
-  if (!currentProfile || !["ADMIN", "AGENT"].includes(currentProfile.role)) {
+  if (!currentProfile || !["ADMIN","AGENT"].includes(currentProfile.role)) {
     alert("Only Admin/Agent can record payments.");
     return;
   }
@@ -384,34 +346,28 @@ qs("btnAddPayment").onclick = async () => {
     return alert("Loan, date, and amount are required.");
   }
 
-  // get borrower_id from loan
-  const { data: loanRow, error: loanErr } = await supabase
-    .from("loans")
-    .select("id, borrower_id, principal_outstanding")
-    .eq("id", loan_id)
-    .single();
+  setDebug("Applying payment...");
 
-  if (loanErr) return alert(loanErr.message);
-
-  const { data: userData } = await supabase.auth.getUser();
-  const created_by = userData.user.id;
-
-  const { error } = await supabase.from("payments").insert({
-    loan_id,
-    borrower_id: loanRow.borrower_id,
-    paid_on,
-    amount,
-    notes,
-    created_by
+  const { error } = await supabase.rpc("apply_payment", {
+    p_loan_id: loan_id,
+    p_paid_on: paid_on,
+    p_amount: amount,
+    p_notes: notes
   });
 
-  if (error) return alert(error.message);
+  if (error) {
+    console.error(error);
+    setDebug("Payment error: " + error.message);
+    alert(error.message);
+    return;
+  }
 
   qs("paymentAmount").value = "";
   qs("paymentNotes").value = "";
 
-  await refreshPayments();
   await refreshLoans();
+  await refreshPayments();
 
-  alert("Payment recorded.");
+  setDebug("");
+  alert("Payment applied.");
 };
