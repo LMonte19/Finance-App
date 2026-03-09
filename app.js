@@ -35,6 +35,7 @@ const rolePill = qs("rolePill");
 const btnSignOut = qs("btnSignOut");
 
 let currentProfile = null;
+let currentLoanId = null;
 
 async function loadProfileByUserId(userId) {
   if (!userId) throw new Error("Missing userId for profile lookup.");
@@ -306,9 +307,26 @@ async function refreshDashboard() {
     : "No overdue loans.";
 }
 
+async function refreshFundingPartnerDropdown() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, role")
+    .in("role", ["ADMIN", "PARTNER"])
+    .order("full_name", { ascending: true });
+
+  if (error) throw error;
+
+  qs("fundingPartner").innerHTML = data.map(p =>
+    `<option value="${p.user_id}">${p.full_name} (${p.role})</option>`
+  ).join("");
+}
+
 async function openLoanDetails(loanId) {
   setDebug("Loading loan details...");
-
+  currentLoanId = loanId;
+  await refreshFundingPartnerDropdown();
+  await refreshLoanFunding(loanId);
+    
   const { data: loan, error: loanErr } = await supabase
     .from("loans")
     .select(`
@@ -395,6 +413,44 @@ qs("loanDetailsDueList").innerHTML = dueRows.length
 
   openPage("loanDetailsPage");
   setDebug("");
+}
+
+async function refreshLoanFunding(loanId) {
+  const { data, error } = await supabase
+    .from("loan_funding")
+    .select("id, funding_percent, partner_user_id")
+    .eq("loan_id", loanId);
+
+  if (error) throw error;
+
+  const { data: partners, error: partnersErr } = await supabase
+    .from("profiles")
+    .select("user_id, full_name");
+
+  if (partnersErr) throw partnersErr;
+
+  const partnerMap = Object.fromEntries((partners ?? []).map(p => [p.user_id, p.full_name]));
+
+  const totalPercent = (data ?? []).reduce((sum, row) => sum + Number(row.funding_percent || 0), 0);
+
+  qs("loanFundingList").innerHTML = (data ?? []).length
+    ? `
+      ${(data ?? []).map(row => `
+        <div style="margin-bottom:10px;">
+          <strong>${partnerMap[row.partner_user_id] ?? "Unknown"}</strong><br>
+          <span class="muted">${(Number(row.funding_percent) * 100).toFixed(2)}%</span>
+        </div>
+      `).join("")}
+      <div style="margin-top:10px;"><strong>Total:</strong> ${(totalPercent * 100).toFixed(2)}%</div>
+    `
+    : "No funding split saved yet.";
+
+  if (totalPercent > 1) {
+    qs("loanFundingList").innerHTML += `<div style="color:#ff8b8b; margin-top:10px;">Warning: total funding exceeds 100%.</div>`;
+  }
+  if (totalPercent < 1) {
+    qs("loanFundingList").innerHTML += `<div style="color:#ffd27a; margin-top:10px;">Warning: total funding is below 100%.</div>`;
+  }
 }
 
 async function openBorrowerDetails(borrowerId) {
@@ -707,6 +763,47 @@ qs("btnAddPayment").onclick = async () => {
 
   setDebug("");
   alert("Payment applied.");
+};
+
+qs("btnAddFundingSplit").onclick = async () => {
+  if (!currentProfile || currentProfile.role !== "ADMIN") {
+    alert("Only Admin can edit funding splits.");
+    return;
+  }
+
+  if (!currentLoanId) {
+    return alert("Open a loan first.");
+  }
+
+  const partner_user_id = qs("fundingPartner").value;
+  const percentInput = Number(qs("fundingPercent").value);
+
+  if (!partner_user_id || !percentInput) {
+    return alert("Partner and percent are required.");
+  }
+
+  const funding_percent = percentInput / 100;
+
+  const { error } = await supabase
+    .from("loan_funding")
+    .upsert({
+      loan_id: currentLoanId,
+      partner_user_id,
+      funding_percent
+    }, {
+      onConflict: "loan_id,partner_user_id"
+    });
+
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
+  }
+
+  qs("fundingPercent").value = "";
+
+  await refreshLoanFunding(currentLoanId);
+  alert("Funding split saved.");
 };
 
 qs("btnBackToLoans").onclick = () => {
