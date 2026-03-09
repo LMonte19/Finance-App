@@ -36,6 +36,8 @@ const btnSignOut = qs("btnSignOut");
 
 let currentProfile = null;
 let currentLoanId = null;
+let pendingNewLoanFunding = [];
+let creatingNewBorrower = false;
 
 async function loadProfileByUserId(userId) {
   if (!userId) throw new Error("Missing userId for profile lookup.");
@@ -337,6 +339,61 @@ async function refreshFundingPartnerDropdown() {
   ).join("");
 }
 
+async function refreshFundingPartnerSelects() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, role")
+    .in("role", ["ADMIN", "PARTNER"])
+    .order("full_name", { ascending: true });
+
+  if (error) throw error;
+
+  const options = data.map(p =>
+    `<option value="${p.user_id}">${p.full_name} (${p.role})</option>`
+  ).join("");
+
+  const fundingPartner = qs("fundingPartner");
+  if (fundingPartner) fundingPartner.innerHTML = options;
+
+  const newLoanFundingPartner = qs("newLoanFundingPartner");
+  if (newLoanFundingPartner) newLoanFundingPartner.innerHTML = options;
+
+  const defaultFundingPartner = qs("defaultFundingPartner");
+  if (defaultFundingPartner) defaultFundingPartner.innerHTML = options;
+}
+
+function renderPendingNewLoanFunding() {
+  const el = qs("newLoanFundingList");
+  if (!el) return;
+
+  const total = pendingNewLoanFunding.reduce((sum, row) => sum + Number(row.funding_percent || 0), 0);
+
+  el.innerHTML = pendingNewLoanFunding.length
+    ? `
+      ${pendingNewLoanFunding.map(row => `
+        <div style="margin-bottom:10px;">
+          <strong>${row.partner_name}</strong><br>
+          <span class="muted">${(Number(row.funding_percent) * 100).toFixed(2)}%</span>
+        </div>
+      `).join("")}
+      <div style="margin-top:10px;"><strong>Total:</strong> ${(total * 100).toFixed(2)}%</div>
+      ${total > 1 ? `<div style="color:#ff8b8b;margin-top:8px;">Warning: total exceeds 100%</div>` : ""}
+      ${total < 1 ? `<div style="color:#ffd27a;margin-top:8px;">Warning: total is below 100%</div>` : ""}
+    `
+    : "No funding split added yet.";
+}
+
+function updateLoanFunderRatePreview() {
+  const total = Number(qs("loanTotalRate")?.value || 0);
+  const mgmt = Number(qs("loanMgmtRate")?.value || 0);
+  const funders = total - mgmt;
+
+  qs("loanFunderRatePreview").textContent =
+    funders >= 0
+      ? `Funders share: ${funders.toFixed(2)}%`
+      : "Funders share is invalid.";
+}
+
 async function openLoanDetails(loanId) {
   setDebug("Loading loan details...");
   currentLoanId = loanId;
@@ -582,6 +639,9 @@ async function setSignedInUI(profile) {
   whoami.textContent = `${profile.full_name ?? "User"} • ${profile.role}`;
   rolePill.textContent = profile.role;
 
+  qs("loanTotalRate").oninput = updateLoanFunderRatePreview;
+  qs("loanMgmtRate").oninput = updateLoanFunderRatePreview;
+
   initTabs();
 
   setDebug("Loading borrowers...");
@@ -593,6 +653,9 @@ async function setSignedInUI(profile) {
   setDebug("Loading payments...");
   await refreshLoanDropdownForPayments();
   await refreshPayments();
+
+  await refreshFundingPartnerSelects();
+  await prefillLoanDefaults();
 
   setDebug("");
 }
@@ -667,6 +730,12 @@ qs("btnAddBorrower").onclick = async () => {
   await refreshDashboard();
 };
 
+qs("btnToggleNewBorrower").onclick = () => {
+  creatingNewBorrower = !creatingNewBorrower;
+  qs("newBorrowerFields").style.display = creatingNewBorrower ? "block" : "none";
+  qs("btnToggleNewBorrower").textContent = creatingNewBorrower ? "Use Existing Borrower" : "+ New Borrower";
+};
+
 // Create loan + due events
 qs("btnCreateLoan").onclick = async () => {
   if (!currentProfile || !["ADMIN","AGENT"].includes(currentProfile.role)) {
@@ -674,12 +743,41 @@ qs("btnCreateLoan").onclick = async () => {
     return;
   }
 
-  const borrower_id = qs("loanBorrower").value;
+  let borrower_id = qs("loanBorrower").value;
+
+  if (creatingNewBorrower) {
+    const full_name = qs("newBorrowerName").value.trim();
+    const phone = qs("newBorrowerPhone").value.trim() || null;
+    const notes = qs("newBorrowerNotes").value.trim() || null;
+
+    if (!full_name) return alert("New borrower name is required.");
+
+    const { data: userData } = await supabase.auth.getUser();
+    const created_by = userData.user.id;
+
+    const { data: borrower, error: borrowerErr } = await supabase
+      .from("borrowers")
+      .insert({ full_name, phone, notes, created_by })
+      .select("*")
+      .single();
+
+    if (borrowerErr) return alert(borrowerErr.message);
+
+    borrower_id = borrower.id;
+  }
+
   const principal = Number(qs("principal").value);
   const start_date = qs("startDate").value;
-  const mgmt_fee_per_cycle = Number(qs("mgmtFee").value || 0);
+  const monthly_rate_total = Number(qs("loanTotalRate").value) / 100;
+  const monthly_rate_mgmt = Number(qs("loanMgmtRate").value) / 100;
 
-  if (!borrower_id || !principal || !start_date) return alert("Borrower, principal, and start date are required.");
+  if (!borrower_id || !principal || !start_date) {
+    return alert("Borrower, principal, and start date are required.");
+  }
+
+  if (pendingNewLoanFunding.length === 0) {
+    return alert("Add at least one funding split.");
+  }
 
   const { data: userData } = await supabase.auth.getUser();
   const created_by = userData.user.id;
@@ -692,27 +790,25 @@ qs("btnCreateLoan").onclick = async () => {
       start_date,
       principal_original: principal,
       principal_outstanding: principal,
-      monthly_rate_total: 0.10,
-      monthly_rate_mgmt: 0.03,
-      status: "ACTIVE",
-      mgmt_fee_per_cycle
+      monthly_rate_total,
+      monthly_rate_mgmt,
+      status: "ACTIVE"
     })
     .select("*")
     .single();
 
   if (loanErr) return alert(loanErr.message);
 
-  // Generate due events for next 6 months:
   const dueDates = generateDueDates(start_date, 6);
-  const totalRatePerCycle = (loan.monthly_rate_total ?? 0.10) / 2; // 10% monthly -> 5% per cycle
-  const mgmtRatePerCycle  = (loan.monthly_rate_mgmt  ?? 0.03) / 2; // 3% monthly -> 1.5% per cycle
-  const fundersRatePerCycle = totalRatePerCycle - mgmtRatePerCycle; // 3.5% per cycle by default
-  
+  const totalRatePerCycle = monthly_rate_total / 2;
+  const mgmtRatePerCycle = monthly_rate_mgmt / 2;
+  const fundersRatePerCycle = totalRatePerCycle - mgmtRatePerCycle;
+
   const dueRows = dueDates.map(d => {
     const expected_total = Number((principal * totalRatePerCycle).toFixed(2));
     const expected_mgmt = Number((principal * mgmtRatePerCycle).toFixed(2));
     const expected_funders = Number((principal * fundersRatePerCycle).toFixed(2));
-  
+
     return {
       loan_id: loan.id,
       due_date: d,
@@ -727,17 +823,58 @@ qs("btnCreateLoan").onclick = async () => {
   const { error: dueErr } = await supabase.from("loan_due_events").insert(dueRows);
   if (dueErr) return alert(dueErr.message);
 
+  const fundingRows = pendingNewLoanFunding.map(row => ({
+    loan_id: loan.id,
+    partner_user_id: row.partner_user_id,
+    funding_percent: row.funding_percent
+  }));
+
+  const { error: fundingErr } = await supabase.from("loan_funding").insert(fundingRows);
+  if (fundingErr) return alert(fundingErr.message);
+
+  // reset form
   qs("principal").value = "";
   qs("startDate").value = "";
-  qs("mgmtFee").value = "";
+  qs("newBorrowerName").value = "";
+  qs("newBorrowerPhone").value = "";
+  qs("newBorrowerNotes").value = "";
+  creatingNewBorrower = false;
+  qs("newBorrowerFields").style.display = "none";
+  qs("btnToggleNewBorrower").textContent = "+ New Borrower";
 
+  pendingNewLoanFunding = [];
+  await prefillLoanDefaults();
+
+  await refreshBorrowers();
   await refreshLoans();
   await refreshLoanDropdownForPayments();
-  await refreshLoans();
   await refreshDashboard();
-  alert("Loan created + due dates generated.");
+
+  alert("Loan created successfully.");
 };
 
+async function prefillLoanDefaults() {
+  const defaultsRate = qs("defaultInterestRate");
+  const defaultsMgmt = qs("defaultManagementRate");
+
+  if (defaultsRate?.value) qs("loanTotalRate").value = defaultsRate.value;
+  else qs("loanTotalRate").value = "10";
+
+  if (defaultsMgmt?.value) qs("loanMgmtRate").value = defaultsMgmt.value;
+  else qs("loanMgmtRate").value = "3";
+
+  updateLoanFunderRatePreview();
+
+  if (pendingNewLoanFunding.length === 0) {
+    const defaultRows = Array.from(document.querySelectorAll("#defaultFundingList [data-partner-id]"));
+    pendingNewLoanFunding = defaultRows.map(row => ({
+      partner_user_id: row.dataset.partnerId,
+      funding_percent: Number(row.dataset.percent),
+      partner_name: row.dataset.partnerName
+    }));
+    renderPendingNewLoanFunding();
+  }
+}
 
 qs("btnAddPayment").onclick = async () => {
   if (!currentProfile || !["ADMIN","AGENT"].includes(currentProfile.role)) {
@@ -822,6 +959,29 @@ qs("btnAddFundingSplit").onclick = async () => {
   alert("Funding split saved.");
 };
 
+qs("btnAddNewLoanFunding").onclick = () => {
+  const partner_user_id = qs("newLoanFundingPartner").value;
+  const percent = Number(qs("newLoanFundingPercent").value);
+
+  if (!partner_user_id || !percent) {
+    return alert("Partner and percent are required.");
+  }
+
+  const funding_percent = percent / 100;
+  const partner_name = qs("newLoanFundingPartner").selectedOptions[0]?.textContent || "Unknown";
+
+  const existingIndex = pendingNewLoanFunding.findIndex(x => x.partner_user_id === partner_user_id);
+
+  if (existingIndex >= 0) {
+    pendingNewLoanFunding[existingIndex] = { partner_user_id, funding_percent, partner_name };
+  } else {
+    pendingNewLoanFunding.push({ partner_user_id, funding_percent, partner_name });
+  }
+
+  qs("newLoanFundingPercent").value = "";
+  renderPendingNewLoanFunding();
+};
+
 qs("btnBackToLoans").onclick = () => {
   openPage("loansPage");
 };
@@ -829,3 +989,5 @@ qs("btnBackToLoans").onclick = () => {
 qs("btnBackToBorrowers").onclick = () => {
   openPage("borrowersPage");
 };
+
+
