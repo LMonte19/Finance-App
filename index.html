@@ -213,15 +213,46 @@
       <!-- LOANS -->
       <div id="loansPage" class="page">
         <div class="card">
-          <div style="font-weight:800;">Create loan (Agent/Admin)</div>
-          <select id="loanBorrower"></select>
+          <div style="font-weight:800;">New Loan</div>
+        
           <div class="row">
-            <input id="principal" type="number" step="0.01" placeholder="Principal (e.g., 1000)" />
+            <select id="loanBorrower"></select>
+            <button id="btnToggleNewBorrower" type="button">+ New Borrower</button>
+          </div>
+        
+          <div id="newBorrowerFields" style="display:none;">
+            <div class="row">
+              <input id="newBorrowerName" placeholder="Borrower full name" />
+              <input id="newBorrowerPhone" placeholder="Phone (optional)" />
+            </div>
+            <input id="newBorrowerNotes" placeholder="Notes (optional)" />
+          </div>
+        
+          <div class="row">
+            <input id="principal" type="number" step="0.01" placeholder="Principal (e.g. 1000)" />
             <input id="startDate" type="date" />
           </div>
-          <input id="mgmtFee" type="number" step="0.01" placeholder="Mgmt fee per cycle (fixed) e.g., 5" />
-          <button id="btnCreateLoan">Create loan + generate due dates</button>
-          <div class="muted">Funding split is set by Admin in Supabase for now.</div>
+        
+          <div class="row">
+            <input id="loanTotalRate" type="number" step="0.01" placeholder="Total monthly interest % (e.g. 10)" />
+            <input id="loanMgmtRate" type="number" step="0.01" placeholder="Management share % (e.g. 3)" />
+          </div>
+        
+          <div class="muted" id="loanFunderRatePreview">Funders share: —</div>
+        
+          <div class="card" style="margin-top:12px; background:#0f0f11;">
+            <div style="font-weight:800;">Funding Split</div>
+            <div id="newLoanFundingList" class="muted" style="margin-top:10px;"></div>
+        
+            <div class="row">
+              <select id="newLoanFundingPartner"></select>
+              <input id="newLoanFundingPercent" type="number" step="0.01" placeholder="Percent (e.g. 60)" />
+            </div>
+        
+            <button id="btnAddNewLoanFunding" type="button">Add / Update Split</button>
+          </div>
+        
+          <button id="btnCreateLoan">Save Loan</button>
         </div>
     
         <div class="card">
