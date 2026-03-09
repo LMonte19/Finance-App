@@ -114,16 +114,32 @@ function openPage(targetId) {
 
   const page = qs(targetId);
   if (page) page.classList.add("active-page");
+
+  closeMenu();
+}
+
+function openMenu() {
+  qs("sideMenu").classList.add("open");
+  qs("menuOverlay").classList.add("open");
+}
+
+function closeMenu() {
+  qs("sideMenu").classList.remove("open");
+  qs("menuOverlay").classList.remove("open");
 }
 
 function initTabs() {
-  const tabButtons = document.querySelectorAll(".tab-btn");
-
-  tabButtons.forEach((btn) => {
-    btn.onclick = () => {
-      openPage(btn.dataset.page);
-    };
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.onclick = () => openPage(btn.dataset.page);
   });
+
+  document.querySelectorAll(".menu-link").forEach((btn) => {
+    btn.onclick = () => openPage(btn.dataset.page);
+  });
+
+  qs("btnMenu").onclick = openMenu;
+  qs("btnCloseMenu").onclick = closeMenu;
+  qs("menuOverlay").onclick = closeMenu;
 }
 
 // Generate due dates: 15th + last day of month (next 6 months)
