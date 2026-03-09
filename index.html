@@ -73,15 +73,33 @@
   </style>
 </head>
 <body>
+  
+    <div id="menuOverlay" class="menu-overlay"></div>
+  
+  <div id="sideMenu" class="side-menu">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-weight:800;">Menu</div>
+      <button id="btnCloseMenu" style="width:auto;background:#333;padding:10px 14px;">✕</button>
+    </div>
+  
+    <button class="menu-link" data-page="borrowersPage">Borrowers</button>
+    <button class="menu-link" data-page="partnersPage">Partners</button>
+    <button class="menu-link" data-page="defaultsPage">Defaults / Settings</button>
+  </div>
+  
   <header>
     <div class="wrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div>
-          <div style="font-weight:800;">Loan Ledger</div>
-          <div class="muted" id="whoami">Not signed in</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button id="btnMenu" style="width:auto;background:#16161a;border:1px solid #2b2b31;padding:10px 14px;">☰</button>
+          <div>
+            <div style="font-weight:800;">Loan Ledger</div>
+            <div class="muted" id="whoami">Not signed in</div>
+          </div>
         </div>
+  
         <div>
-          <button id="btnSignOut" style="display:none;background:#333;">Sign out</button>
+          <button id="btnSignOut" style="display:none;background:#333;width:auto;padding:10px 14px;">Sign out</button>
         </div>
       </div>
     </div>
@@ -99,10 +117,9 @@
 
     <div id="app" style="display:none;">
       <div class="tabs">
-        <button class="tab-btn active" data-page="dashboardPage">Dashboard</button>
+        <button class="tab-btn active" data-page="dashboardPage">Home</button>
         <button class="tab-btn" data-page="loansPage">Loans</button>
         <button class="tab-btn" data-page="paymentsPage">Payments</button>
-        <button class="tab-btn" data-page="borrowersPage">Borrowers</button>
       </div>
     
       <!-- DASHBOARD -->
@@ -262,6 +279,38 @@
         <div class="card">
           <div style="font-weight:800;">Payments</div>
           <div id="borrowerDetailsPayments" class="muted"></div>
+        </div>
+      </div>
+
+      <div id="partnersPage" class="page">
+        <div class="card">
+          <div style="font-weight:800;">Partners</div>
+          <div class="muted">Partner earnings and allocation summaries will go here.</div>
+        </div>
+      </div>
+      
+      <div id="defaultsPage" class="page">
+        <div class="card">
+          <div style="font-weight:800;">Defaults / Settings</div>
+      
+          <div class="row">
+            <input id="defaultInterestRate" type="number" step="0.01" placeholder="Default total monthly interest % (e.g. 10)" />
+            <input id="defaultManagementRate" type="number" step="0.01" placeholder="Default management share % (e.g. 3)" />
+          </div>
+      
+          <div class="muted">These will be used to prefill new loans.</div>
+        </div>
+      
+        <div class="card">
+          <div style="font-weight:800;">Default Funding Split</div>
+          <div id="defaultFundingList" class="muted"></div>
+      
+          <div class="row">
+            <select id="defaultFundingPartner"></select>
+            <input id="defaultFundingPercent" type="number" step="0.01" placeholder="Percent (e.g. 60)" />
+          </div>
+      
+          <button id="btnSaveDefaultFunding">Save default split</button>
         </div>
       </div>
     </div>
