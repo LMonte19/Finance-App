@@ -320,9 +320,9 @@ function renderLoansByBorrower(loans) {
 }
 
 async function refreshLoanDropdownForPayments() {
-  const { data, error } = await supabase.from("loans").select("id, borrowers(full_name)").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("loans").select("id, borrowers(full_name), status, principal_outstanding").in("status", ["ACTIVE", "PAUSED"]).order("created_at", { ascending: false });
   if (error) throw error;
-  if (qs("paymentLoan")) qs("paymentLoan").innerHTML = (data ?? []).map((l) => `<option value="${l.id}">${l.borrowers?.full_name ?? "Unknown"} (${l.id.slice(0, 6)}…)</option>`).join("");
+  if (qs("paymentLoan")) qs("paymentLoan").innerHTML = (data ?? []).map((l) => `<option value="${l.id}">${l.borrowers?.full_name ?? "Unknown"} (${l.status}, ${money(l.principal_outstanding)})</option>`).join("");
 }
 
 async function refreshPayments() {
@@ -345,18 +345,19 @@ async function refreshPayments() {
 
 async function refreshDashboard() {
   const [{ data: loans }, { data: borrowers }, { data: payments }] = await Promise.all([
-    supabase.from("loans").select("id, principal_outstanding, borrowers(full_name)"),
+    supabase.from("loans").select("id, principal_outstanding, status, borrowers(full_name)"),
     supabase.from("borrowers").select("id"),
     supabase.from("payments").select("amount, paid_on, borrowers(full_name)").order("created_at", { ascending: false }).limit(5),
   ]);
-  if (qs("statActiveLoans")) qs("statActiveLoans").textContent = loans?.length ?? 0;
+  const activeLoans = (loans ?? []).filter((loan) => loan.status === "ACTIVE").length;
+  if (qs("statActiveLoans")) qs("statActiveLoans").textContent = activeLoans;
   if (qs("statOutstanding")) qs("statOutstanding").textContent = money((loans ?? []).reduce((sum, l) => sum + Number(l.principal_outstanding || 0), 0));
   if (qs("statPaymentsCount")) qs("statPaymentsCount").textContent = payments?.length ?? 0;
   if (qs("statBorrowersCount")) qs("statBorrowersCount").textContent = borrowers?.length ?? 0;
   if (qs("dashboardRecentPayments")) qs("dashboardRecentPayments").innerHTML = (payments ?? []).length ? payments.map((p) => `• ${p.borrowers?.full_name ?? "Unknown"} — ${money(p.amount)} <span class="muted">(${p.paid_on})</span>`).join("<br>") : "No payments yet.";
 
   const loansWithDue = await Promise.all((loans ?? []).map(async (l) => ({ ...l, nextDue: await getNextDueByLoan(l.id) })));
-  const overdue = loansWithDue.filter((l) => dueLabel(l.nextDue) === "OVERDUE");
+  const overdue = loansWithDue.filter((l) => l.status === "ACTIVE" && dueLabel(l.nextDue) === "OVERDUE");
   if (qs("dashboardLoansSnapshot")) qs("dashboardLoansSnapshot").innerHTML = overdue.length ? overdue.map((l) => `• ${l.borrowers?.full_name ?? "Unknown"} — Overdue ${money(amountDue(l.nextDue))} <span class="muted">(Due ${l.nextDue.due_date})</span>`).join("<br>") : "No overdue loans.";
 }
 
@@ -427,6 +428,48 @@ async function refreshLoanFunding(loanId) {
   ` : "No funding split saved yet.";
 }
 
+function renderLoanStatusControls(loan) {
+  if (!qs("loanDetailsHeader")) return;
+  const allowed = ["ACTIVE", "PAUSED", "DEFAULTED", "PAID_OFF"];
+  const canEdit = currentProfile && ["ADMIN", "AGENT"].includes(currentProfile.role);
+  const statusOptions = allowed.map((status) => `<option value="${status}" ${loan.status === status ? "selected" : ""}>${status}</option>`).join("");
+  const balance = Number(loan.principal_outstanding || 0);
+
+  qs("loanDetailsHeader").innerHTML += `
+    <div class="compact-card" style="margin-top:12px;">
+      <div style="font-weight:800;">Loan Status</div>
+      <div class="muted" style="margin-bottom:8px;">Use this to pause, default, reactivate, or close a loan.</div>
+      <div class="row">
+        <select id="loanStatusSelect" ${canEdit ? "" : "disabled"}>${statusOptions}</select>
+        <button id="btnSaveLoanStatus" type="button" ${canEdit ? "" : "disabled"}>Save Status</button>
+      </div>
+      ${balance <= 0 && loan.status !== "PAID_OFF" ? `<button id="btnQuickPaidOff" type="button" style="background:#333;">Mark paid off</button>` : ""}
+      ${loan.status === "PAID_OFF" ? `<div class="muted">This loan is closed. New payments are hidden from the payment dropdown unless reactivated.</div>` : ""}
+    </div>
+  `;
+
+  const saveBtn = qs("btnSaveLoanStatus");
+  if (saveBtn) saveBtn.onclick = safe(async () => {
+    await updateLoanStatus(loan.id, qs("loanStatusSelect").value);
+  });
+
+  const quickBtn = qs("btnQuickPaidOff");
+  if (quickBtn) quickBtn.onclick = safe(async () => {
+    await updateLoanStatus(loan.id, "PAID_OFF");
+  });
+}
+
+async function updateLoanStatus(loanId, status) {
+  if (!currentProfile || !["ADMIN", "AGENT"].includes(currentProfile.role)) return alert("Only Admin/Agent can update loan status.");
+  const { error } = await supabase.rpc("set_loan_status", { p_loan_id: loanId, p_status: status });
+  if (error) throw error;
+  await openLoanDetails(loanId);
+  await refreshLoans();
+  await refreshLoanDropdownForPayments();
+  await refreshDashboard();
+  alert("Loan status updated.");
+}
+
 async function openLoanDetails(loanId) {
   setDebug("Loading loan details...");
   currentLoanId = loanId;
@@ -449,6 +492,8 @@ async function openLoanDetails(loanId) {
     <div><strong>Outstanding:</strong> ${money(loan.principal_outstanding)}</div>
     <div><strong>Status:</strong> ${loan.status}</div>
   `;
+  renderLoanStatusControls(loan);
+
   if (qs("loanDetailsDueList")) qs("loanDetailsDueList").innerHTML = (dueRows ?? []).length ? dueRows.map((d) => {
     const remaining = Math.max(0, Number(d.expected_total || 0) - Number(d.paid_total || 0));
     const overdue = d.due_date < todayIso() && remaining > 0;
@@ -494,7 +539,8 @@ async function openBorrowerDetails(borrowerId) {
     <div><strong>Overdue Items:</strong> ${overdueCount}</div>
     <div><strong>Overdue Amount:</strong> ${money(overdueAmount)}</div>
   `;
-  if (qs("borrowerDetailsLoans")) qs("borrowerDetailsLoans").innerHTML = (loans ?? []).length ? loans.map((l) => `<div class="compact-card"><strong>${l.start_date}</strong><br><span class="muted">Original: ${money(l.principal_original)} | Balance: ${money(l.principal_outstanding)} | ${l.status}</span></div>`).join("") : "No loans yet.";
+  if (qs("borrowerDetailsLoans")) qs("borrowerDetailsLoans").innerHTML = (loans ?? []).length ? loans.map((l) => `<div class="compact-card" style="cursor:pointer" data-loan-id="${l.id}"><strong>${l.start_date}</strong><br><span class="muted">Original: ${money(l.principal_original)} | Balance: ${money(l.principal_outstanding)} | ${l.status}</span></div>`).join("") : "No loans yet.";
+  document.querySelectorAll("#borrowerDetailsLoans [data-loan-id]").forEach((el) => { el.onclick = () => openLoanDetails(el.dataset.loanId); });
   if (qs("borrowerDetailsPayments")) qs("borrowerDetailsPayments").innerHTML = (payments ?? []).length ? payments.map((p) => `<div class="compact-card"><strong>${p.paid_on}</strong> — ${money(p.amount)}<br><span class="muted">Interest: ${money(p.applied_interest)} | Principal: ${money(p.applied_principal)}${p.notes ? ` | ${p.notes}` : ""}</span></div>`).join("") : "No payments yet.";
   openPage("borrowerDetailsPage");
   setDebug("");
@@ -677,7 +723,7 @@ async function addPayment() {
   const { error } = await supabase.rpc("apply_payment", { p_loan_id: loan_id, p_paid_on: paid_on, p_amount: amount, p_notes: notes });
   if (error) throw error;
   qs("paymentAmount").value = ""; qs("paymentNotes").value = "";
-  await refreshLoans(); await refreshPayments(); await refreshPartners(); await refreshDashboard();
+  await refreshLoans(); await refreshLoanDropdownForPayments(); await refreshPayments(); await refreshPartners(); await refreshDashboard();
   alert("Payment applied.");
 }
 
