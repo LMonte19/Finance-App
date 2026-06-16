@@ -22,6 +22,7 @@ let paymentBusy = false;
 let activePaymentId = null;
 let detailOpen = false;
 let timer = null;
+let lastRenderedPaymentHtml = "";
 
 function isPaymentsPage() {
   return qs("paymentsPage")?.classList.contains("active-page");
@@ -104,6 +105,7 @@ function setFilter(next) {
   localStorage.setItem("loanLedger.paymentFilter", next);
   detailOpen = false;
   activePaymentId = null;
+  lastRenderedPaymentHtml = "";
   renderPayments(true);
 }
 
@@ -135,6 +137,10 @@ function filterPayments(rows) {
   });
 }
 
+function currentPaymentStamp() {
+  return `${paymentFilter}:${qs("payFilterBorrower")?.value || ""}:${qs("payFilterLoan")?.value || ""}`;
+}
+
 async function renderPayments(force = false) {
   if (!isPaymentsPage() || !qs("paymentList") || paymentBusy) return;
   if (detailOpen && !force) return;
@@ -143,8 +149,8 @@ async function renderPayments(force = false) {
   await populatePaymentFilterDropdowns();
   updateFilterButtons();
 
-  const stamp = `${paymentFilter}:${qs("payFilterBorrower")?.value || ""}:${qs("payFilterLoan")?.value || ""}:${Date.now() - (Date.now() % 3000)}`;
-  if (!force && qs("paymentList").dataset.paymentStamp === stamp) return;
+  const stamp = currentPaymentStamp();
+  if (!force && qs("paymentList").dataset.paymentStamp === stamp && lastRenderedPaymentHtml) return;
 
   paymentBusy = true;
   try {
@@ -157,12 +163,19 @@ async function renderPayments(force = false) {
     if (error) throw error;
 
     const rows = filterPayments(data || []);
-    qs("paymentList").dataset.paymentStamp = stamp;
-    qs("paymentList").innerHTML = rows.length ? rows.map((p) => clickableCard(`
+    const nextHtml = rows.length ? rows.map((p) => clickableCard(`
       <strong>${p.borrower_name || "Unknown"}</strong> — ${money(p.amount)} ${p.is_voided ? "VOIDED" : ""}<br>
       <span class="muted">Paid: ${p.paid_on} | Interest: ${money(p.applied_interest)} | Principal: ${money(p.applied_principal)}</span><br>
       <span class="muted">Mgmt: ${money(p.applied_mgmt)} | Funders: ${money(p.applied_funders)} | Click for details</span>
     `, `data-payment-id="${p.id}"`)).join("") : "No payments match this view.";
+
+    qs("paymentList").dataset.paymentStamp = stamp;
+
+    // Avoid repaint flicker: only touch innerHTML when the actual content changed.
+    if (force || nextHtml !== lastRenderedPaymentHtml) {
+      qs("paymentList").innerHTML = nextHtml;
+      lastRenderedPaymentHtml = nextHtml;
+    }
 
     document.querySelectorAll("[data-payment-id]").forEach((el) => {
       el.onclick = () => openPaymentDetails(el.dataset.paymentId);
@@ -244,6 +257,7 @@ async function openPaymentDetails(paymentId) {
     qs("btnBackToPayments").onclick = () => {
       detailOpen = false;
       activePaymentId = null;
+      lastRenderedPaymentHtml = "";
       renderPayments(true);
     };
 
@@ -274,6 +288,7 @@ async function openPaymentDetails(paymentId) {
 
       setStatus("Payment voided.");
       alert("Payment voided and reversed.");
+      lastRenderedPaymentHtml = "";
       await openPaymentDetails(paymentId);
     };
   } catch (error) {
@@ -282,6 +297,7 @@ async function openPaymentDetails(paymentId) {
     qs("btnBackToPayments").onclick = () => {
       detailOpen = false;
       activePaymentId = null;
+      lastRenderedPaymentHtml = "";
       renderPayments(true);
     };
   }
@@ -365,10 +381,19 @@ async function tick() {
   }
 }
 
+document.addEventListener("click", (event) => {
+  if (event.target?.id === "btnAddPayment") {
+    setTimeout(() => {
+      lastRenderedPaymentHtml = "";
+      renderPayments(true);
+    }, 1200);
+  }
+}, true);
+
 const observer = new MutationObserver(() => {
   clearTimeout(timer);
   timer = setTimeout(tick, 200);
 });
 observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(tick, 1200);
+setInterval(tick, 2500);
 tick();
