@@ -1,4 +1,4 @@
-import "./admin-tools.js?v=1";
+import "./admin-tools.js?v=2";
 import "./batch-tools.js?v=1";
 import "./menu-page-fix.js?v=1";
 import "./loan-view-fix.js?v=2";
