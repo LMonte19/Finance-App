@@ -19,13 +19,37 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 
 let currentBorrowerId = null;
 let paymentsIncludeVoided = false;
+let paymentRefreshInFlight = false;
+let borrowerEditInFlight = false;
+let enhancementTimer = null;
 
 function activePage(id) {
   return qs(id)?.classList.contains("active-page");
 }
 
-function compactCard(html) {
-  return `<div class="compact-card" style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:10px;margin:8px 0;">${html}</div>`;
+function compactCard(html, extraAttrs = "") {
+  return `<div class="compact-card" ${extraAttrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:10px;margin:8px 0;box-sizing:border-box;max-width:100%;">${html}</div>`;
+}
+
+function ensureEnhancementStyles() {
+  if (qs("batchToolsStyle")) return;
+  const style = document.createElement("style");
+  style.id = "batchToolsStyle";
+  style.textContent = `
+    input, select, button { box-sizing: border-box; }
+    button { cursor: pointer; }
+    .batch-action-button {
+      cursor: pointer;
+      transition: filter 0.15s ease, transform 0.05s ease, background 0.15s ease;
+    }
+    .batch-action-button:hover { filter: brightness(1.18); }
+    .batch-action-button:active { transform: scale(0.98); }
+    .batch-action-button.active { background: #2b63ff !important; color: #fff !important; }
+    .batch-danger-button { background: #7a2b2b !important; }
+    .batch-danger-button:hover { filter: brightness(1.18); }
+    .borrower-edit-box input { width: 100%; max-width: 100%; }
+  `;
+  document.head.appendChild(style);
 }
 
 function ensurePage(id, title) {
@@ -54,7 +78,7 @@ function ensureMenuItem() {
   if (!sideMenu) return;
   const btn = document.createElement("button");
   btn.id = "menuDueOverdue";
-  btn.className = "menu-link";
+  btn.className = "menu-link batch-action-button";
   btn.textContent = "Due / Overdue";
   btn.onclick = async () => {
     ensurePage("dueOverduePage", "Due / Overdue");
@@ -103,84 +127,96 @@ document.addEventListener("click", (event) => {
   if (borrowerCard?.dataset?.borrowerId) currentBorrowerId = borrowerCard.dataset.borrowerId;
 });
 
-async function refreshPaymentTools() {
-  if (!qs("paymentsPage") || !qs("paymentList")) return;
+async function refreshPaymentTools(force = false) {
+  if (!activePage("paymentsPage") || !qs("paymentsPage") || !qs("paymentList")) return;
+  if (paymentRefreshInFlight) return;
 
-  let summaryBox = qs("paymentSummaryBox");
-  if (!summaryBox) {
-    summaryBox = document.createElement("div");
-    summaryBox.id = "paymentSummaryBox";
-    qs("paymentsPage").insertBefore(summaryBox, qs("paymentsPage").firstChild.nextSibling);
-  }
+  const alreadyRendered = qs("paymentSummaryBox") && qs("paymentList")?.querySelector("[data-batch-payment-row]");
+  if (!force && alreadyRendered) return;
 
-  const [{ data: summary, error: summaryErr }, { data: payments, error: paymentsErr }] = await Promise.all([
-    supabase.from("payment_summary").select("*").single(),
-    supabase
-      .from("payments")
-      .select("id, paid_on, amount, applied_interest, applied_mgmt, applied_funders, applied_principal, notes, is_voided, void_reason, created_at, borrowers(full_name)")
-      .order("created_at", { ascending: false })
-      .limit(50),
-  ]);
+  paymentRefreshInFlight = true;
 
-  if (summaryErr) throw summaryErr;
-  if (paymentsErr) throw paymentsErr;
+  try {
+    let summaryBox = qs("paymentSummaryBox");
+    if (!summaryBox) {
+      summaryBox = document.createElement("div");
+      summaryBox.id = "paymentSummaryBox";
+      qs("paymentsPage").insertBefore(summaryBox, qs("paymentsPage").firstChild.nextSibling);
+    }
 
-  summaryBox.innerHTML = `
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <div style="font-weight:800;">Payment Summary</div>
-        <button id="btnToggleVoidedPayments" style="width:auto;background:#333;padding:10px 12px;" type="button">
-          ${paymentsIncludeVoided ? "Hide Voided" : "Show Voided"}
-        </button>
+    const [{ data: summary, error: summaryErr }, { data: payments, error: paymentsErr }] = await Promise.all([
+      supabase.from("payment_summary").select("*").single(),
+      supabase
+        .from("payments")
+        .select("id, paid_on, amount, applied_interest, applied_mgmt, applied_funders, applied_principal, notes, is_voided, void_reason, created_at, borrowers(full_name)")
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+
+    if (summaryErr) throw summaryErr;
+    if (paymentsErr) throw paymentsErr;
+
+    summaryBox.innerHTML = `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div style="font-weight:800;">Payment Summary</div>
+          <button id="btnToggleVoidedPayments" class="batch-action-button ${paymentsIncludeVoided ? "active" : ""}" style="width:auto;background:#333;padding:10px 12px;" type="button">
+            ${paymentsIncludeVoided ? "Hide Voided" : "Show Voided"}
+          </button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value">${money(summary.total_collected)}</div></div>
+          <div class="stat-card"><div class="stat-label">Interest</div><div class="stat-value">${money(summary.interest_collected)}</div></div>
+          <div class="stat-card"><div class="stat-label">Management</div><div class="stat-value">${money(summary.management_collected)}</div></div>
+          <div class="stat-card"><div class="stat-label">Principal</div><div class="stat-value">${money(summary.principal_collected)}</div></div>
+        </div>
+        <div class="muted" style="margin-top:8px;">Active payments: ${summary.payment_count} | Voided: ${summary.voided_count}</div>
       </div>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value">${money(summary.total_collected)}</div></div>
-        <div class="stat-card"><div class="stat-label">Interest</div><div class="stat-value">${money(summary.interest_collected)}</div></div>
-        <div class="stat-card"><div class="stat-label">Management</div><div class="stat-value">${money(summary.management_collected)}</div></div>
-        <div class="stat-card"><div class="stat-label">Principal</div><div class="stat-value">${money(summary.principal_collected)}</div></div>
-      </div>
-      <div class="muted" style="margin-top:8px;">Active payments: ${summary.payment_count} | Voided: ${summary.voided_count}</div>
-    </div>
-  `;
+    `;
 
-  qs("btnToggleVoidedPayments").onclick = async () => {
-    paymentsIncludeVoided = !paymentsIncludeVoided;
-    await refreshPaymentTools();
-  };
-
-  const visiblePayments = paymentsIncludeVoided ? payments : payments.filter((p) => !p.is_voided);
-
-  qs("paymentList").innerHTML = visiblePayments.length ? visiblePayments.map((p) => {
-    const status = p.is_voided ? `<span style="color:#ff8b8b;">VOIDED</span>` : `<span style="color:#9ee59e;">ACTIVE</span>`;
-    const voidButton = !p.is_voided ? `<button data-void-payment-id="${p.id}" type="button" style="background:#7a2b2b;">Void Payment</button>` : "";
-    return compactCard(`
-      <strong>${p.borrowers?.full_name ?? "Unknown"}</strong> — ${money(p.amount)} ${status}<br>
-      <span class="muted">${p.paid_on} | Interest ${money(p.applied_interest)} | Mgmt ${money(p.applied_mgmt)} | Funders ${money(p.applied_funders)} | Principal ${money(p.applied_principal)}</span>
-      ${p.notes ? `<br><span class="muted">${p.notes}</span>` : ""}
-      ${p.is_voided && p.void_reason ? `<br><span class="muted">Void reason: ${p.void_reason}</span>` : ""}
-      ${voidButton}
-    `);
-  }).join("") : "No payments to show.";
-
-  document.querySelectorAll("[data-void-payment-id]").forEach((btn) => {
-    btn.onclick = async () => {
-      const reason = prompt("Why are you voiding this payment?", "Correction");
-      if (reason === null) return;
-      if (!confirm("Void this payment? This will reverse due-event payments, principal changes, and partner allocations when the payment has tracking rows.")) return;
-
-      const { error } = await supabase.rpc("void_payment", {
-        p_payment_id: btn.dataset.voidPaymentId,
-        p_reason: reason || "Correction",
-      });
-      if (error) {
-        alert(error.message);
-        return;
-      }
-      await refreshPaymentTools();
-      await refreshDueOverduePage();
-      alert("Payment voided.");
+    qs("btnToggleVoidedPayments").onclick = async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      paymentsIncludeVoided = !paymentsIncludeVoided;
+      await refreshPaymentTools(true);
     };
-  });
+
+    const visiblePayments = paymentsIncludeVoided ? payments : payments.filter((p) => !p.is_voided);
+
+    qs("paymentList").innerHTML = visiblePayments.length ? visiblePayments.map((p) => {
+      const status = p.is_voided ? `<span style="color:#ff8b8b;">VOIDED</span>` : `<span style="color:#9ee59e;">ACTIVE</span>`;
+      const voidButton = !p.is_voided ? `<button data-void-payment-id="${p.id}" class="batch-action-button batch-danger-button" type="button">Void Payment</button>` : "";
+      return compactCard(`
+        <strong>${p.borrowers?.full_name ?? "Unknown"}</strong> — ${money(p.amount)} ${status}<br>
+        <span class="muted">${p.paid_on} | Interest ${money(p.applied_interest)} | Mgmt ${money(p.applied_mgmt)} | Funders ${money(p.applied_funders)} | Principal ${money(p.applied_principal)}</span>
+        ${p.notes ? `<br><span class="muted">${p.notes}</span>` : ""}
+        ${p.is_voided && p.void_reason ? `<br><span class="muted">Void reason: ${p.void_reason}</span>` : ""}
+        ${voidButton}
+      `, `data-batch-payment-row="1"`);
+    }).join("") : "No payments to show.";
+
+    document.querySelectorAll("[data-void-payment-id]").forEach((btn) => {
+      btn.onclick = async () => {
+        const reason = prompt("Why are you voiding this payment?", "Correction");
+        if (reason === null) return;
+        if (!confirm("Void this payment? This will reverse due-event payments, principal changes, and partner allocations when the payment has tracking rows.")) return;
+
+        const { error } = await supabase.rpc("void_payment", {
+          p_payment_id: btn.dataset.voidPaymentId,
+          p_reason: reason || "Correction",
+        });
+        if (error) {
+          alert(error.message);
+          return;
+        }
+        await refreshPaymentTools(true);
+        await refreshDueOverduePage();
+        alert("Payment voided.");
+      };
+    });
+  } finally {
+    paymentRefreshInFlight = false;
+  }
 }
 
 async function refreshDueOverduePage() {
@@ -231,57 +267,79 @@ async function refreshDueOverduePage() {
 }
 
 async function injectBorrowerEdit() {
-  if (!activePage("borrowerDetailsPage") || !currentBorrowerId || qs("borrowerEditBox")) return;
+  if (!activePage("borrowerDetailsPage") || !currentBorrowerId || borrowerEditInFlight) return;
   const header = qs("borrowerDetailsHeader");
   if (!header) return;
 
-  const { data: borrower, error } = await supabase
-    .from("borrowers")
-    .select("id, full_name, phone, notes")
-    .eq("id", currentBorrowerId)
-    .single();
-  if (error) return;
+  const existingBoxes = Array.from(document.querySelectorAll("#borrowerEditBox, .borrower-edit-box"));
+  const matchingBox = existingBoxes.find((box) => box.dataset.borrowerId === currentBorrowerId);
+  existingBoxes.filter((box) => box !== matchingBox).forEach((box) => box.remove());
+  if (matchingBox) return;
 
-  const box = document.createElement("div");
-  box.id = "borrowerEditBox";
-  box.className = "compact-card";
-  box.style.background = "#0f0f11";
-  box.style.border = "1px solid #2a2a2e";
-  box.style.borderRadius = "12px";
-  box.style.padding = "10px";
-  box.style.marginTop = "12px";
-  box.innerHTML = `
-    <div style="font-weight:800;">Edit Borrower</div>
-    <input id="editBorrowerName" value="${borrower.full_name ?? ""}" placeholder="Full name" />
-    <input id="editBorrowerPhone" value="${borrower.phone ?? ""}" placeholder="Phone" />
-    <input id="editBorrowerNotes" value="${borrower.notes ?? ""}" placeholder="Notes" />
-    <button id="btnSaveBorrowerEdit" type="button">Save Borrower</button>
-  `;
-  header.appendChild(box);
+  borrowerEditInFlight = true;
 
-  qs("btnSaveBorrowerEdit").onclick = async () => {
-    const { error: updateErr } = await supabase
+  try {
+    const { data: borrower, error } = await supabase
       .from("borrowers")
-      .update({
-        full_name: qs("editBorrowerName").value.trim(),
-        phone: qs("editBorrowerPhone").value.trim() || null,
-        notes: qs("editBorrowerNotes").value.trim() || null,
-      })
-      .eq("id", currentBorrowerId);
+      .select("id, full_name, phone, notes")
+      .eq("id", currentBorrowerId)
+      .single();
+    if (error) return;
 
-    if (updateErr) {
-      alert(updateErr.message);
-      return;
-    }
-    alert("Borrower updated. Reopen the borrower if the header does not refresh immediately.");
-  };
+    document.querySelectorAll("#borrowerEditBox, .borrower-edit-box").forEach((box) => box.remove());
+
+    const box = document.createElement("div");
+    box.id = "borrowerEditBox";
+    box.className = "compact-card borrower-edit-box";
+    box.dataset.borrowerId = currentBorrowerId;
+    box.style.background = "#0f0f11";
+    box.style.border = "1px solid #2a2a2e";
+    box.style.borderRadius = "12px";
+    box.style.padding = "10px";
+    box.style.marginTop = "12px";
+    box.style.boxSizing = "border-box";
+    box.style.maxWidth = "100%";
+    box.innerHTML = `
+      <div style="font-weight:800;">Edit Borrower</div>
+      <input id="editBorrowerName" value="${borrower.full_name ?? ""}" placeholder="Full name" />
+      <input id="editBorrowerPhone" value="${borrower.phone ?? ""}" placeholder="Phone" />
+      <input id="editBorrowerNotes" value="${borrower.notes ?? ""}" placeholder="Notes" />
+      <button id="btnSaveBorrowerEdit" class="batch-action-button" type="button">Save Borrower</button>
+    `;
+    header.appendChild(box);
+
+    qs("btnSaveBorrowerEdit").onclick = async () => {
+      const { error: updateErr } = await supabase
+        .from("borrowers")
+        .update({
+          full_name: qs("editBorrowerName").value.trim(),
+          phone: qs("editBorrowerPhone").value.trim() || null,
+          notes: qs("editBorrowerNotes").value.trim() || null,
+        })
+        .eq("id", currentBorrowerId);
+
+      if (updateErr) {
+        alert(updateErr.message);
+        return;
+      }
+      alert("Borrower updated.");
+    };
+  } finally {
+    borrowerEditInFlight = false;
+  }
 }
 
 async function refreshVisibleEnhancements() {
   try {
+    ensureEnhancementStyles();
     ensureMenuItem();
     ensureFilters();
-    if (activePage("paymentsPage")) await refreshPaymentTools();
+
+    if (activePage("paymentsPage")) {
+      const needsPaymentRender = !qs("paymentSummaryBox") || !qs("paymentList")?.querySelector("[data-batch-payment-row]");
+      if (needsPaymentRender) await refreshPaymentTools(false);
+    }
+
     if (activePage("dueOverduePage")) await refreshDueOverduePage();
     if (activePage("borrowerDetailsPage")) await injectBorrowerEdit();
   } catch (error) {
@@ -289,7 +347,10 @@ async function refreshVisibleEnhancements() {
   }
 }
 
-const observer = new MutationObserver(() => refreshVisibleEnhancements());
+const observer = new MutationObserver(() => {
+  clearTimeout(enhancementTimer);
+  enhancementTimer = setTimeout(refreshVisibleEnhancements, 150);
+});
 observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(refreshVisibleEnhancements, 1500);
+setInterval(refreshVisibleEnhancements, 2500);
 refreshVisibleEnhancements();
