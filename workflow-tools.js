@@ -16,17 +16,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 const qs = (id) => document.getElementById(id);
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 let workflowTimer = null;
-let loanViewMode = localStorage.getItem("loanLedger.loanViewMode") || "borrower";
 let defaultsLoadedOnce = false;
-let groupedRenderInFlight = false;
 let partnersRenderInFlight = false;
 
 function activePage(id) {
   return qs(id)?.classList.contains("active-page");
 }
 
-function card(html, attrs = "") {
-  return `<div class="workflow-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;cursor:default;">${html}</div>`;
+function card(html) {
+  return `<div class="workflow-card" style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;">${html}</div>`;
 }
 
 function ensureStyles() {
@@ -37,13 +35,15 @@ function ensureStyles() {
     .workflow-button { cursor:pointer; transition:filter .15s ease, transform .05s ease; }
     .workflow-button:hover { filter:brightness(1.18); }
     .workflow-button:active { transform:scale(.98); }
-    .workflow-button.active { background:#2b63ff !important; color:#fff !important; }
-    .workflow-muted-button { background:#333 !important; }
-    .workflow-card.clickable { cursor:pointer; }
-    .workflow-card.clickable:hover { border-color:#52638f !important; }
     input, select, button { box-sizing:border-box; }
   `;
   document.head.appendChild(style);
+}
+
+function removeDuplicateLoanViewCard() {
+  // The main app already has the better By Borrower / By Loan toggle.
+  // This removes the temporary duplicate card from the previous workflow extension.
+  qs("loanViewToggle")?.remove();
 }
 
 async function getProfilesMap() {
@@ -77,6 +77,7 @@ async function loadLoanDefaults() {
 function renderDefaultFundingList(rows) {
   const el = qs("defaultFundingList");
   if (!el) return;
+
   const total = rows.reduce((sum, r) => sum + Number(r.funding_percent || 0), 0);
   el.innerHTML = rows.length
     ? `
@@ -181,147 +182,6 @@ function ensureDefaultsSaveHandler() {
   };
 }
 
-function ensureLoanViewToggle() {
-  const loanList = qs("loanList");
-  if (!loanList || qs("loanViewToggle")) return;
-  const wrap = document.createElement("div");
-  wrap.id = "loanViewToggle";
-  wrap.className = "card";
-  wrap.innerHTML = `
-    <div style="font-weight:800;">Loan View</div>
-    <div class="row">
-      <button id="btnLoanViewBorrower" class="workflow-button" type="button">By Borrower</button>
-      <button id="btnLoanViewLoan" class="workflow-button workflow-muted-button" type="button">By Loan</button>
-    </div>
-  `;
-  loanList.parentElement.insertBefore(wrap, loanList);
-
-  qs("btnLoanViewBorrower").onclick = async () => {
-    loanViewMode = "borrower";
-    localStorage.setItem("loanLedger.loanViewMode", loanViewMode);
-    await renderLoanView({ force: true });
-  };
-  qs("btnLoanViewLoan").onclick = async () => {
-    loanViewMode = "loan";
-    localStorage.setItem("loanLedger.loanViewMode", loanViewMode);
-    await renderLoanView({ force: true });
-  };
-}
-
-function updateLoanToggleButtons() {
-  qs("btnLoanViewBorrower")?.classList.toggle("active", loanViewMode === "borrower");
-  qs("btnLoanViewLoan")?.classList.toggle("active", loanViewMode === "loan");
-}
-
-async function renderLoanView({ force = false } = {}) {
-  if (!activePage("loansPage") || !qs("loanList") || groupedRenderInFlight) return;
-  if (!force && qs("loanList").dataset.workflowMode === loanViewMode) return;
-
-  groupedRenderInFlight = true;
-  try {
-    updateLoanToggleButtons();
-    if (loanViewMode === "borrower") await renderLoansByBorrower();
-    else await renderLoansByLoan();
-    qs("loanList").dataset.workflowMode = loanViewMode;
-  } finally {
-    groupedRenderInFlight = false;
-  }
-}
-
-async function renderLoansByBorrower() {
-  const [{ data: borrowers, error: borrowerErr }, { data: loans, error: loansErr }] = await Promise.all([
-    supabase.from("borrower_loan_summary").select("*"),
-    supabase.from("loans").select("id, borrower_id, start_date, principal_original, principal_outstanding, status, created_at").order("created_at", { ascending: false }),
-  ]);
-  if (borrowerErr) throw borrowerErr;
-  if (loansErr) throw loansErr;
-
-  const loansByBorrower = new Map();
-  (loans ?? []).forEach((loan) => {
-    if (!loansByBorrower.has(loan.borrower_id)) loansByBorrower.set(loan.borrower_id, []);
-    loansByBorrower.get(loan.borrower_id).push(loan);
-  });
-
-  qs("loanList").innerHTML = (borrowers ?? []).length
-    ? borrowers.map((b) => {
-        const recentLoans = (loansByBorrower.get(b.borrower_id) ?? []).slice(0, 3);
-        return card(`
-          <strong>${b.full_name}</strong><br>
-          <span class="muted">${b.phone || "No phone"}</span><br>
-          <span class="muted">Loans: ${b.loan_count} | Active: ${b.active_loan_count} | Outstanding: ${money(b.total_outstanding)} | Original: ${money(b.total_original)}</span>
-          <div style="margin-top:8px;">
-            ${recentLoans.length ? recentLoans.map((l) => `
-              <div style="padding:6px 0;border-top:1px solid #222;">
-                <span class="muted">${l.start_date} | ${l.status} | Balance ${money(l.principal_outstanding)} | Original ${money(l.principal_original)}</span>
-              </div>
-            `).join("") : `<span class="muted">No loans yet.</span>`}
-          </div>
-          <div class="muted" style="margin-top:8px;">Click to open borrower details.</div>
-        `, `data-workflow-borrower-card="1" data-borrower-id="${b.borrower_id}" class="clickable"`);
-      }).join("")
-    : "No borrowers yet.";
-
-  document.querySelectorAll("[data-workflow-borrower-card]").forEach((el) => {
-    el.onclick = () => openBorrowerDetailsLite(el.dataset.borrowerId);
-  });
-}
-
-async function renderLoansByLoan() {
-  const { data, error } = await supabase
-    .from("loans")
-    .select("id, start_date, principal_original, principal_outstanding, status, borrowers(full_name)")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-
-  qs("loanList").innerHTML = (data ?? []).length
-    ? data.map((l) => card(`
-        <strong>${l.borrowers?.full_name ?? "Unknown"}</strong><br>
-        <span class="muted">Start: ${l.start_date} | ${l.status}</span><br>
-        <span class="muted">Original: ${money(l.principal_original)} | Balance: ${money(l.principal_outstanding)}</span>
-        <div class="muted" style="margin-top:8px;">Use borrower view for grouped details, or reopen this page after a hard refresh to use the original loan cards.</div>
-      `, `data-loan-id="${l.id}"`)).join("")
-    : "No loans yet.";
-}
-
-async function openBorrowerDetailsLite(borrowerId) {
-  const [borrowerRes, loansRes, paymentsRes] = await Promise.all([
-    supabase.from("borrowers").select("*").eq("id", borrowerId).single(),
-    supabase.from("loans").select("id, start_date, principal_original, principal_outstanding, status").eq("borrower_id", borrowerId).order("created_at", { ascending: false }),
-    supabase.from("payments").select("paid_on, amount, applied_interest, applied_principal, is_voided, notes").eq("borrower_id", borrowerId).order("paid_on", { ascending: false }),
-  ]);
-
-  if (borrowerRes.error) return alert(borrowerRes.error.message);
-  if (loansRes.error) return alert(loansRes.error.message);
-  if (paymentsRes.error) return alert(paymentsRes.error.message);
-
-  const borrower = borrowerRes.data;
-  const loans = loansRes.data ?? [];
-  const payments = paymentsRes.data ?? [];
-  const totalBorrowed = loans.reduce((sum, l) => sum + Number(l.principal_original || 0), 0);
-  const totalOutstanding = loans.reduce((sum, l) => sum + Number(l.principal_outstanding || 0), 0);
-  const totalPaid = payments.filter((p) => !p.is_voided).reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  qs("borrowerDetailsHeader").innerHTML = `
-    <div><strong>Name:</strong> ${borrower.full_name}</div>
-    <div><strong>Phone:</strong> ${borrower.phone ?? "—"}</div>
-    <div><strong>Notes:</strong> ${borrower.notes ?? "—"}</div>
-    <div><strong>Total Borrowed:</strong> ${money(totalBorrowed)}</div>
-    <div><strong>Total Outstanding:</strong> ${money(totalOutstanding)}</div>
-    <div><strong>Total Paid:</strong> ${money(totalPaid)}</div>
-  `;
-
-  qs("borrowerDetailsLoans").innerHTML = loans.length
-    ? loans.map((l) => card(`<strong>${l.start_date}</strong><br><span class="muted">${l.status} | Original ${money(l.principal_original)} | Balance ${money(l.principal_outstanding)}</span>`)).join("")
-    : "No loans yet.";
-
-  qs("borrowerDetailsPayments").innerHTML = payments.length
-    ? payments.map((p) => card(`<strong>${p.paid_on}</strong> — ${money(p.amount)} ${p.is_voided ? "VOIDED" : ""}<br><span class="muted">Interest ${money(p.applied_interest)} | Principal ${money(p.applied_principal)} ${p.notes ? `| ${p.notes}` : ""}</span>`)).join("")
-    : "No payments yet.";
-
-  document.querySelectorAll(".page").forEach((p) => p.classList.remove("active-page"));
-  qs("borrowerDetailsPage")?.classList.add("active-page");
-}
-
 async function renderPartnersPage({ force = false } = {}) {
   if (!activePage("partnersPage") || !qs("partnersPage") || partnersRenderInFlight) return;
   const page = qs("partnersPage");
@@ -351,12 +211,9 @@ async function renderPartnersPage({ force = false } = {}) {
 async function refreshWorkflowEnhancements() {
   try {
     ensureStyles();
+    removeDuplicateLoanViewCard();
     ensureDefaultsSaveHandler();
     await refreshDefaultsUI();
-    if (activePage("loansPage")) {
-      ensureLoanViewToggle();
-      await renderLoanView();
-    }
     if (activePage("partnersPage")) await renderPartnersPage();
   } catch (error) {
     console.error(error);
