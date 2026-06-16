@@ -14,17 +14,18 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const qs = (id) => document.getElementById(id);
-const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 let currentLoanId = null;
 let currentProfile = null;
 let adminRefreshTimer = null;
+let profilesRefreshInFlight = false;
+let loanEditInFlight = false;
 
 function activePage(id) {
   return qs(id)?.classList.contains("active-page");
 }
 
 function card(html) {
-  return `<div class="compact-card" style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:10px;margin:8px 0;box-sizing:border-box;">${html}</div>`;
+  return `<div class="compact-card" style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:10px;margin:8px 0;box-sizing:border-box;max-width:100%;">${html}</div>`;
 }
 
 function ensureStyles() {
@@ -38,17 +39,25 @@ function ensureStyles() {
     .admin-danger { background:#7a2b2b !important; }
     .admin-muted-btn { background:#333 !important; }
     .admin-mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .admin-profile-card input,
+    .admin-profile-card select,
+    #loanEditBox input,
+    #loanEditBox select { box-sizing:border-box; max-width:100%; }
     @media (max-width: 650px) { .admin-mini-grid { grid-template-columns:1fr; } }
   `;
   document.head.appendChild(style);
 }
 
-async function getMyProfile() {
-  if (currentProfile) return currentProfile;
+async function getMyProfile(force = false) {
+  if (currentProfile && !force) return currentProfile;
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
   if (!user) return null;
-  const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
   currentProfile = data;
   return data;
 }
@@ -81,11 +90,14 @@ function ensureAdminMenuItems() {
     const btn = document.createElement("button");
     btn.id = "menuProfiles";
     btn.className = "menu-link admin-tools-button";
+    btn.dataset.page = "profilesPage";
     btn.textContent = "Profiles / Users";
-    btn.onclick = async () => {
+    btn.onclick = async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       ensurePage("profilesPage", "Profiles / Users");
       openPage("profilesPage");
-      await refreshProfilesPage();
+      await refreshProfilesPage({ force: true });
     };
     const defaultsBtn = sideMenu.querySelector('[data-page="defaultsPage"]');
     sideMenu.insertBefore(btn, defaultsBtn || null);
@@ -95,11 +107,14 @@ function ensureAdminMenuItems() {
     const btn = document.createElement("button");
     btn.id = "menuReports";
     btn.className = "menu-link admin-tools-button";
+    btn.dataset.page = "reportsPage";
     btn.textContent = "Reports / Export";
-    btn.onclick = async () => {
+    btn.onclick = async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       ensurePage("reportsPage", "Reports / Export");
       openPage("reportsPage");
-      await refreshReportsPage();
+      await refreshReportsPage({ force: true });
     };
     const defaultsBtn = sideMenu.querySelector('[data-page="defaultsPage"]');
     sideMenu.insertBefore(btn, defaultsBtn || null);
@@ -109,11 +124,14 @@ function ensureAdminMenuItems() {
     const btn = document.createElement("button");
     btn.id = "menuMaintenance";
     btn.className = "menu-link admin-tools-button";
+    btn.dataset.page = "maintenancePage";
     btn.textContent = "Maintenance";
-    btn.onclick = async () => {
+    btn.onclick = async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       ensurePage("maintenancePage", "Maintenance");
       openPage("maintenancePage");
-      await refreshMaintenancePage();
+      await refreshMaintenancePage({ force: true });
     };
     sideMenu.appendChild(btn);
   }
@@ -124,101 +142,125 @@ document.addEventListener("click", (event) => {
   if (loanCard?.dataset?.loanId) currentLoanId = loanCard.dataset.loanId;
 });
 
-async function refreshProfilesPage() {
-  const profile = await getMyProfile();
+async function refreshProfilesPage({ force = false } = {}) {
   const content = qs("profilesPageContent");
-  if (!content) return;
+  if (!content || profilesRefreshInFlight) return;
 
-  const { data, error } = await supabase.from("profiles").select("user_id, full_name, role, created_at").order("created_at", { ascending: true });
-  if (error) throw error;
+  // This is the important fix: do not rebuild the form while someone is typing/clicking.
+  if (!force && content.dataset.loaded === "true") return;
 
-  content.innerHTML = `
-    ${profile?.role !== "ADMIN" ? `<div style="color:#ffd27a;">Only Admin can edit profile roles.</div>` : ""}
-    ${(data ?? []).map((p) => card(`
-      <div style="font-weight:800;">${p.full_name || "Unnamed"}</div>
-      <div class="muted">${p.user_id}</div>
-      <div class="admin-mini-grid" style="margin-top:8px;">
-        <input data-profile-name="${p.user_id}" value="${p.full_name || ""}" placeholder="Display name" ${profile?.role === "ADMIN" ? "" : "disabled"} />
-        <select data-profile-role="${p.user_id}" ${profile?.role === "ADMIN" ? "" : "disabled"}>
-          ${["ADMIN", "AGENT", "PARTNER"].map((role) => `<option value="${role}" ${p.role === role ? "selected" : ""}>${role}</option>`).join("")}
-        </select>
-      </div>
-      ${profile?.role === "ADMIN" ? `<button class="admin-tools-button" data-save-profile="${p.user_id}" type="button">Save Profile</button>` : ""}
-    `)).join("") || "No profiles found."}
-  `;
+  const active = document.activeElement;
+  if (!force && active && active.closest?.("#profilesPage")) return;
 
-  document.querySelectorAll("[data-save-profile]").forEach((btn) => {
-    btn.onclick = async () => {
-      const userId = btn.dataset.saveProfile;
-      const fullName = document.querySelector(`[data-profile-name="${userId}"]`)?.value || "";
-      const role = document.querySelector(`[data-profile-role="${userId}"]`)?.value || "PARTNER";
-      const { error } = await supabase.rpc("update_profile_admin", {
-        p_user_id: userId,
-        p_full_name: fullName,
-        p_role: role,
-      });
-      if (error) return alert(error.message);
-      currentProfile = null;
-      await refreshProfilesPage();
-      alert("Profile updated.");
-    };
-  });
+  profilesRefreshInFlight = true;
+  try {
+    const profile = await getMyProfile();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, role, created_at")
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    content.dataset.loaded = "true";
+    content.innerHTML = `
+      ${profile?.role !== "ADMIN" ? `<div style="color:#ffd27a;">Only Admin can edit profile roles.</div>` : ""}
+      ${(data ?? []).map((p) => card(`
+        <div class="admin-profile-card" data-profile-card="${p.user_id}">
+          <div style="font-weight:800;">${p.full_name || "Unnamed"}</div>
+          <div class="muted">${p.user_id}</div>
+          <div class="admin-mini-grid" style="margin-top:8px;">
+            <input data-profile-name="${p.user_id}" value="${p.full_name || ""}" placeholder="Display name" ${profile?.role === "ADMIN" ? "" : "disabled"} />
+            <select data-profile-role="${p.user_id}" ${profile?.role === "ADMIN" ? "" : "disabled"}>
+              ${["ADMIN", "AGENT", "PARTNER"].map((role) => `<option value="${role}" ${p.role === role ? "selected" : ""}>${role}</option>`).join("")}
+            </select>
+          </div>
+          ${profile?.role === "ADMIN" ? `<button class="admin-tools-button" data-save-profile="${p.user_id}" type="button">Save Profile</button>` : ""}
+        </div>
+      `)).join("") || "No profiles found."}
+    `;
+
+    document.querySelectorAll("[data-save-profile]").forEach((btn) => {
+      btn.onclick = async () => {
+        const userId = btn.dataset.saveProfile;
+        const fullName = document.querySelector(`[data-profile-name="${userId}"]`)?.value || "";
+        const role = document.querySelector(`[data-profile-role="${userId}"]`)?.value || "PARTNER";
+        const { error } = await supabase.rpc("update_profile_admin", {
+          p_user_id: userId,
+          p_full_name: fullName,
+          p_role: role,
+        });
+        if (error) return alert(error.message);
+        currentProfile = null;
+        content.dataset.loaded = "";
+        await refreshProfilesPage({ force: true });
+        alert("Profile updated.");
+      };
+    });
+  } finally {
+    profilesRefreshInFlight = false;
+  }
 }
 
 async function injectLoanEdit() {
-  if (!activePage("loanDetailsPage") || !currentLoanId || qs("loanEditBox")) return;
+  if (!activePage("loanDetailsPage") || !currentLoanId || qs("loanEditBox") || loanEditInFlight) return;
   const header = qs("loanDetailsHeader");
   if (!header) return;
 
-  const profile = await getMyProfile();
-  if (!profile || !["ADMIN", "AGENT"].includes(profile.role)) return;
+  loanEditInFlight = true;
+  try {
+    const profile = await getMyProfile();
+    if (!profile || !["ADMIN", "AGENT"].includes(profile.role)) return;
 
-  const { data: loan, error } = await supabase
-    .from("loans")
-    .select("id, start_date, principal_original, principal_outstanding, monthly_rate_total, monthly_rate_mgmt, status")
-    .eq("id", currentLoanId)
-    .single();
-  if (error) return;
+    const { data: loan, error } = await supabase
+      .from("loans")
+      .select("id, start_date, principal_original, principal_outstanding, monthly_rate_total, monthly_rate_mgmt, status")
+      .eq("id", currentLoanId)
+      .single();
+    if (error) return;
 
-  const box = document.createElement("div");
-  box.id = "loanEditBox";
-  box.className = "compact-card";
-  box.style.background = "#0f0f11";
-  box.style.border = "1px solid #2a2a2e";
-  box.style.borderRadius = "12px";
-  box.style.padding = "10px";
-  box.style.marginTop = "12px";
-  box.style.boxSizing = "border-box";
-  box.innerHTML = `
-    <div style="font-weight:800;">Edit Loan</div>
-    <div class="muted">This edits loan-level info. Existing due rows keep their historical expected amounts.</div>
-    <div class="admin-mini-grid" style="margin-top:8px;">
-      <input id="editLoanStartDate" type="date" value="${loan.start_date || ""}" />
-      <select id="editLoanStatus">
-        ${["ACTIVE", "PAUSED", "DEFAULTED", "PAID_OFF"].map((s) => `<option value="${s}" ${loan.status === s ? "selected" : ""}>${s}</option>`).join("")}
-      </select>
-      <input id="editLoanOriginal" type="number" step="0.01" value="${Number(loan.principal_original || 0).toFixed(2)}" placeholder="Original principal" />
-      <input id="editLoanOutstanding" type="number" step="0.01" value="${Number(loan.principal_outstanding || 0).toFixed(2)}" placeholder="Outstanding principal" />
-      <input id="editLoanTotalRate" type="number" step="0.01" value="${(Number(loan.monthly_rate_total || 0) * 100).toFixed(2)}" placeholder="Total monthly interest %" />
-      <input id="editLoanMgmtRate" type="number" step="0.01" value="${(Number(loan.monthly_rate_mgmt || 0) * 100).toFixed(2)}" placeholder="Management share %" />
-    </div>
-    <button id="btnSaveLoanEdit" class="admin-tools-button" type="button">Save Loan Changes</button>
-  `;
-  header.appendChild(box);
+    const box = document.createElement("div");
+    box.id = "loanEditBox";
+    box.className = "compact-card";
+    box.style.background = "#0f0f11";
+    box.style.border = "1px solid #2a2a2e";
+    box.style.borderRadius = "12px";
+    box.style.padding = "10px";
+    box.style.marginTop = "12px";
+    box.style.boxSizing = "border-box";
+    box.innerHTML = `
+      <div style="font-weight:800;">Edit Loan</div>
+      <div class="muted">This edits loan-level info. Existing due rows keep their historical expected amounts.</div>
+      <div class="admin-mini-grid" style="margin-top:8px;">
+        <input id="editLoanStartDate" type="date" value="${loan.start_date || ""}" />
+        <select id="editLoanStatus">
+          ${["ACTIVE", "PAUSED", "DEFAULTED", "PAID_OFF"].map((s) => `<option value="${s}" ${loan.status === s ? "selected" : ""}>${s}</option>`).join("")}
+        </select>
+        <input id="editLoanOriginal" type="number" step="0.01" value="${Number(loan.principal_original || 0).toFixed(2)}" placeholder="Original principal" />
+        <input id="editLoanOutstanding" type="number" step="0.01" value="${Number(loan.principal_outstanding || 0).toFixed(2)}" placeholder="Outstanding principal" />
+        <input id="editLoanTotalRate" type="number" step="0.01" value="${(Number(loan.monthly_rate_total || 0) * 100).toFixed(2)}" placeholder="Total monthly interest %" />
+        <input id="editLoanMgmtRate" type="number" step="0.01" value="${(Number(loan.monthly_rate_mgmt || 0) * 100).toFixed(2)}" placeholder="Management share %" />
+      </div>
+      <button id="btnSaveLoanEdit" class="admin-tools-button" type="button">Save Loan Changes</button>
+    `;
+    header.appendChild(box);
 
-  qs("btnSaveLoanEdit").onclick = async () => {
-    const { error: updateErr } = await supabase.rpc("update_loan_details", {
-      p_loan_id: currentLoanId,
-      p_start_date: qs("editLoanStartDate").value,
-      p_principal_original: Number(qs("editLoanOriginal").value),
-      p_principal_outstanding: Number(qs("editLoanOutstanding").value),
-      p_monthly_rate_total: Number(qs("editLoanTotalRate").value) / 100,
-      p_monthly_rate_mgmt: Number(qs("editLoanMgmtRate").value) / 100,
-      p_status: qs("editLoanStatus").value,
-    });
-    if (updateErr) return alert(updateErr.message);
-    alert("Loan updated. Reopen the loan to refresh all details.");
-  };
+    qs("btnSaveLoanEdit").onclick = async () => {
+      const { error: updateErr } = await supabase.rpc("update_loan_details", {
+        p_loan_id: currentLoanId,
+        p_start_date: qs("editLoanStartDate").value,
+        p_principal_original: Number(qs("editLoanOriginal").value),
+        p_principal_outstanding: Number(qs("editLoanOutstanding").value),
+        p_monthly_rate_total: Number(qs("editLoanTotalRate").value) / 100,
+        p_monthly_rate_mgmt: Number(qs("editLoanMgmtRate").value) / 100,
+        p_status: qs("editLoanStatus").value,
+      });
+      if (updateErr) return alert(updateErr.message);
+      alert("Loan updated. Reopen the loan to refresh all details.");
+    };
+  } finally {
+    loanEditInFlight = false;
+  }
 }
 
 function toCsv(rows) {
@@ -252,9 +294,11 @@ async function exportView(viewName, filename) {
   downloadCsv(filename, data ?? []);
 }
 
-async function refreshReportsPage() {
+async function refreshReportsPage({ force = false } = {}) {
   const content = qs("reportsPageContent");
   if (!content) return;
+  if (!force && content.dataset.loaded === "true") return;
+  content.dataset.loaded = "true";
   content.innerHTML = `
     <div class="card">
       <div style="font-weight:800;">Export CSV Reports</div>
@@ -272,10 +316,12 @@ async function refreshReportsPage() {
   qs("btnExportPartners").onclick = () => exportView("partner_earnings_summary", "loan-ledger-partner-earnings.csv");
 }
 
-async function refreshMaintenancePage() {
-  const profile = await getMyProfile();
+async function refreshMaintenancePage({ force = false } = {}) {
   const content = qs("maintenancePageContent");
   if (!content) return;
+  if (!force && content.dataset.loaded === "true") return;
+  const profile = await getMyProfile();
+  content.dataset.loaded = "true";
 
   content.innerHTML = `
     <div class="card">
@@ -303,9 +349,9 @@ async function refreshVisibleAdminTools() {
   try {
     ensureStyles();
     ensureAdminMenuItems();
-    if (activePage("profilesPage")) await refreshProfilesPage();
-    if (activePage("reportsPage")) await refreshReportsPage();
-    if (activePage("maintenancePage")) await refreshMaintenancePage();
+    if (activePage("profilesPage") && qs("profilesPageContent")?.dataset.loaded !== "true") await refreshProfilesPage();
+    if (activePage("reportsPage") && qs("reportsPageContent")?.dataset.loaded !== "true") await refreshReportsPage();
+    if (activePage("maintenancePage") && qs("maintenancePageContent")?.dataset.loaded !== "true") await refreshMaintenancePage();
     if (activePage("loanDetailsPage")) await injectLoanEdit();
   } catch (error) {
     console.error(error);
