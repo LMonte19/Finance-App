@@ -19,7 +19,6 @@ const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
 let paymentFilter = localStorage.getItem("loanLedger.paymentFilter") || "active";
 let paymentBusy = false;
-let activePaymentId = null;
 let detailOpen = false;
 let timer = null;
 let lastRenderedPaymentHtml = "";
@@ -104,7 +103,6 @@ function setFilter(next) {
   paymentFilter = next;
   localStorage.setItem("loanLedger.paymentFilter", next);
   detailOpen = false;
-  activePaymentId = null;
   lastRenderedPaymentHtml = "";
   renderPayments(true);
 }
@@ -171,7 +169,6 @@ async function renderPayments(force = false) {
 
     qs("paymentList").dataset.paymentStamp = stamp;
 
-    // Avoid repaint flicker: only touch innerHTML when the actual content changed.
     if (force || nextHtml !== lastRenderedPaymentHtml) {
       qs("paymentList").innerHTML = nextHtml;
       lastRenderedPaymentHtml = nextHtml;
@@ -188,8 +185,51 @@ async function renderPayments(force = false) {
   }
 }
 
+async function loadPaymentApplications(paymentId) {
+  const { data: apps, error: appsErr } = await supabase
+    .from("payment_due_applications")
+    .select("loan_due_event_id, applied_total, applied_mgmt, applied_funders")
+    .eq("payment_id", paymentId);
+
+  if (appsErr) throw appsErr;
+
+  const dueIds = [...new Set((apps || []).map((a) => a.loan_due_event_id).filter(Boolean))];
+  if (!dueIds.length) return [];
+
+  const { data: dueRows, error: dueErr } = await supabase
+    .from("loan_due_events")
+    .select("id, due_date, status")
+    .in("id", dueIds);
+
+  if (dueErr) throw dueErr;
+
+  const dueMap = Object.fromEntries((dueRows || []).map((d) => [d.id, d]));
+  return (apps || []).map((a) => ({ ...a, due: dueMap[a.loan_due_event_id] || null }));
+}
+
+async function loadPaymentAllocations(paymentId) {
+  const { data: allocations, error: allocationErr } = await supabase
+    .from("payment_allocations")
+    .select("allocation_type, amount, partner_user_id")
+    .eq("payment_id", paymentId);
+
+  if (allocationErr) throw allocationErr;
+
+  const partnerIds = [...new Set((allocations || []).map((a) => a.partner_user_id).filter(Boolean))];
+  if (!partnerIds.length) return [];
+
+  const { data: profiles, error: profileErr } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, role")
+    .in("user_id", partnerIds);
+
+  if (profileErr) throw profileErr;
+
+  const profileMap = Object.fromEntries((profiles || []).map((p) => [p.user_id, p]));
+  return (allocations || []).map((a) => ({ ...a, profile: profileMap[a.partner_user_id] || null }));
+}
+
 async function openPaymentDetails(paymentId) {
-  activePaymentId = paymentId;
   detailOpen = true;
 
   const list = qs("paymentList");
@@ -197,19 +237,15 @@ async function openPaymentDetails(paymentId) {
   list.innerHTML = card(`<strong>Payment Details</strong><br><span class="muted">Loading...</span>`);
 
   try {
-    const [paymentRes, applicationsRes, allocationsRes] = await Promise.all([
+    const [paymentRes, apps, allocations] = await Promise.all([
       supabase.from("payment_detail_view").select("*").eq("id", paymentId).single(),
-      supabase.from("payment_due_applications").select("applied_total, applied_mgmt, applied_funders, loan_due_events(due_date, status)").eq("payment_id", paymentId),
-      supabase.from("payment_allocations").select("allocation_type, amount, profiles(full_name, role)").eq("payment_id", paymentId),
+      loadPaymentApplications(paymentId),
+      loadPaymentAllocations(paymentId),
     ]);
 
     if (paymentRes.error) throw paymentRes.error;
-    if (applicationsRes.error) throw applicationsRes.error;
-    if (allocationsRes.error) throw allocationsRes.error;
 
     const p = paymentRes.data;
-    const apps = applicationsRes.data || [];
-    const allocations = allocationsRes.data || [];
 
     list.innerHTML = `
       <div class="card">
@@ -234,16 +270,16 @@ async function openPaymentDetails(paymentId) {
       <div class="card">
         <div style="font-weight:800;">Due Events Paid</div>
         ${apps.length ? apps.map((a) => card(`
-          <strong>${a.loan_due_events?.due_date || "Due event"}</strong><br>
-          <span class="muted">Total: ${money(a.applied_total)} | Mgmt: ${money(a.applied_mgmt)} | Funders: ${money(a.applied_funders)} | ${a.loan_due_events?.status || "—"}</span>
+          <strong>${a.due?.due_date || "Due event"}</strong><br>
+          <span class="muted">Total: ${money(a.applied_total)} | Mgmt: ${money(a.applied_mgmt)} | Funders: ${money(a.applied_funders)} | ${a.due?.status || "—"}</span>
         `)).join("") : "No due-event applications. This may have gone fully to principal or be an older payment."}
       </div>
 
       <div class="card">
         <div style="font-weight:800;">Partner Allocations</div>
         ${allocations.length ? allocations.map((a) => card(`
-          <strong>${a.profiles?.full_name || "Unknown"}</strong> — ${money(a.amount)}<br>
-          <span class="muted">${a.allocation_type} | ${a.profiles?.role || "—"}</span>
+          <strong>${a.profile?.full_name || "Unknown"}</strong> — ${money(a.amount)}<br>
+          <span class="muted">${a.allocation_type} | ${a.profile?.role || "—"}</span>
         `)).join("") : "No allocations."}
       </div>
 
@@ -256,7 +292,6 @@ async function openPaymentDetails(paymentId) {
 
     qs("btnBackToPayments").onclick = () => {
       detailOpen = false;
-      activePaymentId = null;
       lastRenderedPaymentHtml = "";
       renderPayments(true);
     };
@@ -296,7 +331,6 @@ async function openPaymentDetails(paymentId) {
     list.innerHTML = card(`<strong>Payment Details</strong><br><span class="muted">${error.message || String(error)}</span><br><button id="btnBackToPayments" type="button">Back</button>`);
     qs("btnBackToPayments").onclick = () => {
       detailOpen = false;
-      activePaymentId = null;
       lastRenderedPaymentHtml = "";
       renderPayments(true);
     };
