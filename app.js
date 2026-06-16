@@ -56,6 +56,7 @@ function openPage(targetId) {
   if (matchingTab) matchingTab.classList.add("active");
   qs(targetId)?.classList.add("active-page");
   closeMenu();
+  if (targetId === "partnersPage") safe(refreshPartners)();
 }
 
 function initTabs() {
@@ -99,14 +100,12 @@ function initLoanViewToggle() {
   const byBorrower = qs("btnLoansByBorrower");
   const byLoan = qs("btnLoansByLoan");
   if (!byBorrower || !byLoan) return;
-
   byBorrower.onclick = safe(async () => {
     currentLoanView = "borrower";
     byBorrower.classList.add("active");
     byLoan.classList.remove("active");
     await refreshLoans();
   });
-
   byLoan.onclick = safe(async () => {
     currentLoanView = "loan";
     byLoan.classList.add("active");
@@ -361,6 +360,56 @@ async function refreshDashboard() {
   if (qs("dashboardLoansSnapshot")) qs("dashboardLoansSnapshot").innerHTML = overdue.length ? overdue.map((l) => `• ${l.borrowers?.full_name ?? "Unknown"} — Overdue ${money(amountDue(l.nextDue))} <span class="muted">(Due ${l.nextDue.due_date})</span>`).join("<br>") : "No overdue loans.";
 }
 
+async function refreshPartners() {
+  const page = qs("partnersPage");
+  if (!page) return;
+
+  const [{ data: summary, error: summaryErr }, { data: allocations, error: allocationErr }] = await Promise.all([
+    supabase.from("partner_earnings_summary").select("*").order("total_earned", { ascending: false }),
+    supabase.from("payment_allocations").select("id, payment_id, allocation_type, partner_user_id, amount, created_at").order("created_at", { ascending: false }).limit(20),
+  ]);
+  if (summaryErr) throw summaryErr;
+  if (allocationErr) throw allocationErr;
+
+  const partnerMap = Object.fromEntries((summary ?? []).map((p) => [p.user_id, p.full_name]));
+  const totalEarned = (summary ?? []).reduce((sum, p) => sum + Number(p.total_earned || 0), 0);
+  const totalMgmt = (summary ?? []).reduce((sum, p) => sum + Number(p.management_earned || 0), 0);
+  const totalFunding = (summary ?? []).reduce((sum, p) => sum + Number(p.funding_earned || 0), 0);
+
+  page.innerHTML = `
+    <div class="card">
+      <div style="font-weight:800;">Partners</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total Earnings</div><div class="stat-value">${money(totalEarned)}</div></div>
+        <div class="stat-card"><div class="stat-label">Management</div><div class="stat-value">${money(totalMgmt)}</div></div>
+        <div class="stat-card"><div class="stat-label">Funding</div><div class="stat-value">${money(totalFunding)}</div></div>
+        <div class="stat-card"><div class="stat-label">Partners</div><div class="stat-value">${summary?.length ?? 0}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:800;">Earnings by Partner</div>
+      ${(summary ?? []).length ? summary.map((p) => `
+        <div class="compact-card">
+          <strong>${p.full_name}</strong> <span class="muted">${p.role}</span><br>
+          <span class="muted">Total: ${money(p.total_earned)} | Mgmt: ${money(p.management_earned)} | Funding: ${money(p.funding_earned)}</span><br>
+          <span class="muted">Allocations: ${p.allocation_count}</span>
+        </div>
+      `).join("") : "No partner earnings yet."}
+    </div>
+
+    <div class="card">
+      <div style="font-weight:800;">Recent Allocations</div>
+      ${(allocations ?? []).length ? allocations.map((a) => `
+        <div class="compact-card">
+          <strong>${partnerMap[a.partner_user_id] ?? "Unknown"}</strong> — ${money(a.amount)}<br>
+          <span class="muted">${a.allocation_type === "MANAGEMENT_FEE" ? "Management fee" : "Funder distribution"} | ${new Date(a.created_at).toLocaleString()}</span>
+        </div>
+      `).join("") : "No allocations yet. New payments will create them automatically."}
+    </div>
+  `;
+}
+
 async function refreshLoanFunding(loanId) {
   const [{ data, error }, { data: partners, error: partnersErr }] = await Promise.all([
     supabase.from("loan_funding").select("id, funding_percent, partner_user_id").eq("loan_id", loanId),
@@ -472,6 +521,7 @@ async function setSignedInUI(profile) {
   setDebug("Loading loans..."); await refreshLoans();
   setDebug("Loading payments..."); await refreshLoanDropdownForPayments(); await refreshPayments();
   setDebug("Loading defaults..."); await refreshFundingPartnerSelects(); await loadDefaultsIntoSettingsUI(); await prefillLoanDefaults(true);
+  setDebug("Loading partners..."); await refreshPartners();
   setDebug("Loading dashboard..."); await refreshDashboard();
   setDebug("");
 }
@@ -627,7 +677,7 @@ async function addPayment() {
   const { error } = await supabase.rpc("apply_payment", { p_loan_id: loan_id, p_paid_on: paid_on, p_amount: amount, p_notes: notes });
   if (error) throw error;
   qs("paymentAmount").value = ""; qs("paymentNotes").value = "";
-  await refreshLoans(); await refreshPayments(); await refreshDashboard();
+  await refreshLoans(); await refreshPayments(); await refreshPartners(); await refreshDashboard();
   alert("Payment applied.");
 }
 
