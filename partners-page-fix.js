@@ -68,8 +68,11 @@ async function renderPartners(force = false) {
   const page = qs("partnersPage");
   if (!page || !isPartnersPage() || busy) return;
 
+  // Do not let the auto-refresh timer redraw the main Partners list while a detail page is open.
+  if (page.dataset.partnerDetailOpen === "true" && !force) return;
+
   const stamp = `${Date.now() - (Date.now() % 3000)}`;
-  if (!force && page.dataset.partnersFixStamp === stamp && !page.dataset.partnerDetailOpen) return;
+  if (!force && page.dataset.partnersFixStamp === stamp) return;
 
   busy = true;
   try {
@@ -93,7 +96,7 @@ async function renderPartners(force = false) {
     const totalAllocations = rows.reduce((sum, p) => sum + p.count, 0);
 
     page.dataset.partnersFixStamp = stamp;
-    page.dataset.partnerDetailOpen = "";
+    page.dataset.partnerDetailOpen = "false";
     page.innerHTML = `
       <div class="card">
         <div style="font-weight:800;">Partners Overview</div>
@@ -223,11 +226,17 @@ async function renderPartnerDetails(partnerId) {
       </div>
     `;
 
-    qs("btnBackToPartners").onclick = () => renderPartners(true);
+    qs("btnBackToPartners").onclick = () => {
+      page.dataset.partnerDetailOpen = "false";
+      renderPartners(true);
+    };
   } catch (error) {
     console.error(error);
     page.innerHTML = `<div class="card"><strong>Partner Details</strong><br><span class="muted">${error.message || String(error)}</span><br><button id="btnBackToPartners" type="button">Back</button></div>`;
-    qs("btnBackToPartners").onclick = () => renderPartners(true);
+    qs("btnBackToPartners").onclick = () => {
+      page.dataset.partnerDetailOpen = "false";
+      renderPartners(true);
+    };
   }
 }
 
