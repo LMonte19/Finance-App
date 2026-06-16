@@ -18,8 +18,6 @@ const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 let currentBorrowerId = null;
-let paymentsIncludeVoided = false;
-let paymentRefreshInFlight = false;
 let borrowerEditInFlight = false;
 let enhancementTimer = null;
 
@@ -126,98 +124,6 @@ document.addEventListener("click", (event) => {
   const borrowerCard = event.target.closest("[data-borrower-id]");
   if (borrowerCard?.dataset?.borrowerId) currentBorrowerId = borrowerCard.dataset.borrowerId;
 });
-
-async function refreshPaymentTools(force = false) {
-  if (!activePage("paymentsPage") || !qs("paymentsPage") || !qs("paymentList")) return;
-  if (paymentRefreshInFlight) return;
-
-  const alreadyRendered = qs("paymentSummaryBox") && qs("paymentList")?.querySelector("[data-batch-payment-row]");
-  if (!force && alreadyRendered) return;
-
-  paymentRefreshInFlight = true;
-
-  try {
-    let summaryBox = qs("paymentSummaryBox");
-    if (!summaryBox) {
-      summaryBox = document.createElement("div");
-      summaryBox.id = "paymentSummaryBox";
-      qs("paymentsPage").insertBefore(summaryBox, qs("paymentsPage").firstChild.nextSibling);
-    }
-
-    const [{ data: summary, error: summaryErr }, { data: payments, error: paymentsErr }] = await Promise.all([
-      supabase.from("payment_summary").select("*").single(),
-      supabase
-        .from("payments")
-        .select("id, paid_on, amount, applied_interest, applied_mgmt, applied_funders, applied_principal, notes, is_voided, void_reason, created_at, borrowers(full_name)")
-        .order("created_at", { ascending: false })
-        .limit(50),
-    ]);
-
-    if (summaryErr) throw summaryErr;
-    if (paymentsErr) throw paymentsErr;
-
-    summaryBox.innerHTML = `
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <div style="font-weight:800;">Payment Summary</div>
-          <button id="btnToggleVoidedPayments" class="batch-action-button ${paymentsIncludeVoided ? "active" : ""}" style="width:auto;background:#333;padding:10px 12px;" type="button">
-            ${paymentsIncludeVoided ? "Hide Voided" : "Show Voided"}
-          </button>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value">${money(summary.total_collected)}</div></div>
-          <div class="stat-card"><div class="stat-label">Interest</div><div class="stat-value">${money(summary.interest_collected)}</div></div>
-          <div class="stat-card"><div class="stat-label">Management</div><div class="stat-value">${money(summary.management_collected)}</div></div>
-          <div class="stat-card"><div class="stat-label">Principal</div><div class="stat-value">${money(summary.principal_collected)}</div></div>
-        </div>
-        <div class="muted" style="margin-top:8px;">Active payments: ${summary.payment_count} | Voided: ${summary.voided_count}</div>
-      </div>
-    `;
-
-    qs("btnToggleVoidedPayments").onclick = async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      paymentsIncludeVoided = !paymentsIncludeVoided;
-      await refreshPaymentTools(true);
-    };
-
-    const visiblePayments = paymentsIncludeVoided ? payments : payments.filter((p) => !p.is_voided);
-
-    qs("paymentList").innerHTML = visiblePayments.length ? visiblePayments.map((p) => {
-      const status = p.is_voided ? `<span style="color:#ff8b8b;">VOIDED</span>` : `<span style="color:#9ee59e;">ACTIVE</span>`;
-      const voidButton = !p.is_voided ? `<button data-void-payment-id="${p.id}" class="batch-action-button batch-danger-button" type="button">Void Payment</button>` : "";
-      return compactCard(`
-        <strong>${p.borrowers?.full_name ?? "Unknown"}</strong> — ${money(p.amount)} ${status}<br>
-        <span class="muted">${p.paid_on} | Interest ${money(p.applied_interest)} | Mgmt ${money(p.applied_mgmt)} | Funders ${money(p.applied_funders)} | Principal ${money(p.applied_principal)}</span>
-        ${p.notes ? `<br><span class="muted">${p.notes}</span>` : ""}
-        ${p.is_voided && p.void_reason ? `<br><span class="muted">Void reason: ${p.void_reason}</span>` : ""}
-        ${voidButton}
-      `, `data-batch-payment-row="1"`);
-    }).join("") : "No payments to show.";
-
-    document.querySelectorAll("[data-void-payment-id]").forEach((btn) => {
-      btn.onclick = async () => {
-        const reason = prompt("Why are you voiding this payment?", "Correction");
-        if (reason === null) return;
-        if (!confirm("Void this payment? This will reverse due-event payments, principal changes, and partner allocations when the payment has tracking rows.")) return;
-
-        const { error } = await supabase.rpc("void_payment", {
-          p_payment_id: btn.dataset.voidPaymentId,
-          p_reason: reason || "Correction",
-        });
-        if (error) {
-          alert(error.message);
-          return;
-        }
-        await refreshPaymentTools(true);
-        await refreshDueOverduePage();
-        alert("Payment voided.");
-      };
-    });
-  } finally {
-    paymentRefreshInFlight = false;
-  }
-}
 
 async function refreshDueOverduePage() {
   const page = ensurePage("dueOverduePage", "Due / Overdue");
@@ -335,11 +241,8 @@ async function refreshVisibleEnhancements() {
     ensureMenuItem();
     ensureFilters();
 
-    if (activePage("paymentsPage")) {
-      const needsPaymentRender = !qs("paymentSummaryBox") || !qs("paymentList")?.querySelector("[data-batch-payment-row]");
-      if (needsPaymentRender) await refreshPaymentTools(false);
-    }
-
+    // Payments are now owned by payment-management.js.
+    // This file only keeps the search box, Due/Overdue page, and borrower edit helper.
     if (activePage("dueOverduePage")) await refreshDueOverduePage();
     if (activePage("borrowerDetailsPage")) await injectBorrowerEdit();
   } catch (error) {
