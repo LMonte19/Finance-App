@@ -1,1 +1,0 @@
-This temporary file checks whether ChatGPT can write to this repository.
