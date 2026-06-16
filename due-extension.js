@@ -1,8 +1,7 @@
-import "./workflow-tools.js?v=2";
 import "./admin-tools.js?v=1";
 import "./batch-tools.js?v=1";
 import "./menu-page-fix.js?v=1";
-import "./loan-view-fix.js?v=1";
+import "./loan-view-fix.js?v=2";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
