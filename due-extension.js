@@ -10,3 +10,4 @@ import './activity-log.js?v=2';
 import './ui-stability-fixes.js?v=1';
 import './followups.js?v=1';
 import './loan-health.js?v=1';
+import './dashboard-command.js?v=1';
