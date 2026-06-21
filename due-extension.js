@@ -6,3 +6,4 @@ import "./partners-page-fix.js?v=4";
 import "./settings-validation-fix.js?v=1";
 import "./loan-actions.js?v=1";
 import "./payment-management.js?v=3";
+import "./activity-log.js?v=1";
