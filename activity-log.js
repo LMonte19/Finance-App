@@ -61,47 +61,57 @@ function openPage(id) {
   qs("menuOverlay")?.classList.remove("open");
 }
 
+function activityPageHtml() {
+  return `
+    <div class="card">
+      <div style="font-weight:800;">Activity / History</div>
+      <div class="muted">Shows edits, voids, status changes, settings changes, and other tracked actions.</div>
+
+      <div class="row" style="margin-top:10px;">
+        <select id="activityFilterAction"><option value="">All actions</option></select>
+        <select id="activityFilterTable">
+          <option value="">All sections</option>
+          <option value="borrowers">Borrowers</option>
+          <option value="loans">Loans</option>
+          <option value="payments">Payments</option>
+          <option value="loan_funding">Funding Splits</option>
+          <option value="default_funding_splits">Default Splits</option>
+          <option value="app_settings">Settings</option>
+          <option value="profiles">Profiles</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <input id="activitySearch" placeholder="Search user, borrower, action, summary..." />
+        <button id="btnRefreshActivity" type="button">Refresh</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="font-weight:800;">Recent Activity</div>
+        <span class="pill" id="activityCountPill">0</span>
+      </div>
+      <div id="activityList" class="muted">Loading...</div>
+    </div>
+  `;
+}
+
 function ensureActivityPage() {
-  if (!qs("activityPage")) {
-    const app = qs("app");
-    if (!app) return;
-    const page = document.createElement("div");
+  const app = qs("app");
+  if (!app) return null;
+
+  let page = qs("activityPage");
+  if (!page) {
+    page = document.createElement("div");
     page.id = "activityPage";
     page.className = "page";
-    page.innerHTML = `
-      <div class="card">
-        <div style="font-weight:800;">Activity / History</div>
-        <div class="muted">Shows edits, voids, status changes, settings changes, and other tracked actions.</div>
-
-        <div class="row" style="margin-top:10px;">
-          <select id="activityFilterAction"><option value="">All actions</option></select>
-          <select id="activityFilterTable">
-            <option value="">All sections</option>
-            <option value="borrowers">Borrowers</option>
-            <option value="loans">Loans</option>
-            <option value="payments">Payments</option>
-            <option value="loan_funding">Funding Splits</option>
-            <option value="default_funding_splits">Default Splits</option>
-            <option value="app_settings">Settings</option>
-            <option value="profiles">Profiles</option>
-          </select>
-        </div>
-
-        <div class="row">
-          <input id="activitySearch" placeholder="Search user, borrower, action, summary..." />
-          <button id="btnRefreshActivity" type="button">Refresh</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <div style="font-weight:800;">Recent Activity</div>
-          <span class="pill" id="activityCountPill">0</span>
-        </div>
-        <div id="activityList" class="muted">Loading...</div>
-      </div>
-    `;
     app.appendChild(page);
+  }
+
+  // Repair blank/generic versions created by older helper scripts.
+  if (!qs("activityList") || !qs("activityFilterAction")) {
+    page.innerHTML = activityPageHtml();
   }
 
   const sideMenu = qs("sideMenu");
@@ -109,11 +119,8 @@ function ensureActivityPage() {
     const btn = document.createElement("button");
     btn.id = "menuActivity";
     btn.className = "menu-link";
+    btn.dataset.page = "activityPage";
     btn.textContent = "Activity / History";
-    btn.onclick = () => {
-      openPage("activityPage");
-      renderActivity(true);
-    };
 
     const reportsBtn = qs("menuReports");
     const defaultsBtn = sideMenu.querySelector('[data-page="defaultsPage"]');
@@ -121,21 +128,38 @@ function ensureActivityPage() {
     else sideMenu.insertBefore(btn, defaultsBtn || null);
   }
 
-  if (qs("btnRefreshActivity") && !qs("btnRefreshActivity").dataset.bound) {
+  const menuBtn = qs("menuActivity");
+  if (menuBtn && menuBtn.dataset.activityBound !== "true") {
+    menuBtn.dataset.activityBound = "true";
+    menuBtn.dataset.page = "activityPage";
+    menuBtn.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      ensureActivityPage();
+      openPage("activityPage");
+      renderActivity(true);
+    };
+  }
+
+  if (qs("btnRefreshActivity") && qs("btnRefreshActivity").dataset.bound !== "true") {
     qs("btnRefreshActivity").dataset.bound = "true";
     qs("btnRefreshActivity").onclick = () => renderActivity(true);
     qs("activitySearch").oninput = () => renderActivity(false, true);
     qs("activityFilterAction").onchange = () => renderActivity(true);
     qs("activityFilterTable").onchange = () => renderActivity(true);
   }
+
+  return page;
 }
 
 async function populateActionFilter(rows) {
   const sel = qs("activityFilterAction");
   if (!sel || sel.dataset.loaded === "true") return;
 
+  const current = sel.value || "";
   const actions = [...new Set(rows.map((r) => r.action_type).filter(Boolean))].sort();
   sel.innerHTML = `<option value="">All actions</option>${actions.map((a) => `<option value="${a}">${prettyAction(a)}</option>`).join("")}`;
+  sel.value = current;
   sel.dataset.loaded = "true";
 }
 
