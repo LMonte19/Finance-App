@@ -8,3 +8,4 @@ import './loan-actions.js?v=1';
 import './payment-management.js?v=3';
 import './activity-log.js?v=2';
 import './ui-stability-fixes.js?v=1';
+import './followups.js?v=1';
