@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import './admin-tools.js?v=2';
 import './batch-tools.js?v=2';
 import './menu-page-fix.js?v=1';
-import './loan-view-fix.js?v=3';
+import './loan-view-fix.js?v=5';
 import './partners-page-fix.js?v=4';
 import './settings-validation-fix.js?v=1';
 import './loan-actions.js?v=1';
@@ -16,207 +16,359 @@ import './role-security.js?v=1';
 import './system-check.js?v=1';
 import './language-toggle.js?v=2';
 
-const acctDb = createClient('https://eatxkhhpjruwwibhcubf.supabase.co','sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'loan-ledger-auth'}});
-const acct$ = id => document.getElementById(id);
-const acctMoney = n => `$${Number(n||0).toFixed(2)}`;
-const acctToday = () => new Date().toISOString().slice(0,10);
-let acctBorrowerId = null;
-let acctBusy = false;
-let acctListBusy = false;
-let acctPaymentPatched = false;
-let acctPendingFunding = [];
-let acctPartnerOptionsLoaded = false;
-let acctLastLoanHtml = '';
-let acctLastPaymentFormKey = '';
+const db = createClient('https://eatxkhhpjruwwibhcubf.supabase.co','sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'loan-ledger-auth'}});
+const $ = id => document.getElementById(id);
+const money = n => `$${Number(n || 0).toFixed(2)}`;
+const today = () => new Date().toISOString().slice(0,10);
+let borrowerId = null;
+let loanListBusy = false;
+let lastLoanHtml = '';
+let pendingFunding = [];
+let partnersLoaded = false;
+let paymentPagePatched = false;
+let paymentPageKey = '';
+let tickTimer = null;
 
-function acctIsPage(id){return acct$(id)?.classList.contains('active-page');}
-function acctOpenPage(id){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active-page'));
-  const tab=document.querySelector(`.tab-btn[data-page="${id}"]`); if(tab) tab.classList.add('active');
-  acct$(id)?.classList.add('active-page');
-  acct$('sideMenu')?.classList.remove('open'); acct$('menuOverlay')?.classList.remove('open');
+function isPage(id){ return $(id)?.classList.contains('active-page'); }
+function openPage(id){
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+  document.querySelector(`.tab-btn[data-page="${id}"]`)?.classList.add('active');
+  $(id)?.classList.add('active-page');
+  $('sideMenu')?.classList.remove('open');
+  $('menuOverlay')?.classList.remove('open');
 }
-function acctCard(html, attrs=''){
-  return `<div class="compact-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;${attrs?'cursor:pointer;':''}">${html}</div>`;
+function card(html, attrs=''){
+  return `<div class="compact-card acct-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;${attrs?'cursor:pointer;':''}">${html}</div>`;
 }
-function acctEnsurePage(){
-  const app=acct$('app'); if(!app) return;
-  if(!acct$('borrowerAccountPage')){
-    const p=document.createElement('div'); p.id='borrowerAccountPage'; p.className='page';
-    p.innerHTML='<div id="borrowerAccountContent" class="muted">Cargando cuenta...</div>'; app.appendChild(p);
-  }
-  if(!acct$('acctStyle')){
-    const s=document.createElement('style'); s.id='acctStyle';
-    s.textContent='.acct-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}.acct-stat{background:#0f0f11;border:1px solid #2a2a2e;border-radius:14px;padding:14px}.acct-label{color:#b8b8c2;font-size:13px;margin-bottom:6px}.acct-value{font-size:22px;font-weight:800}.acct-danger{color:#ff8b8b}.acct-ok{color:#9ff5b2}.acct-warn{color:#ffd27a}.acct-note{background:#0f0f11;border:1px solid #2b63ff;border-radius:12px;padding:10px;margin:10px 0}.acct-card-click:hover{filter:brightness(1.08)}.acct-status-pill{display:inline-block;min-height:18px;line-height:18px;padding:4px 10px;border:1px solid #333;border-radius:999px;font-size:12px;white-space:nowrap}@media(max-width:650px){.acct-grid{grid-template-columns:1fr}}';
-    document.head.appendChild(s);
-  }
-}
-function acctStatusClass(s){return s==='ATRASADO'?'acct-danger':'acct-ok';}
-function acctTypeLabel(t){return {INSTALLMENT:'Cuota/interés',PRINCIPAL:'Abono a capital',MIXED:'Mixto',PAYOFF:'Saldar capital'}[t]||t;}
-async function acctCurrentUserId(){const {data,error}=await acctDb.auth.getUser(); if(error) throw error; return data.user?.id;}
+function statusClass(status){ return status === 'ATRASADO' ? 'acct-danger' : 'acct-ok'; }
+function paymentTypeLabel(type){ return {INSTALLMENT:'Cuota/interés',PRINCIPAL:'Abono a capital',MIXED:'Mixto',PAYOFF:'Saldar capital'}[type] || type; }
+async function currentUserId(){ const {data,error}=await db.auth.getUser(); if(error) throw error; return data.user?.id; }
 
-async function acctRefreshBorrowerSelect(){
-  const sel=acct$('loanBorrower'); if(!sel) return;
-  const {data,error}=await acctDb.from('borrowers').select('id,full_name').order('full_name',{ascending:true});
+function ensureAccountPage(){
+  const app = $('app');
+  if(!app) return;
+  if(!$('borrowerAccountPage')){
+    const page = document.createElement('div');
+    page.id = 'borrowerAccountPage';
+    page.className = 'page';
+    page.innerHTML = '<div id="borrowerAccountContent" class="muted">Cargando cuenta...</div>';
+    app.appendChild(page);
+  }
+  if(!$('acctStyle')){
+    const style = document.createElement('style');
+    style.id = 'acctStyle';
+    style.textContent = `
+      .acct-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+      .acct-stat{background:#0f0f11;border:1px solid #2a2a2e;border-radius:14px;padding:14px}
+      .acct-label{color:#b8b8c2;font-size:13px;margin-bottom:6px}
+      .acct-value{font-size:22px;font-weight:800}
+      .acct-danger{color:#ff8b8b}.acct-ok{color:#9ff5b2}.acct-warn{color:#ffd27a}
+      .acct-note{background:#0f0f11;border:1px solid #2b63ff;border-radius:12px;padding:10px;margin:10px 0}
+      .acct-pill{display:inline-block;min-height:18px;line-height:18px;padding:4px 10px;border:1px solid #333;border-radius:999px;font-size:12px;white-space:nowrap}
+      .acct-click:hover{filter:brightness(1.08)}
+      @media(max-width:650px){.acct-grid{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+async function refreshBorrowerSelect(){
+  const sel = $('loanBorrower');
+  if(!sel) return;
+  const {data,error} = await db.from('borrowers').select('id,full_name').order('full_name',{ascending:true});
   if(error) return;
-  const html=(data||[]).map(b=>`<option value="${b.id}">${b.full_name}</option>`).join('');
-  if(sel.innerHTML!==html) sel.innerHTML=html;
+  const html = (data || []).map(b => `<option value="${b.id}">${b.full_name}</option>`).join('');
+  if(sel.innerHTML !== html) sel.innerHTML = html;
 }
-async function acctLoadPartners(){
-  if(acctPartnerOptionsLoaded && acct$('newLoanFundingPartner')?.options?.length) return;
-  const sel=acct$('newLoanFundingPartner'); if(!sel) return;
-  const {data,error}=await acctDb.from('profiles').select('user_id,full_name,role').in('role',['ADMIN','PARTNER']).order('full_name',{ascending:true});
+async function loadPartners(){
+  const sel = $('newLoanFundingPartner');
+  if(!sel) return;
+  if(partnersLoaded && sel.options.length) return;
+  const {data,error} = await db.from('profiles').select('user_id,full_name,role').in('role',['ADMIN','PARTNER']).order('full_name',{ascending:true});
   if(error) return;
-  sel.innerHTML=(data||[]).map(p=>`<option value="${p.user_id}">${p.full_name||'Sin nombre'} (${p.role})</option>`).join('');
-  acctPartnerOptionsLoaded=true;
+  sel.innerHTML = (data || []).map(p => `<option value="${p.user_id}">${p.full_name || 'Sin nombre'} (${p.role})</option>`).join('');
+  partnersLoaded = true;
 }
-function acctRenderFundingList(){
-  const el=acct$('newLoanFundingList'); if(!el) return;
-  const total=acctPendingFunding.reduce((s,r)=>s+Number(r.funding_percent||0),0);
-  const html=acctPendingFunding.length?`${acctPendingFunding.map(r=>`<div style="margin:8px 0"><strong>${r.partner_name}</strong><br><span class="muted">${(Number(r.funding_percent)*100).toFixed(2)}%</span></div>`).join('')}<div style="margin-top:8px"><strong>Total:</strong> ${(total*100).toFixed(2)}%</div>${Math.abs(total-1)>0.001?'<div class="acct-warn" style="margin-top:6px">La distribución debe sumar 100%.</div>':''}`:'Sin distribución agregada todavía.';
-  if(el.innerHTML!==html) el.innerHTML=html;
+function renderFundingList(){
+  const el = $('newLoanFundingList');
+  if(!el) return;
+  const total = pendingFunding.reduce((sum,row) => sum + Number(row.funding_percent || 0), 0);
+  const html = pendingFunding.length ? `${pendingFunding.map(row => `<div style="margin:8px 0"><strong>${row.partner_name}</strong><br><span class="muted">${(Number(row.funding_percent)*100).toFixed(2)}%</span></div>`).join('')}<div style="margin-top:8px"><strong>Total:</strong> ${(total*100).toFixed(2)}%</div>${Math.abs(total-1)>0.001?'<div class="acct-warn" style="margin-top:6px">La distribución debe sumar 100%.</div>':''}` : 'Sin distribución agregada todavía.';
+  if(el.innerHTML !== html) el.innerHTML = html;
 }
-function acctAddFundingFromForm(evt){
-  evt?.preventDefault(); evt?.stopImmediatePropagation();
-  const sel=acct$('newLoanFundingPartner'); const input=acct$('newLoanFundingPercent');
-  const partner_user_id=sel?.value; const percent=Number(input?.value||0);
-  if(!partner_user_id||!percent) return alert('Socio y porcentaje son requeridos.');
-  const funding_percent=percent/100; const partner_name=sel.selectedOptions?.[0]?.textContent||'Socio';
-  const i=acctPendingFunding.findIndex(x=>x.partner_user_id===partner_user_id);
-  if(i>=0) acctPendingFunding[i]={partner_user_id,funding_percent,partner_name}; else acctPendingFunding.push({partner_user_id,funding_percent,partner_name});
-  if(input) input.value=''; acctRenderFundingList();
+function addFunding(event){
+  event?.preventDefault();
+  event?.stopImmediatePropagation();
+  const sel = $('newLoanFundingPartner');
+  const input = $('newLoanFundingPercent');
+  const partner_user_id = sel?.value;
+  const percent = Number(input?.value || 0);
+  if(!partner_user_id || !percent) return alert('Socio y porcentaje son requeridos.');
+  const funding_percent = percent / 100;
+  const partner_name = sel.selectedOptions?.[0]?.textContent || 'Socio';
+  const existing = pendingFunding.findIndex(x => x.partner_user_id === partner_user_id);
+  if(existing >= 0) pendingFunding[existing] = {partner_user_id, funding_percent, partner_name};
+  else pendingFunding.push({partner_user_id, funding_percent, partner_name});
+  if(input) input.value = '';
+  renderFundingList();
 }
-function acctLoadDefaultFundingFromDom(){
-  if(acctPendingFunding.length) return;
-  const rows=Array.from(document.querySelectorAll('#defaultFundingList [data-partner-id]'));
+function loadDefaultFunding(){
+  if(pendingFunding.length) return;
+  const rows = Array.from(document.querySelectorAll('#defaultFundingList [data-partner-id]'));
   if(!rows.length) return;
-  acctPendingFunding=rows.map(row=>({partner_user_id:row.dataset.partnerId,funding_percent:Number(row.dataset.percent||0),partner_name:row.dataset.partnerName||'Socio'})).filter(r=>r.partner_user_id&&r.funding_percent>0);
-  acctRenderFundingList();
+  pendingFunding = rows.map(row => ({partner_user_id:row.dataset.partnerId,funding_percent:Number(row.dataset.percent || 0),partner_name:row.dataset.partnerName || 'Socio'})).filter(row => row.partner_user_id && row.funding_percent > 0);
+  renderFundingList();
 }
-function acctRetitleDisbursementForm(){
-  const btn=acct$('btnCreateLoan'); if(btn) btn.textContent='Guardar desembolso';
-  const principal=acct$('principal'); if(principal) principal.placeholder='Capital desembolsado (ej. 1000)';
-  const total=acct$('loanTotalRate'); if(total) total.placeholder='Interés mensual total % (normal 10)';
-  const mgmt=acct$('loanMgmtRate'); if(mgmt) mgmt.placeholder='Administración % (normal 3)';
-  const card=btn?.closest('.card');
-  if(card && !acct$('disbursementFormNote')){
-    const title=card.querySelector('div[style*="font-weight:800"]'); if(title) title.textContent='Nuevo desembolso / capital agregado';
-    const note=document.createElement('div'); note.id='disbursementFormNote'; note.className='acct-note muted'; note.innerHTML='Este formulario agrega capital a la cuenta del cliente. Las cuotas futuras se recalculan sobre el balance total del cliente.';
-    card.insertBefore(note, card.children[1]||null);
+function patchDisbursementLabels(){
+  const btn = $('btnCreateLoan');
+  if(btn) btn.textContent = 'Guardar desembolso';
+  if($('principal')) $('principal').placeholder = 'Capital desembolsado (ej. 1000)';
+  if($('loanTotalRate')) $('loanTotalRate').placeholder = 'Interés mensual total % (normal 10)';
+  if($('loanMgmtRate')) $('loanMgmtRate').placeholder = 'Administración % (normal 3)';
+  const box = btn?.closest('.card');
+  if(box && !$('disbursementFormNote')){
+    const title = box.querySelector('div[style*="font-weight:800"]');
+    if(title) title.textContent = 'Nuevo desembolso / capital agregado';
+    const note = document.createElement('div');
+    note.id = 'disbursementFormNote';
+    note.className = 'acct-note muted';
+    note.textContent = 'Este formulario agrega capital a la cuenta del cliente. Las cuotas futuras se recalculan sobre el balance total del cliente.';
+    box.insertBefore(note, box.children[1] || null);
   }
 }
-async function acctCreateDisbursement(evt){
-  evt?.preventDefault(); evt?.stopImmediatePropagation();
+async function createDisbursement(event){
+  event?.preventDefault();
+  event?.stopImmediatePropagation();
   try{
-    let borrower_id=acct$('loanBorrower')?.value;
-    const newFields=acct$('newBorrowerFields');
-    const creatingNew=newFields && getComputedStyle(newFields).display!=='none';
-    const created_by=await acctCurrentUserId();
+    let borrower_id = $('loanBorrower')?.value;
+    const newFields = $('newBorrowerFields');
+    const creatingNew = newFields && getComputedStyle(newFields).display !== 'none';
+    const created_by = await currentUserId();
     if(creatingNew){
-      const full_name=acct$('newBorrowerName')?.value?.trim();
-      const phone=acct$('newBorrowerPhone')?.value?.trim()||null;
-      const notes=acct$('newBorrowerNotes')?.value?.trim()||null;
+      const full_name = $('newBorrowerName')?.value?.trim();
+      const phone = $('newBorrowerPhone')?.value?.trim() || null;
+      const notes = $('newBorrowerNotes')?.value?.trim() || null;
       if(!full_name) return alert('El nombre del cliente es requerido.');
-      const {data,error}=await acctDb.from('borrowers').insert({full_name,phone,notes,created_by}).select('id').single();
-      if(error) throw error; borrower_id=data.id;
+      const {data,error} = await db.from('borrowers').insert({full_name, phone, notes, created_by}).select('id').single();
+      if(error) throw error;
+      borrower_id = data.id;
     }
-    const principal=Number(acct$('principal')?.value||0);
-    const start_date=acct$('startDate')?.value;
-    const monthly_rate_total=Number(acct$('loanTotalRate')?.value||10)/100;
-    const monthly_rate_mgmt=Number(acct$('loanMgmtRate')?.value||3)/100;
-    if(!borrower_id||!principal||!start_date) return alert('Cliente, fecha y capital son requeridos.');
-    if(monthly_rate_mgmt>monthly_rate_total) return alert('La administración no puede ser mayor que el interés total.');
-    acctLoadDefaultFundingFromDom();
-    const fundingTotal=acctPendingFunding.reduce((s,r)=>s+Number(r.funding_percent||0),0);
-    if(!acctPendingFunding.length) return alert('Agrega la distribución de inversión antes de guardar el desembolso.');
-    if(Math.abs(fundingTotal-1)>0.001) return alert('La distribución de inversión debe sumar 100%.');
-    const {data:loan,error:loanErr}=await acctDb.from('loans').insert({borrower_id,created_by,start_date,principal_original:principal,principal_outstanding:principal,monthly_rate_total,monthly_rate_mgmt,status:'ACTIVE'}).select('id').single();
+    const principal = Number($('principal')?.value || 0);
+    const start_date = $('startDate')?.value;
+    const monthly_rate_total = Number($('loanTotalRate')?.value || 10) / 100;
+    const monthly_rate_mgmt = Number($('loanMgmtRate')?.value || 3) / 100;
+    if(!borrower_id || !principal || !start_date) return alert('Cliente, fecha y capital son requeridos.');
+    if(monthly_rate_mgmt > monthly_rate_total) return alert('La administración no puede ser mayor que el interés total.');
+    loadDefaultFunding();
+    const fundingTotal = pendingFunding.reduce((sum,row) => sum + Number(row.funding_percent || 0), 0);
+    if(!pendingFunding.length) return alert('Agrega la distribución de inversión antes de guardar el desembolso.');
+    if(Math.abs(fundingTotal - 1) > 0.001) return alert('La distribución de inversión debe sumar 100%.');
+    const {data:loan,error:loanErr} = await db.from('loans').insert({borrower_id,created_by,start_date,principal_original:principal,principal_outstanding:principal,monthly_rate_total,monthly_rate_mgmt,status:'ACTIVE'}).select('id').single();
     if(loanErr) throw loanErr;
-    const fundingRows=acctPendingFunding.map(r=>({loan_id:loan.id,partner_user_id:r.partner_user_id,funding_percent:r.funding_percent}));
-    const {error:fundingErr}=await acctDb.from('loan_funding').insert(fundingRows);
+    const {error:fundingErr} = await db.from('loan_funding').insert(pendingFunding.map(row => ({loan_id:loan.id,partner_user_id:row.partner_user_id,funding_percent:row.funding_percent})));
     if(fundingErr) throw fundingErr;
-    const {error:dueErr}=await acctDb.rpc('regenerate_future_borrower_due_events',{p_borrower_id:borrower_id,p_months_ahead:12});
+    const {error:dueErr} = await db.rpc('regenerate_future_borrower_due_events',{p_borrower_id:borrower_id,p_months_ahead:12});
     if(dueErr) throw dueErr;
-    ['principal','startDate','newBorrowerName','newBorrowerPhone','newBorrowerNotes'].forEach(id=>{if(acct$(id)) acct$(id).value='';});
-    if(newFields) newFields.style.display='none'; if(acct$('btnToggleNewBorrower')) acct$('btnToggleNewBorrower').textContent='+ Nuevo cliente';
-    acctPendingFunding=[]; acctRenderFundingList(); await acctRefreshBorrowerSelect(); acctLastLoanHtml=''; await acctRenderLoanList(true); alert('Desembolso guardado y cuotas futuras recalculadas.');
-  }catch(e){console.error(e); alert(e.message||String(e));}
+    ['principal','startDate','newBorrowerName','newBorrowerPhone','newBorrowerNotes'].forEach(id => { if($(id)) $(id).value = ''; });
+    if(newFields) newFields.style.display = 'none';
+    if($('btnToggleNewBorrower')) $('btnToggleNewBorrower').textContent = '+ Nuevo cliente';
+    pendingFunding = [];
+    renderFundingList();
+    await refreshBorrowerSelect();
+    lastLoanHtml = '';
+    await renderLoanList(true);
+    alert('Desembolso guardado y cuotas futuras recalculadas.');
+  }catch(error){
+    console.error(error);
+    alert(error.message || String(error));
+  }
 }
-async function acctPatchDisbursementForm(){
-  if(!acctIsPage('loansPage')) return;
-  acctRetitleDisbursementForm(); await acctLoadPartners(); acctLoadDefaultFundingFromDom(); acctRenderFundingList();
-  const add=acct$('btnAddNewLoanFunding'); if(add && add.dataset.acctBound!=='true'){add.dataset.acctBound='true'; add.addEventListener('click',acctAddFundingFromForm,true);}
-  const save=acct$('btnCreateLoan'); if(save && save.dataset.acctBound!=='true'){save.dataset.acctBound='true'; save.addEventListener('click',acctCreateDisbursement,true);}
+async function patchDisbursementForm(){
+  if(!isPage('loansPage')) return;
+  patchDisbursementLabels();
+  await loadPartners();
+  loadDefaultFunding();
+  renderFundingList();
+  const add = $('btnAddNewLoanFunding');
+  if(add && add.dataset.acctBound !== 'true'){
+    add.dataset.acctBound = 'true';
+    add.addEventListener('click', addFunding, true);
+  }
+  const save = $('btnCreateLoan');
+  if(save && save.dataset.acctBound !== 'true'){
+    save.dataset.acctBound = 'true';
+    save.addEventListener('click', createDisbursement, true);
+  }
 }
 
-async function acctRenderLoanList(force=false){
-  if(!acctIsPage('loansPage')||acctListBusy||!acct$('loanList')) return;
-  acctListBusy=true;
+async function renderLoanList(force=false){
+  if(!isPage('loansPage') || loanListBusy || !$('loanList')) return;
+  loanListBusy = true;
   try{
-    const [aRes,dRes]=await Promise.all([
-      acctDb.from('borrower_account_summary').select('*').order('full_name',{ascending:true}),
-      acctDb.from('borrower_disbursements_view').select('*').order('start_date',{ascending:false})
+    const [accountsRes, disbRes] = await Promise.all([
+      db.from('borrower_account_summary').select('*').order('full_name',{ascending:true}),
+      db.from('borrower_disbursements_view').select('*').order('start_date',{ascending:false})
     ]);
-    if(aRes.error) throw aRes.error; if(dRes.error) throw dRes.error;
-    const by=new Map(); (dRes.data||[]).forEach(d=>{if(!by.has(d.borrower_id))by.set(d.borrower_id,[]); by.get(d.borrower_id).push(d);});
-    const html=(aRes.data||[]).map(a=>{
-      const recent=(by.get(a.borrower_id)||[]).slice(0,3).map(d=>`<div style="margin:6px 0"><strong>${d.start_date}</strong> — Desembolso ${acctMoney(d.principal_original)} | Balance ${acctMoney(d.principal_outstanding)} | ${d.status}</div>`).join('');
-      return acctCard(`<div style="display:flex;justify-content:space-between;gap:10px"><div><strong>${a.full_name}</strong><br><span class="muted">${a.phone||'Sin teléfono'}</span></div><span class="acct-status-pill ${acctStatusClass(a.account_status)}">${a.account_status}</span></div><div style="margin-top:8px">Balance de capital: <strong>${acctMoney(a.principal_balance)}</strong> | Total desembolsado: ${acctMoney(a.total_disbursed)}<br>Cuota mensual actual: <strong>${acctMoney(a.current_monthly_fee)}</strong> | Cuota por ciclo: ${acctMoney(a.current_cycle_fee)}<br>Próxima cuota: ${a.next_due_date||'—'} | Atrasado: ${acctMoney(a.overdue_amount)}</div><div style="border-top:1px solid #2a2a2e;margin-top:10px;padding-top:10px">${recent||'Sin desembolsos.'}</div><div class="muted" style="margin-top:10px">Clic para abrir cuenta completa.</div>`,`data-acct-borrower="${a.borrower_id}" class="acct-card-click"`);
-    }).join('')||'No hay clientes/cuentas para mostrar.';
-    const list=acct$('loanList');
-    if(force || html!==acctLastLoanHtml || list.dataset.accountOwned!=='true'){
-      list.innerHTML=html; list.dataset.accountOwned='true'; acctLastLoanHtml=html;
+    if(accountsRes.error) throw accountsRes.error;
+    if(disbRes.error) throw disbRes.error;
+    const byBorrower = new Map();
+    (disbRes.data || []).forEach(d => {
+      if(!byBorrower.has(d.borrower_id)) byBorrower.set(d.borrower_id, []);
+      byBorrower.get(d.borrower_id).push(d);
+    });
+    const html = (accountsRes.data || []).map(a => {
+      const recent = (byBorrower.get(a.borrower_id) || []).slice(0,3).map(d => `<div style="margin:6px 0"><strong>${d.start_date}</strong> — Desembolso ${money(d.principal_original)} | Balance ${money(d.principal_outstanding)} | ${d.status}</div>`).join('') || 'Sin desembolsos.';
+      return card(`<div style="display:flex;justify-content:space-between;gap:10px"><div><strong>${a.full_name}</strong><br><span class="muted">${a.phone || 'Sin teléfono'}</span></div><span class="acct-pill ${statusClass(a.account_status)}">${a.account_status}</span></div><div style="margin-top:8px">Balance de capital: <strong>${money(a.principal_balance)}</strong> | Total desembolsado: ${money(a.total_disbursed)}<br>Cuota mensual actual: <strong>${money(a.current_monthly_fee)}</strong> | Cuota por ciclo: ${money(a.current_cycle_fee)}<br>Próxima cuota: ${a.next_due_date || '—'} | Atrasado: ${money(a.overdue_amount)}</div><div style="border-top:1px solid #2a2a2e;margin-top:10px;padding-top:10px">${recent}</div><div class="muted" style="margin-top:10px">Clic para abrir cuenta completa.</div>`, `data-acct-borrower="${a.borrower_id}" class="acct-click"`);
+    }).join('') || 'No hay clientes/cuentas para mostrar.';
+    const list = $('loanList');
+    if(force || html !== lastLoanHtml || list.dataset.accountOwned !== 'true'){
+      list.innerHTML = html;
+      list.dataset.accountOwned = 'true';
+      lastLoanHtml = html;
     }
-  }catch(e){console.error(e); acct$('loanList').innerHTML=e.message||String(e);} finally{acctListBusy=false;}
-}
-async function acctOpenAccount(id){acctBorrowerId=id; acctEnsurePage(); acctOpenPage('borrowerAccountPage'); await acctRenderAccount();}
-async function acctRenderAccount(){
-  if(!acctBorrowerId||!acctIsPage('borrowerAccountPage')||acctBusy) return; acctBusy=true;
-  try{
-    const [sRes,dRes,duRes,pRes,cRes,fRes]=await Promise.all([
-      acctDb.from('borrower_account_summary').select('*').eq('borrower_id',acctBorrowerId).single(),
-      acctDb.from('borrower_disbursements_view').select('*').eq('borrower_id',acctBorrowerId).order('start_date',{ascending:false}),
-      acctDb.from('borrower_due_events_view').select('*').eq('borrower_id',acctBorrowerId).order('due_date',{ascending:true}).limit(80),
-      acctDb.from('borrower_account_payments_view').select('*').eq('borrower_id',acctBorrowerId).order('paid_on',{ascending:false}).limit(80),
-      acctDb.from('borrower_contact_log_view').select('*').eq('borrower_id',acctBorrowerId).order('created_at',{ascending:false}).limit(12),
-      acctDb.from('borrower_followups_view').select('*').eq('borrower_id',acctBorrowerId).order('due_date',{ascending:true}).limit(12)
-    ]);
-    for(const r of [sRes,dRes,duRes,pRes,cRes,fRes]) if(r.error) throw r.error;
-    const a=sRes.data;
-    const disb=(dRes.data||[]).map(d=>acctCard(`<strong>${d.start_date}</strong> — Desembolso ${acctMoney(d.principal_original)}<br>Balance asignado: ${acctMoney(d.principal_outstanding)} | Estado: ${d.status}<br><span class="muted">Interés mensual ${(Number(d.monthly_rate_total||0)*100).toFixed(2)}% | Administración ${(Number(d.monthly_rate_mgmt||0)*100).toFixed(2)}%</span>`)).join('')||'No hay desembolsos.';
-    const dues=(duRes.data||[]).map(d=>acctCard(`<strong>${d.due_date}</strong> <span class="acct-status-pill">${d.timing_status}</span><br>Esperado: ${acctMoney(d.expected_total)} | Pagado: ${acctMoney(d.paid_total)} | Pendiente: ${acctMoney(d.amount_due)} | ${d.status}<br><span class="muted">Capital base: ${acctMoney(d.principal_snapshot)}</span>`)).join('')||'No hay cuotas generadas.';
-    const pays=(pRes.data||[]).map(p=>acctCard(`<strong>${p.paid_on}</strong> — ${acctMoney(p.amount)} <span class="acct-status-pill">${acctTypeLabel(p.payment_type)}</span>${p.is_voided?" <span class='acct-status-pill acct-danger'>ANULADO</span>":''}<br>Cuota/interés: ${acctMoney(p.applied_interest)} | Capital: ${acctMoney(p.applied_principal)}<br>Administración: ${acctMoney(p.applied_mgmt)} | Socios: ${acctMoney(p.applied_funders)}${p.notes?`<br><span class="muted">${p.notes}</span>`:''}`)).join('')||'No hay pagos.';
-    const contacts=(cRes.data||[]).map(c=>acctCard(`<strong>${c.contact_type}</strong> — ${c.contact_date}<br><span class="muted">${c.outcome||'—'}</span><br>${c.notes||''}`)).join('')||'No hay notas.';
-    const follows=(fRes.data||[]).map(f=>acctCard(`<strong>${f.due_date}</strong> — ${f.priority} | ${f.timing_status}<br><span class="muted">${f.reason||'—'}</span>`)).join('')||'No hay seguimientos.';
-    acct$('borrowerAccountContent').innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px"><div><div style="font-weight:800;font-size:22px">Cuenta del cliente</div><div class="muted">${a.full_name} ${a.phone?`| ${a.phone}`:''}</div></div><button id="acctBack" style="width:auto;background:#333;padding:10px 14px">Volver</button></div><div class="acct-grid"><div class="acct-stat"><div class="acct-label">Balance de capital</div><div class="acct-value">${acctMoney(a.principal_balance)}</div></div><div class="acct-stat"><div class="acct-label">Cuota mensual actual</div><div class="acct-value">${acctMoney(a.current_monthly_fee)}</div></div><div class="acct-stat"><div class="acct-label">Cuota por ciclo</div><div class="acct-value">${acctMoney(a.current_cycle_fee)}</div></div><div class="acct-stat"><div class="acct-label">Estado</div><div class="acct-value ${acctStatusClass(a.account_status)}">${a.account_status}</div></div></div><div class="muted" style="margin-top:12px">Los pagos de cuota no rebajan capital. El capital solo baja con abono a capital, mixto o saldo.</div></div><div class="card"><div style="font-weight:800">Registrar pago</div><div class="row"><input id="acctPayDate" type="date" value="${acctToday()}"><input id="acctPayAmount" type="number" step="0.01" placeholder="Monto pagado"></div><select id="acctPayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select><input id="acctPayNotes" placeholder="Notas del pago"><button id="acctPayBtn">Aplicar pago</button></div><div class="card"><div style="font-weight:800">Mantenimiento de cuotas</div><div class="row"><button id="acctGen6">Generar/Recalcular 6 meses</button><button id="acctGen12">Generar/Recalcular 12 meses</button></div><div id="acctGenResult" class="muted"></div></div><div class="card"><div style="font-weight:800">Desembolsos / capital agregado</div>${disb}</div><div class="card"><div style="font-weight:800">Calendario de cuotas de la cuenta</div>${dues}</div><div class="card"><div style="font-weight:800">Historial de pagos</div>${pays}</div><div class="card"><div style="font-weight:800">Seguimientos</div>${follows}</div><div class="card"><div style="font-weight:800">Notas de contacto</div>${contacts}</div>`;
-    acct$('acctBack').onclick=()=>acctOpenPage('loansPage'); acct$('acctPayBtn').onclick=acctApplyAccountPayment; acct$('acctGen6').onclick=()=>acctGenerateDue(6); acct$('acctGen12').onclick=()=>acctGenerateDue(12);
-  }catch(e){console.error(e); acct$('borrowerAccountContent').innerHTML=`<div class="card">${e.message||String(e)}</div>`;} finally{acctBusy=false;}
-}
-async function acctApplyAccountPayment(){
-  const amount=Number(acct$('acctPayAmount')?.value||0); const paid_on=acct$('acctPayDate')?.value; const payment_type=acct$('acctPayType')?.value; const notes=acct$('acctPayNotes')?.value?.trim()||null;
-  if(!acctBorrowerId||!amount||!paid_on) return alert('Fecha y monto son requeridos.');
-  const {error}=await acctDb.rpc('apply_borrower_payment',{p_borrower_id:acctBorrowerId,p_paid_on:paid_on,p_amount:amount,p_payment_type:payment_type,p_notes:notes});
-  if(error) return alert(error.message); await acctRenderAccount(); acctLastLoanHtml=''; await acctRenderLoanList(true); alert('Pago aplicado.');
-}
-async function acctGenerateDue(months){
-  const out=acct$('acctGenResult'); if(out) out.textContent='Recalculando cuotas futuras...';
-  const {data,error}=await acctDb.rpc('regenerate_future_borrower_due_events',{p_borrower_id:acctBorrowerId,p_months_ahead:months});
-  if(error){if(out)out.textContent=error.message; return alert(error.message);} if(out) out.textContent=`Cuotas futuras recalculadas/creadas: ${data||0}`; await acctRenderAccount(); acctLastLoanHtml=''; await acctRenderLoanList(true);
-}
-async function acctPatchPaymentPage(){
-  if(!acctIsPage('paymentsPage')) return; const old=acct$('paymentLoan'); if(!old && acctPaymentPatched) return;
-  const box=old?.parentElement || acct$('acctPageBorrower')?.closest('.card'); if(!box) return;
-  const {data,error}=await acctDb.from('borrower_account_summary').select('borrower_id,full_name,principal_balance,account_status').order('full_name',{ascending:true}); if(error) return;
-  const key=JSON.stringify((data||[]).map(b=>[b.borrower_id,b.full_name,b.principal_balance,b.account_status]));
-  if(acctPaymentPatched && key===acctLastPaymentFormKey) return;
-  acctLastPaymentFormKey=key;
-  box.innerHTML=`<div style="font-weight:800">Registrar pago por cliente/cuenta</div><select id="acctPageBorrower">${(data||[]).map(b=>`<option value="${b.borrower_id}">${b.full_name} (${b.account_status}, ${acctMoney(b.principal_balance)})</option>`).join('')}</select><div class="row"><input id="acctPageDate" type="date" value="${acctToday()}"><input id="acctPageAmount" type="number" step="0.01" placeholder="Monto pagado"></div><select id="acctPageType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select><input id="acctPageNotes" placeholder="Notas del pago"><button id="acctPageBtn">Aplicar pago</button><div class="muted">Los pagos de cuota no rebajan capital.</div>`;
-  acctPaymentPatched=true; acct$('acctPageBtn').onclick=async()=>{const amount=Number(acct$('acctPageAmount').value||0); if(!amount)return alert('Monto requerido.'); const {error}=await acctDb.rpc('apply_borrower_payment',{p_borrower_id:acct$('acctPageBorrower').value,p_paid_on:acct$('acctPageDate').value,p_amount:amount,p_payment_type:acct$('acctPageType').value,p_notes:acct$('acctPageNotes').value.trim()||null}); if(error)return alert(error.message); acct$('acctPageAmount').value=''; acct$('acctPageNotes').value=''; acctPaymentPatched=false; acctLastPaymentFormKey=''; await acctPatchPaymentPage(); alert('Pago aplicado.');};
+  }catch(error){
+    console.error(error);
+    $('loanList').innerHTML = error.message || String(error);
+  }finally{
+    loanListBusy = false;
+  }
 }
 
-document.addEventListener('click',e=>{const card=e.target.closest('[data-acct-borrower]'); if(card){e.preventDefault(); acctOpenAccount(card.dataset.acctBorrower);}},true);
-window.addEventListener('loan-ledger:open-account',e=>{if(e.detail?.borrowerId) acctOpenAccount(e.detail.borrowerId);});
-let acctTimer=null; async function acctTick(){acctEnsurePage(); if(acctIsPage('loansPage')){await acctPatchDisbursementForm(); await acctRenderLoanList(false);} if(acctIsPage('borrowerAccountPage')) acctRenderAccount(); if(acctIsPage('paymentsPage')) acctPatchPaymentPage();}
-new MutationObserver(()=>{clearTimeout(acctTimer); acctTimer=setTimeout(acctTick,250);}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
-setInterval(acctTick,4000); acctTick();
+async function openAccount(id){
+  borrowerId = id;
+  ensureAccountPage();
+  openPage('borrowerAccountPage');
+  await renderAccount();
+}
+async function renderAccount(){
+  if(!borrowerId || !isPage('borrowerAccountPage')) return;
+  const content = $('borrowerAccountContent');
+  if(content) content.innerHTML = '<div class="card muted">Cargando cuenta...</div>';
+  try{
+    const [summaryRes, disbRes, dueRes, payRes, contactRes, followRes] = await Promise.all([
+      db.from('borrower_account_summary').select('*').eq('borrower_id',borrowerId).single(),
+      db.from('borrower_disbursements_view').select('*').eq('borrower_id',borrowerId).order('start_date',{ascending:false}),
+      db.from('borrower_due_events_view').select('*').eq('borrower_id',borrowerId).order('due_date',{ascending:true}).limit(80),
+      db.from('borrower_account_payments_view').select('*').eq('borrower_id',borrowerId).order('paid_on',{ascending:false}).limit(80),
+      db.from('borrower_contact_log_view').select('*').eq('borrower_id',borrowerId).order('created_at',{ascending:false}).limit(12),
+      db.from('borrower_followups_view').select('*').eq('borrower_id',borrowerId).order('due_date',{ascending:true}).limit(12)
+    ]);
+    for(const res of [summaryRes,disbRes,dueRes,payRes,contactRes,followRes]) if(res.error) throw res.error;
+    const a = summaryRes.data;
+    const disb = (disbRes.data || []).map(d => card(`<strong>${d.start_date}</strong> — Desembolso ${money(d.principal_original)}<br>Balance asignado: ${money(d.principal_outstanding)} | Estado: ${d.status}<br><span class="muted">Interés mensual ${(Number(d.monthly_rate_total || 0)*100).toFixed(2)}% | Administración ${(Number(d.monthly_rate_mgmt || 0)*100).toFixed(2)}%</span>`)).join('') || 'No hay desembolsos.';
+    const dues = (dueRes.data || []).map(d => card(`<strong>${d.due_date}</strong> <span class="acct-pill">${d.timing_status}</span><br>Esperado: ${money(d.expected_total)} | Pagado: ${money(d.paid_total)} | Pendiente: ${money(d.amount_due)} | ${d.status}<br><span class="muted">Capital base: ${money(d.principal_snapshot)}</span>`)).join('') || 'No hay cuotas generadas.';
+    const pays = (payRes.data || []).map(p => card(`<strong>${p.paid_on}</strong> — ${money(p.amount)} <span class="acct-pill">${paymentTypeLabel(p.payment_type)}</span>${p.is_voided ? " <span class='acct-pill acct-danger'>ANULADO</span>" : ''}<br>Cuota/interés: ${money(p.applied_interest)} | Capital: ${money(p.applied_principal)}<br>Administración: ${money(p.applied_mgmt)} | Socios: ${money(p.applied_funders)}${p.notes ? `<br><span class="muted">${p.notes}</span>` : ''}`)).join('') || 'No hay pagos.';
+    const contacts = (contactRes.data || []).map(c => card(`<strong>${c.contact_type}</strong> — ${c.contact_date}<br><span class="muted">${c.outcome || '—'}</span><br>${c.notes || ''}`)).join('') || 'No hay notas.';
+    const follows = (followRes.data || []).map(f => card(`<strong>${f.due_date}</strong> — ${f.priority} | ${f.timing_status}<br><span class="muted">${f.reason || '—'}</span>`)).join('') || 'No hay seguimientos.';
+    content.innerHTML = `
+      <div class="card" data-no-translate="true">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+          <div><div style="font-weight:800;font-size:22px">Cuenta del cliente</div><div class="muted">${a.full_name} ${a.phone ? `| ${a.phone}` : ''}</div></div>
+          <button id="acctBack" type="button" style="width:auto;background:#333;padding:10px 14px">Volver</button>
+        </div>
+        <div class="acct-grid">
+          <div class="acct-stat"><div class="acct-label">Balance de capital</div><div class="acct-value">${money(a.principal_balance)}</div></div>
+          <div class="acct-stat"><div class="acct-label">Cuota mensual actual</div><div class="acct-value">${money(a.current_monthly_fee)}</div></div>
+          <div class="acct-stat"><div class="acct-label">Cuota por ciclo</div><div class="acct-value">${money(a.current_cycle_fee)}</div></div>
+          <div class="acct-stat"><div class="acct-label">Estado</div><div class="acct-value ${statusClass(a.account_status)}">${a.account_status}</div></div>
+        </div>
+        <div class="muted" style="margin-top:12px">Próxima cuota: ${a.next_due_date || '—'} | Atrasado: ${money(a.overdue_amount)} | Días tarde: ${a.max_days_late || 0}<br>Los pagos de cuota no rebajan capital. El capital solo baja con abono a capital, mixto o saldo.</div>
+      </div>
+      <div class="card" data-no-translate="true">
+        <div style="font-weight:800">Registrar pago</div>
+        <div class="row"><input id="acctPayDate" type="date" value="${today()}"><input id="acctPayAmount" type="number" step="0.01" placeholder="Monto pagado"></div>
+        <select id="acctPayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select>
+        <input id="acctPayNotes" placeholder="Notas del pago"><button id="acctPayBtn" type="button">Aplicar pago</button>
+        <div id="acctPayStatus" class="muted">Los pagos de cuota no rebajan capital.</div>
+      </div>
+      <div class="card"><div style="font-weight:800">Mantenimiento de cuotas</div><div class="row"><button id="acctGen6" type="button">Generar/Recalcular 6 meses</button><button id="acctGen12" type="button">Generar/Recalcular 12 meses</button></div><div id="acctGenResult" class="muted"></div></div>
+      <div class="card"><div style="font-weight:800">Desembolsos / capital agregado</div>${disb}</div>
+      <div class="card"><div style="font-weight:800">Calendario de cuotas de la cuenta</div>${dues}</div>
+      <div class="card"><div style="font-weight:800">Historial de pagos</div>${pays}</div>
+      <div class="card"><div style="font-weight:800">Seguimientos</div>${follows}</div>
+      <div class="card"><div style="font-weight:800">Notas de contacto</div>${contacts}</div>
+    `;
+    $('acctBack').onclick = () => openPage('loansPage');
+    $('acctPayBtn').onclick = applyAccountPayment;
+    $('acctGen6').onclick = () => generateDue(6);
+    $('acctGen12').onclick = () => generateDue(12);
+  }catch(error){
+    console.error(error);
+    if(content) content.innerHTML = `<div class="card">${error.message || String(error)}</div>`;
+  }
+}
+async function applyAccountPayment(){
+  const amount = Number($('acctPayAmount')?.value || 0);
+  const paid_on = $('acctPayDate')?.value;
+  const payment_type = $('acctPayType')?.value || 'INSTALLMENT';
+  const notes = $('acctPayNotes')?.value?.trim() || null;
+  const status = $('acctPayStatus');
+  if(!borrowerId || !amount || !paid_on) return alert('Fecha y monto son requeridos.');
+  if(status) status.textContent = 'Aplicando pago...';
+  const {error} = await db.rpc('apply_borrower_payment',{p_borrower_id:borrowerId,p_paid_on:paid_on,p_amount:amount,p_payment_type:payment_type,p_notes:notes});
+  if(error){ if(status) status.textContent = error.message; return alert(error.message); }
+  if(status) status.textContent = 'Pago aplicado.';
+  await renderAccount();
+  lastLoanHtml = '';
+  await renderLoanList(true);
+}
+async function generateDue(months){
+  const out = $('acctGenResult');
+  if(out) out.textContent = 'Recalculando cuotas futuras...';
+  const {data,error} = await db.rpc('regenerate_future_borrower_due_events',{p_borrower_id:borrowerId,p_months_ahead:months});
+  if(error){ if(out) out.textContent = error.message; return alert(error.message); }
+  if(out) out.textContent = `Cuotas futuras recalculadas/creadas: ${data || 0}`;
+  await renderAccount();
+  lastLoanHtml = '';
+  await renderLoanList(true);
+}
+
+async function patchPaymentPage(){
+  if(!isPage('paymentsPage')) return;
+  const old = $('paymentLoan');
+  if(!old && paymentPagePatched) return;
+  const box = old?.parentElement || $('acctPageBorrower')?.closest('.card');
+  if(!box) return;
+  const {data,error} = await db.from('borrower_account_summary').select('borrower_id,full_name,principal_balance,account_status').order('full_name',{ascending:true});
+  if(error) return;
+  const key = JSON.stringify((data || []).map(b => [b.borrower_id,b.full_name,b.principal_balance,b.account_status]));
+  if(paymentPagePatched && key === paymentPageKey) return;
+  paymentPageKey = key;
+  box.innerHTML = `<div style="font-weight:800">Registrar pago por cliente/cuenta</div><select id="acctPageBorrower">${(data || []).map(b => `<option value="${b.borrower_id}">${b.full_name} (${b.account_status}, ${money(b.principal_balance)})</option>`).join('')}</select><div class="row"><input id="acctPageDate" type="date" value="${today()}"><input id="acctPageAmount" type="number" step="0.01" placeholder="Monto pagado"></div><select id="acctPageType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select><input id="acctPageNotes" placeholder="Notas del pago"><button id="acctPageBtn" type="button">Aplicar pago</button><div class="muted">Los pagos de cuota no rebajan capital.</div>`;
+  paymentPagePatched = true;
+  $('acctPageBtn').onclick = async () => {
+    const amount = Number($('acctPageAmount').value || 0);
+    if(!amount) return alert('Monto requerido.');
+    const {error} = await db.rpc('apply_borrower_payment',{p_borrower_id:$('acctPageBorrower').value,p_paid_on:$('acctPageDate').value,p_amount:amount,p_payment_type:$('acctPageType').value,p_notes:$('acctPageNotes').value.trim() || null});
+    if(error) return alert(error.message);
+    $('acctPageAmount').value = '';
+    $('acctPageNotes').value = '';
+    paymentPagePatched = false;
+    paymentPageKey = '';
+    await patchPaymentPage();
+    alert('Pago aplicado.');
+  };
+}
+
+document.addEventListener('click', event => {
+  const acctCard = event.target.closest?.('[data-acct-borrower]');
+  if(acctCard){
+    event.preventDefault();
+    openAccount(acctCard.dataset.acctBorrower);
+  }
+}, true);
+window.addEventListener('loan-ledger:open-account', event => {
+  if(event.detail?.borrowerId) openAccount(event.detail.borrowerId);
+});
+async function tick(){
+  ensureAccountPage();
+  if(isPage('loansPage')){
+    await patchDisbursementForm();
+    await renderLoanList(false);
+  }
+  if(isPage('paymentsPage')) await patchPaymentPage();
+}
+new MutationObserver(() => { clearTimeout(tickTimer); tickTimer = setTimeout(tick,250); }).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+setInterval(tick,4000);
+tick();
