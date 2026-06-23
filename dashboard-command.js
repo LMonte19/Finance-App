@@ -22,7 +22,7 @@ const monthPrefix = () => new Date().toISOString().slice(0, 7);
 let dashboardTimer = null;
 let dashboardBusy = false;
 let lastDashboardHtml = "";
-let commandCenterBound = false;
+let bound = false;
 
 function isDashboardPage() {
   return qs("dashboardPage")?.classList.contains("active-page");
@@ -31,10 +31,7 @@ function isDashboardPage() {
 function openPage(id) {
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".page").forEach((p) => p.classList.remove("active-page"));
-
-  const matchingTab = document.querySelector(`.tab-btn[data-page="${id}"]`);
-  if (matchingTab) matchingTab.classList.add("active");
-
+  document.querySelector(`.tab-btn[data-page="${id}"]`)?.classList.add("active");
   qs(id)?.classList.add("active-page");
   qs("sideMenu")?.classList.remove("open");
   qs("menuOverlay")?.classList.remove("open");
@@ -44,13 +41,12 @@ function card(html, attrs = "") {
   return `<div class="compact-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;">${html}</div>`;
 }
 
-function smallAction(html, attrs = "") {
-  return `<div ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:8px 0;box-sizing:border-box;">${html}</div>`;
+function smallAction(html) {
+  return `<div style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:8px 0;box-sizing:border-box;">${html}</div>`;
 }
 
 function ensureStyles() {
   if (qs("dashboardCommandStyle")) return;
-
   const style = document.createElement("style");
   style.id = "dashboardCommandStyle";
   style.textContent = `
@@ -73,14 +69,13 @@ function ensureCommandCenterDom() {
   ensureStyles();
   const dashboard = qs("dashboardPage");
   if (!dashboard) return null;
-
   let box = qs("dashboardCommandCenter");
   if (!box) {
     box = document.createElement("div");
     box.id = "dashboardCommandCenter";
+    dashboard.innerHTML = "";
     dashboard.appendChild(box);
   }
-
   return box;
 }
 
@@ -88,40 +83,49 @@ async function fetchDashboardData() {
   const today = todayIso();
   const month = monthPrefix();
 
-  const [
-    loansRes,
-    dueRes,
-    followupsRes,
-    healthRes,
-    paymentsRes,
-    riskRes,
-    activityRes,
-    contactsRes,
-  ] = await Promise.all([
-    supabase.from("loans").select("id, start_date, principal_outstanding, status, borrowers(full_name)").order("created_at", { ascending: false }).limit(200),
-    supabase.from("loan_due_events").select("id, loan_id, due_date, expected_total, paid_total, status, loans(id,status,borrowers(full_name))").in("status", ["DUE", "PARTIAL"]).order("due_date", { ascending: true }).limit(250),
-    supabase.from("borrower_followups_view").select("*").order("due_date", { ascending: true }).limit(100),
-    supabase.from("loan_health_issues").select("*").limit(100),
-    supabase.from("payment_detail_view").select("*").order("created_at", { ascending: false }).limit(25),
-    supabase.from("borrower_risk_summary").select("*").order("overdue_amount", { ascending: false }).limit(8),
+  const [accountsRes, dueRes, paymentsRes, followupsRes, healthRes, activityRes, contactsRes, partnersRes] = await Promise.all([
+    supabase.from("borrower_account_summary").select("*").order("overdue_amount", { ascending: false }).limit(200),
+    supabase.from("borrower_due_events_view").select("*").in("status", ["DUE", "PARTIAL"]).order("due_date", { ascending: true }).limit(250),
+    supabase.from("borrower_account_payments_view").select("*").order("created_at", { ascending: false }).limit(80),
+    supabase.from("borrower_followups_view").select("*").order("due_date", { ascending: true }).limit(80),
+    supabase.from("borrower_account_health_issues").select("*").limit(80),
     supabase.from("activity_log_view").select("*").order("created_at", { ascending: false }).limit(8),
     supabase.from("borrower_contact_log_view").select("*").order("created_at", { ascending: false }).limit(8),
+    supabase.from("partner_earnings_summary").select("*").limit(50),
   ]);
 
-  const errors = [loansRes, dueRes, followupsRes, healthRes, paymentsRes, riskRes, activityRes, contactsRes].filter((res) => res.error);
+  const errors = [accountsRes, dueRes, paymentsRes, followupsRes, healthRes, activityRes, contactsRes, partnersRes].filter((res) => res.error);
   if (errors.length) throw errors[0].error;
 
-  const loans = loansRes.data || [];
-  const dueRows = (dueRes.data || []).map((d) => ({
-    ...d,
-    remaining: Math.max(0, Number(d.expected_total || 0) - Number(d.paid_total || 0)),
-    borrower_name: d.loans?.borrowers?.full_name || "Unknown",
-    loan_status: d.loans?.status || "UNKNOWN",
-  })).filter((d) => d.remaining > 0 && d.loan_status === "ACTIVE");
+  const accounts = accountsRes.data || [];
+  const activeAccounts = accounts.filter((a) => Number(a.principal_balance || 0) > 0);
+  const overdueAccounts = accounts.filter((a) => Number(a.overdue_amount || 0) > 0);
+  const dueTodayAccounts = accounts.filter((a) => Number(a.due_today_amount || 0) > 0);
 
-  const overdueDue = dueRows.filter((d) => d.due_date < today);
-  const dueToday = dueRows.filter((d) => d.due_date === today);
-  const upcomingDue = dueRows.filter((d) => d.due_date > today).slice(0, 5);
+  const dueRows = (dueRes.data || [])
+    .map((d) => ({ ...d, amount_due: Number(d.amount_due || 0) }))
+    .filter((d) => d.amount_due > 0);
+
+  const overdueDue = dueRows.filter((d) => d.due_date < today || d.timing_status === "OVERDUE");
+  const dueToday = dueRows.filter((d) => d.due_date === today || d.timing_status === "DUE_TODAY");
+  const upcomingDue = dueRows.filter((d) => d.due_date > today && d.timing_status !== "OVERDUE").slice(0, 6);
+
+  const payments = paymentsRes.data || [];
+  const activePayments = payments.filter((p) => !p.is_voided);
+  const paymentsThisMonth = activePayments.filter((p) => String(p.paid_on || "").slice(0, 7) === month);
+  const paymentsThisMonthTotal = paymentsThisMonth.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const feesThisMonth = paymentsThisMonth.reduce((sum, p) => sum + Number(p.applied_interest || 0), 0);
+  const principalThisMonth = paymentsThisMonth.reduce((sum, p) => sum + Number(p.applied_principal || 0), 0);
+
+  const partners = partnersRes.data || [];
+  const activeCapital = activeAccounts.reduce((sum, a) => sum + Number(a.principal_balance || 0), 0);
+  const totalOverdue = overdueAccounts.reduce((sum, a) => sum + Number(a.overdue_amount || 0), 0);
+  const dueTodayAmount = dueTodayAccounts.reduce((sum, a) => sum + Number(a.due_today_amount || 0), 0);
+  const monthlyFee = activeAccounts.reduce((sum, a) => sum + Number(a.current_monthly_fee || 0), 0);
+  const monthlyMgmt = activeAccounts.reduce((sum, a) => sum + Number(a.current_monthly_mgmt || 0), 0);
+  const monthlyFunders = activeAccounts.reduce((sum, a) => sum + Number(a.current_monthly_funders || 0), 0);
+  const partnerActiveCapital = partners.reduce((sum, p) => sum + Number(p.active_capital || 0), 0);
+  const partnerTotalEarned = partners.reduce((sum, p) => sum + Number(p.total_earned || 0), 0);
 
   const followups = followupsRes.data || [];
   const openFollowups = followups.filter((f) => f.status === "OPEN");
@@ -133,27 +137,30 @@ async function fetchDashboardData() {
   const highHealth = health.filter((h) => h.severity === "HIGH");
   const medHealth = health.filter((h) => h.severity === "MEDIUM");
 
-  const payments = paymentsRes.data || [];
-  const activePayments = payments.filter((p) => !p.is_voided);
-  const paymentsThisMonth = activePayments.filter((p) => String(p.paid_on || "").slice(0, 7) === month);
-  const paymentsThisMonthTotal = paymentsThisMonth.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const activeLoans = loans.filter((l) => l.status === "ACTIVE");
-  const totalOutstanding = activeLoans.reduce((sum, l) => sum + Number(l.principal_outstanding || 0), 0);
-  const overdueAmount = overdueDue.reduce((sum, d) => sum + d.remaining, 0);
-  const dueTodayAmount = dueToday.reduce((sum, d) => sum + d.remaining, 0);
-
   return {
     today,
-    loans,
-    activeLoans,
-    totalOutstanding,
+    accounts,
+    activeAccounts,
+    overdueAccounts,
+    dueTodayAccounts,
+    activeCapital,
+    totalOverdue,
+    dueTodayAmount,
+    monthlyFee,
+    monthlyMgmt,
+    monthlyFunders,
     dueRows,
     overdueDue,
-    overdueAmount,
     dueToday,
-    dueTodayAmount,
     upcomingDue,
+    payments,
+    activePayments,
+    paymentsThisMonth,
+    paymentsThisMonthTotal,
+    feesThisMonth,
+    principalThisMonth,
+    partnerActiveCapital,
+    partnerTotalEarned,
     followups,
     openFollowups,
     overdueFollowups,
@@ -162,11 +169,6 @@ async function fetchDashboardData() {
     health,
     highHealth,
     medHealth,
-    payments,
-    activePayments,
-    paymentsThisMonth,
-    paymentsThisMonthTotal,
-    risk: riskRes.data || [],
     activity: activityRes.data || [],
     contacts: contactsRes.data || [],
   };
@@ -178,22 +180,33 @@ function statusPill(text, cls = "") {
 
 function renderTopSummary(data) {
   return `
-    <div class="card">
+    <div class="card" data-no-translate="true">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div>
-          <div style="font-weight:800;">Command Center</div>
-          <div class="muted">Fast view of what needs attention today.</div>
-        </div>
-        <button id="btnRefreshCommandCenter" class="command-btn" type="button" style="width:auto;background:#333;padding:10px 14px;">Refresh</button>
+        <div><div style="font-weight:800;">Inicio / Resumen</div><div class="muted">Vista rápida de cuentas, cuotas y pagos.</div></div>
+        <button id="btnRefreshCommandCenter" class="command-btn" type="button" style="width:auto;background:#333;padding:10px 14px;">Actualizar</button>
       </div>
-
       <div class="command-grid">
-        <div class="command-card"><div class="command-label">Total Outstanding</div><div class="command-value">${money(data.totalOutstanding)}</div></div>
-        <div class="command-card"><div class="command-label">Overdue Amount</div><div class="command-value ${data.overdueAmount > 0 ? "command-high" : ""}">${money(data.overdueAmount)}</div></div>
-        <div class="command-card"><div class="command-label">Due Today</div><div class="command-value ${data.dueTodayAmount > 0 ? "command-med" : ""}">${money(data.dueTodayAmount)}</div></div>
-        <div class="command-card"><div class="command-label">Open Follow-ups</div><div class="command-value">${data.openFollowups.length}</div></div>
-        <div class="command-card"><div class="command-label">Health Issues</div><div class="command-value ${data.highHealth.length ? "command-high" : data.medHealth.length ? "command-med" : "command-ok"}">${data.health.length}</div></div>
-        <div class="command-card"><div class="command-label">Payments This Month</div><div class="command-value">${money(data.paymentsThisMonthTotal)}</div></div>
+        <div class="command-card"><div class="command-label">Capital activo</div><div class="command-value">${money(data.activeCapital)}</div></div>
+        <div class="command-card"><div class="command-label">Atrasado</div><div class="command-value ${data.totalOverdue > 0 ? "command-high" : "command-ok"}">${money(data.totalOverdue)}</div></div>
+        <div class="command-card"><div class="command-label">Vence hoy</div><div class="command-value ${data.dueTodayAmount > 0 ? "command-med" : ""}">${money(data.dueTodayAmount)}</div></div>
+        <div class="command-card"><div class="command-label">Pagos del mes</div><div class="command-value">${money(data.paymentsThisMonthTotal)}</div></div>
+        <div class="command-card"><div class="command-label">Cuotas cobradas</div><div class="command-value">${money(data.feesThisMonth)}</div></div>
+        <div class="command-card"><div class="command-label">Abono a capital</div><div class="command-value">${money(data.principalThisMonth)}</div></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderExpectedMonthly(data) {
+  return `
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Proyección actual</div>
+      <div class="muted">Basado en el balance activo actual de cada cuenta.</div>
+      <div class="command-grid">
+        <div class="command-card"><div class="command-label">Cuota mensual total</div><div class="command-value">${money(data.monthlyFee)}</div></div>
+        <div class="command-card"><div class="command-label">Administración mensual</div><div class="command-value">${money(data.monthlyMgmt)}</div></div>
+        <div class="command-card"><div class="command-label">Socios mensual</div><div class="command-value">${money(data.monthlyFunders)}</div></div>
+        <div class="command-card"><div class="command-label">Capital socios activo</div><div class="command-value">${money(data.partnerActiveCapital)}</div></div>
       </div>
     </div>
   `;
@@ -201,17 +214,17 @@ function renderTopSummary(data) {
 
 function renderQuickActions() {
   return `
-    <div class="card">
-      <div style="font-weight:800;">Quick Actions</div>
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Acciones rápidas</div>
       <div class="row">
-        <button id="quickNewLoan" class="command-btn" type="button">New Loan</button>
-        <button id="quickRecordPayment" class="command-btn" type="button">Record Payment</button>
+        <button id="quickNewLoan" class="command-btn" type="button">Nuevo desembolso</button>
+        <button id="quickRecordPayment" class="command-btn" type="button">Registrar pago</button>
       </div>
       <div class="row">
-        <button id="quickFollowup" class="command-btn" type="button">Add Follow-up</button>
-        <button id="quickLogContact" class="command-btn" type="button">Log Contact</button>
+        <button id="quickFollowup" class="command-btn" type="button">Seguimiento</button>
+        <button id="quickLogContact" class="command-btn" type="button">Nota de contacto</button>
       </div>
-      <button id="quickGenerateDue" class="command-btn" type="button">Generate Missing Due Dates</button>
+      <button id="quickGenerateDue" class="command-btn" type="button">Recalcular cuotas futuras</button>
       <div id="quickActionStatus" class="muted" style="margin-top:8px;"></div>
     </div>
   `;
@@ -220,132 +233,61 @@ function renderQuickActions() {
 function renderActionQueue(data) {
   const items = [];
 
-  data.overdueDue.slice(0, 5).forEach((d) => {
-    items.push({
-      priority: 1,
-      html: smallAction(`
-        <strong>${d.borrower_name}</strong> ${statusPill("OVERDUE", "command-high")}<br>
-        <span class="muted">Due ${d.due_date} | Amount: ${money(d.remaining)} | Loan ${String(d.loan_id).slice(0, 8)}…</span>
-      `),
-    });
+  data.overdueAccounts.slice(0, 6).forEach((a) => {
+    items.push({ priority: 1, html: smallAction(`<strong>${a.full_name}</strong> ${statusPill("ATRASADO", "command-high")}<br><span class="muted">Atrasado: ${money(a.overdue_amount)} | ${a.overdue_count || 0} cuotas | ${a.max_days_late || 0} días tarde</span>`) });
+  });
+
+  data.dueTodayAccounts.slice(0, 4).forEach((a) => {
+    items.push({ priority: 2, html: smallAction(`<strong>${a.full_name}</strong> ${statusPill("VENCE HOY", "command-med")}<br><span class="muted">Monto: ${money(a.due_today_amount)} | Balance: ${money(a.principal_balance)}</span>`) });
   });
 
   data.todayFollowups.slice(0, 4).forEach((f) => {
-    items.push({
-      priority: 2,
-      html: smallAction(`
-        <strong>${f.borrower_name}</strong> ${statusPill("FOLLOW-UP TODAY", "command-med")}<br>
-        <span class="muted">${f.reason || "—"} | Priority: ${f.priority} | ${f.borrower_phone || "No phone"}</span>
-      `),
-    });
-  });
-
-  data.urgentFollowups.slice(0, 4).forEach((f) => {
-    items.push({
-      priority: 3,
-      html: smallAction(`
-        <strong>${f.borrower_name}</strong> ${statusPill(f.priority, "command-high")}<br>
-        <span class="muted">Due ${f.due_date} | ${f.reason || "—"}</span>
-      `),
-    });
+    items.push({ priority: 3, html: smallAction(`<strong>${f.borrower_name}</strong> ${statusPill("SEGUIMIENTO", "command-med")}<br><span class="muted">${f.reason || "—"} | ${f.borrower_phone || "Sin teléfono"}</span>`) });
   });
 
   data.highHealth.slice(0, 4).forEach((h) => {
-    items.push({
-      priority: 4,
-      html: smallAction(`
-        <strong>${h.borrower_name}</strong> ${statusPill("HEALTH", "command-high")}<br>
-        <span class="muted">${h.summary} | ${h.details || ""}</span>
-      `),
-    });
+    items.push({ priority: 4, html: smallAction(`<strong>${h.borrower_name || h.full_name || "Cuenta"}</strong> ${statusPill("REVISAR", "command-high")}<br><span class="muted">${h.summary || h.issue_type || "Alerta"} | ${h.details || ""}</span>`) });
   });
 
-  const sorted = items.sort((a, b) => a.priority - b.priority).slice(0, 10);
+  const sorted = items.sort((a, b) => a.priority - b.priority).slice(0, 12);
+  return `<div class="card" data-no-translate="true"><div style="font-weight:800;">Prioridad de hoy</div><div class="muted">Lo más importante para revisar primero.</div>${sorted.length ? sorted.map(x => x.html).join("") : `<div class="command-ok" style="margin-top:10px;">No hay acciones urgentes ahora.</div>`}</div>`;
+}
 
+function renderDueSection(data) {
   return `
-    <div class="card">
-      <div style="font-weight:800;">Action Queue</div>
-      <div class="muted">The most urgent things to handle first.</div>
-      ${sorted.length ? sorted.map((x) => x.html).join("") : "No urgent actions right now."}
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Cuotas</div>
+      <div style="font-weight:800;margin-top:10px;">Vencen hoy</div>
+      ${data.dueToday.length ? data.dueToday.slice(0, 6).map(d => smallAction(`<strong>${d.borrower_name}</strong> — ${money(d.amount_due)}<br><span class="muted">Fecha: ${d.due_date} | ${d.status}</span>`)).join("") : `<div class="muted">No hay cuotas venciendo hoy.</div>`}
+      <div style="font-weight:800;margin-top:14px;">Próximas cuotas</div>
+      ${data.upcomingDue.length ? data.upcomingDue.map(d => smallAction(`<strong>${d.borrower_name}</strong> — ${money(d.amount_due)}<br><span class="muted">Fecha: ${d.due_date} | Capital base: ${money(d.principal_snapshot)}</span>`)).join("") : `<div class="muted">No hay cuotas próximas generadas.</div>`}
     </div>
   `;
 }
 
-function renderDueFollowups(data) {
+function renderAccounts(data) {
+  const risky = [...data.overdueAccounts, ...data.activeAccounts.filter(a => Number(a.overdue_amount || 0) <= 0)].slice(0, 8);
   return `
-    <div class="card">
-      <div style="font-weight:800;">Today / Upcoming</div>
-      <div style="font-weight:800;margin-top:10px;">Due Today</div>
-      ${data.dueToday.length ? data.dueToday.slice(0, 5).map((d) => smallAction(`
-        <strong>${d.borrower_name}</strong> — ${money(d.remaining)}<br>
-        <span class="muted">Due ${d.due_date} | ${d.status}</span>
-      `)).join("") : `<div class="muted">No loan payments due today.</div>`}
-
-      <div style="font-weight:800;margin-top:14px;">Upcoming Due</div>
-      ${data.upcomingDue.length ? data.upcomingDue.map((d) => smallAction(`
-        <strong>${d.borrower_name}</strong> — ${money(d.remaining)}<br>
-        <span class="muted">Due ${d.due_date} | ${d.status}</span>
-      `)).join("") : `<div class="muted">No upcoming due rows found.</div>`}
-
-      <div style="font-weight:800;margin-top:14px;">Follow-ups Due</div>
-      ${[...data.overdueFollowups, ...data.todayFollowups].slice(0, 6).map((f) => smallAction(`
-        <strong>${f.borrower_name}</strong> — ${f.timing_status.replaceAll("_", " ")}<br>
-        <span class="muted">${f.reason || "—"} | Due ${f.due_date} | ${f.borrower_phone || "No phone"}</span>
-      `)).join("") || `<div class="muted">No overdue or due-today follow-ups.</div>`}
-    </div>
-  `;
-}
-
-function renderRisk(data) {
-  const risky = (data.risk || []).filter((b) => Number(b.overdue_amount || 0) > 0 || Number(b.total_outstanding || 0) > 0).slice(0, 6);
-  return `
-    <div class="card">
-      <div style="font-weight:800;">Borrower Risk Snapshot</div>
-      ${risky.length ? risky.map((b) => smallAction(`
-        <strong>${b.full_name}</strong> ${statusPill(b.risk_status, b.risk_status === "OVERDUE" ? "command-high" : "") }<br>
-        <span class="muted">Outstanding: ${money(b.total_outstanding)} | Overdue: ${money(b.overdue_amount)} | Days late: ${b.max_days_late || 0} | Last payment: ${b.last_payment_date || "—"}</span>
-      `)).join("") : "No borrower risk data yet."}
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Cuentas de clientes</div>
+      ${risky.length ? risky.map(a => smallAction(`<strong>${a.full_name}</strong> ${statusPill(a.account_status, a.account_status === "ATRASADO" ? "command-high" : "command-ok")}<br><span class="muted">Balance: ${money(a.principal_balance)} | Cuota mensual: ${money(a.current_monthly_fee)} | Próxima: ${a.next_due_date || "—"}</span>`)).join("") : "No hay cuentas activas."}
     </div>
   `;
 }
 
 function renderRecent(data) {
   return `
-    <div class="card">
-      <div style="font-weight:800;">Recent Payments</div>
-      ${data.activePayments.length ? data.activePayments.slice(0, 5).map((p) => smallAction(`
-        <strong>${p.borrower_name || "Unknown"}</strong> — ${money(p.amount)}<br>
-        <span class="muted">Paid ${p.paid_on} | Interest: ${money(p.applied_interest)} | Principal: ${money(p.applied_principal)}</span>
-      `)).join("") : "No payments yet."}
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Pagos recientes</div>
+      ${data.activePayments.length ? data.activePayments.slice(0, 6).map(p => smallAction(`<strong>${p.borrower_name || "Cliente"}</strong> — ${money(p.amount)}<br><span class="muted">${p.paid_on} | Cuota/interés: ${money(p.applied_interest)} | Capital: ${money(p.applied_principal)}</span>`)).join("") : "No hay pagos todavía."}
     </div>
-
-    <div class="card">
-      <div style="font-weight:800;">Recent Activity</div>
-      ${data.activity.length ? data.activity.slice(0, 5).map((a) => smallAction(`
-        <strong>${String(a.action_type || "").replaceAll("_", " ")}</strong><br>
-        <span class="muted">${new Date(a.created_at).toLocaleString()} | ${a.actor_name || "System"} | ${a.summary || "—"}</span>
-      `)).join("") : "No activity yet."}
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Actividad reciente</div>
+      ${data.activity.length ? data.activity.slice(0, 5).map(a => smallAction(`<strong>${String(a.action_type || "").replaceAll("_", " ")}</strong><br><span class="muted">${new Date(a.created_at).toLocaleString()} | ${a.actor_name || "Sistema"} | ${a.summary || "—"}</span>`)).join("") : "No hay actividad."}
     </div>
-
-    <div class="card">
-      <div style="font-weight:800;">Recent Contact Notes</div>
-      ${data.contacts.length ? data.contacts.slice(0, 5).map((c) => smallAction(`
-        <strong>${c.borrower_name}</strong> — ${c.contact_type}<br>
-        <span class="muted">${c.contact_date} | ${c.outcome || "—"}</span><br>
-        <span>${c.notes || ""}</span>
-      `)).join("") : "No contact notes yet."}
-    </div>
-  `;
-}
-
-function renderHealthPreview(data) {
-  return `
-    <div class="card">
-      <div style="font-weight:800;">Loan Health Preview</div>
-      ${data.health.length ? data.health.slice(0, 6).map((h) => smallAction(`
-        <strong>${h.borrower_name}</strong> ${statusPill(h.severity, h.severity === "HIGH" ? "command-high" : "command-med")}<br>
-        <span class="muted">${h.summary} | ${h.details || ""}</span>
-      `)).join("") : `<div class="command-ok">No loan health issues found.</div>`}
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Notas de contacto recientes</div>
+      ${data.contacts.length ? data.contacts.slice(0, 5).map(c => smallAction(`<strong>${c.borrower_name}</strong> — ${c.contact_type}<br><span class="muted">${c.contact_date} | ${c.outcome || "—"}</span><br><span>${c.notes || ""}</span>`)).join("") : "No hay notas de contacto."}
     </div>
   `;
 }
@@ -353,20 +295,10 @@ function renderHealthPreview(data) {
 async function renderCommandCenter(force = false) {
   const box = ensureCommandCenterDom();
   if (!box || !isDashboardPage() || dashboardBusy) return;
-
   dashboardBusy = true;
   try {
     const data = await fetchDashboardData();
-    const html = `
-      ${renderTopSummary(data)}
-      ${renderQuickActions()}
-      ${renderActionQueue(data)}
-      ${renderDueFollowups(data)}
-      ${renderRisk(data)}
-      ${renderHealthPreview(data)}
-      ${renderRecent(data)}
-    `;
-
+    const html = `${renderTopSummary(data)}${renderExpectedMonthly(data)}${renderQuickActions()}${renderActionQueue(data)}${renderDueSection(data)}${renderAccounts(data)}${renderRecent(data)}`;
     if (force || html !== lastDashboardHtml) {
       box.innerHTML = html;
       lastDashboardHtml = html;
@@ -374,70 +306,32 @@ async function renderCommandCenter(force = false) {
     }
   } catch (error) {
     console.error(error);
-    box.innerHTML = `<div class="card"><strong>Command Center</strong><br><span class="muted">${error.message || String(error)}</span></div>`;
+    box.innerHTML = `<div class="card"><strong>Inicio</strong><br><span class="muted">${error.message || String(error)}</span></div>`;
   } finally {
     dashboardBusy = false;
   }
 }
 
 function bindQuickActions() {
-  if (commandCenterBound) return;
-  commandCenterBound = true;
-
+  if (bound) return;
+  bound = true;
   document.addEventListener("click", async (event) => {
     const id = event.target?.id;
     if (!id) return;
-
-    if (id === "btnRefreshCommandCenter") {
-      event.preventDefault();
-      lastDashboardHtml = "";
-      commandCenterBound = false;
-      await renderCommandCenter(true);
-      return;
-    }
-
-    if (id === "quickNewLoan") {
-      event.preventDefault();
-      openPage("loansPage");
-      qs("principal")?.focus();
-      return;
-    }
-
-    if (id === "quickRecordPayment") {
-      event.preventDefault();
-      openPage("paymentsPage");
-      qs("paymentAmount")?.focus();
-      return;
-    }
-
-    if (id === "quickFollowup") {
-      event.preventDefault();
-      openPage("followupsPage");
-      qs("followupReason")?.focus();
-      return;
-    }
-
-    if (id === "quickLogContact") {
-      event.preventDefault();
-      openPage("followupsPage");
-      qs("contactNotes")?.focus();
-      return;
-    }
-
+    if (id === "btnRefreshCommandCenter") { event.preventDefault(); lastDashboardHtml = ""; await renderCommandCenter(true); return; }
+    if (id === "quickNewLoan") { event.preventDefault(); openPage("loansPage"); qs("principal")?.focus(); return; }
+    if (id === "quickRecordPayment") { event.preventDefault(); openPage("paymentsPage"); qs("acctPageAmount")?.focus(); qs("paymentAmount")?.focus(); return; }
+    if (id === "quickFollowup") { event.preventDefault(); openPage("followupsPage"); qs("followupReason")?.focus(); return; }
+    if (id === "quickLogContact") { event.preventDefault(); openPage("followupsPage"); qs("contactNotes")?.focus(); return; }
     if (id === "quickGenerateDue") {
       event.preventDefault();
       const status = qs("quickActionStatus");
-      if (status) status.textContent = "Generating missing due dates...";
-      const { data, error } = await supabase.rpc("generate_missing_due_events_all", { p_months_ahead: 12 });
-      if (error) {
-        if (status) status.textContent = error.message;
-        alert(error.message);
-        return;
-      }
+      if (status) status.textContent = "Recalculando cuotas futuras...";
+      const { data, error } = await supabase.rpc("regenerate_future_borrower_due_events_all", { p_months_ahead: 12 });
+      if (error) { if (status) status.textContent = error.message; alert(error.message); return; }
       const total = (data || []).reduce((sum, row) => sum + Number(row.inserted_count || 0), 0);
-      if (status) status.textContent = `Generated ${total} missing due row(s).`;
+      if (status) status.textContent = `Cuentas revisadas: ${(data || []).length}. Cuotas creadas/recalculadas: ${total}.`;
       lastDashboardHtml = "";
-      commandCenterBound = false;
       await renderCommandCenter(true);
     }
   }, true);
@@ -448,11 +342,10 @@ function tick() {
   if (isDashboardPage()) renderCommandCenter(false);
 }
 
-const observer = new MutationObserver(() => {
+new MutationObserver(() => {
   clearTimeout(dashboardTimer);
   dashboardTimer = setTimeout(tick, 250);
-});
+}).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
 
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(tick, 3500);
+setInterval(tick, 4000);
 tick();
