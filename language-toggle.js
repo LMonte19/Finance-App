@@ -163,32 +163,7 @@ const es = {
   "Balance": "Balance",
   "Original": "Original",
   "Status": "Estado",
-  "Current": "Al día",
-  "CURRENT": "AL DÍA",
-  "OVERDUE": "ATRASADO",
-  "DUE TODAY": "VENCE HOY",
-  "ACTIVE": "ACTIVO",
-  "PAID": "PAGADO",
-  "PARTIAL": "PARCIAL",
-  "DUE": "PENDIENTE",
-  "VOIDED": "ANULADO",
-  "CLOSED": "CERRADO",
-  "PAID_OFF": "SALDADO",
-  "AGENT": "AGENTE",
-  "PARTNER": "SOCIO",
-  "LOW": "BAJA",
-  "NORMAL": "NORMAL",
-  "HIGH": "ALTA",
-  "URGENT": "URGENTE",
-  "NOTE": "NOTA",
-  "CALL": "LLAMADA",
-  "TEXT": "TEXTO",
-  "EMAIL": "CORREO",
-  "IN_PERSON": "EN PERSONA",
-  "OTHER": "OTRO",
-  "PASS": "OK",
-  "WARN": "AVISO",
-  "FAIL": "FALLA"
+  "Current": "Al día"
 };
 
 const placeholdersEs = {
@@ -234,6 +209,8 @@ function shouldSkipElement(el) {
   if (!el) return true;
   if (["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "SELECT", "OPTION"].includes(el.tagName)) return true;
   if (el.closest("script,style,textarea,input")) return true;
+  if (el.closest('[translate="no"], [data-no-translate="true"], .no-translate, #stableAccountTop')) return true;
+  if (el.closest('.pill, .acct-pill, .acct-status-pill, .stable-account-value, .stat-value')) return true;
   if (el.id === "debug") return true;
   return false;
 }
@@ -261,6 +238,7 @@ function translateTextNodes(root = document.body) {
 function translateAttributes(root = document) {
   const pMap = currentLang === "es" ? placeholdersEs : placeholdersEn;
   root.querySelectorAll("input[placeholder], textarea[placeholder]").forEach((el) => {
+    if (el.closest('[translate="no"], [data-no-translate="true"], .no-translate, #stableAccountTop')) return;
     const clean = norm(el.getAttribute("placeholder"));
     const translated = pMap[clean];
     if (translated) el.setAttribute("placeholder", translated);
@@ -268,6 +246,7 @@ function translateAttributes(root = document) {
 
   const map = currentLang === "es" ? es : en;
   root.querySelectorAll("option").forEach((el) => {
+    if (el.closest('[translate="no"], [data-no-translate="true"], .no-translate, #stableAccountTop')) return;
     const clean = norm(el.textContent);
     const translated = map[clean];
     if (translated) el.textContent = translated;
