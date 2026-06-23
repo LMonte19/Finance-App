@@ -13,3 +13,4 @@ import './loan-health.js?v=1';
 import './dashboard-command.js?v=1';
 import './role-security.js?v=1';
 import './system-check.js?v=1';
+import './language-toggle.js?v=1';
