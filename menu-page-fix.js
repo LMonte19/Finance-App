@@ -1,41 +1,24 @@
 const qs = (id) => document.getElementById(id);
 
-function ensureDynamicPage(id, title) {
-  if (qs(id)) return qs(id);
-
-  const app = qs("app");
-  if (!app) return null;
-
-  const page = document.createElement("div");
-  page.id = id;
-  page.className = "page";
-  page.innerHTML = `
-    <div class="card">
-      <div style="font-weight:800;">${title}</div>
-      <div id="${id}Content" class="muted">Loading...</div>
-    </div>
-  `;
-  app.appendChild(page);
-  return page;
-}
-
-function repairMenuPages() {
+function repairMenuButtonsOnly() {
   const map = [
-    ["menuDueOverdue", "dueOverduePage", "Due / Overdue"],
-    ["menuProfiles", "profilesPage", "Profiles / Users"],
-    ["menuReports", "reportsPage", "Reports / Export"],
-    ["menuMaintenance", "maintenancePage", "Maintenance"],
+    ["menuDueOverdue", "dueOverduePage"],
+    ["menuProfiles", "profilesPage"],
+    ["menuReports", "reportsPage"],
+    ["menuMaintenance", "maintenancePage"],
+    ["menuActivity", "activityPage"],
+    ["menuLoanHealth", "loanHealthPage"],
+    ["menuSystemCheck", "systemCheckPage"],
   ];
 
-  map.forEach(([buttonId, pageId, title]) => {
+  map.forEach(([buttonId, pageId]) => {
     const btn = qs(buttonId);
     if (btn) btn.dataset.page = pageId;
-    ensureDynamicPage(pageId, title);
   });
 }
 
-// The original app.js assigns menu click handlers to .menu-link buttons.
-// New extension buttons need data-page already present, otherwise app.js opens "nothing".
-// Running this repeatedly keeps the dynamic pages repaired even if scripts load in a different order.
-setInterval(repairMenuPages, 300);
-repairMenuPages();
+// This file used to create placeholder pages. That caused old blank sections
+// to appear before the real modules rendered. Now each feature module owns
+// its own page; this helper only repairs menu button data-page attributes.
+setInterval(repairMenuButtonsOnly, 1000);
+repairMenuButtonsOnly();
