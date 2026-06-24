@@ -8,147 +8,61 @@
   <meta name="theme-color" content="#111111">
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;background:#0b0b0c;color:#fff}
-    header{padding:14px 16px;border-bottom:1px solid #222;position:sticky;top:0;background:#0b0b0c}
+    header{padding:14px 16px;border-bottom:1px solid #222;position:sticky;top:0;background:#0b0b0c;z-index:30}
     .wrap{padding:16px;max-width:880px;margin:0 auto}
     .card{background:#121214;border:1px solid #222;border-radius:14px;padding:14px;margin:12px 0}
-    input,select,button{width:100%;padding:12px;border-radius:12px;border:1px solid #2a2a2e;background:#0f0f11;color:#fff;margin:8px 0}
-    button{background:#2b63ff;border:none;font-weight:700}
+    input,select,button{width:100%;padding:12px;border-radius:12px;border:1px solid #2a2a2e;background:#0f0f11;color:#fff;margin:8px 0;box-sizing:border-box}
+    button{background:#2b63ff;border:none;font-weight:700;cursor:pointer}
+    button:hover{filter:brightness(1.12)}
+    button:active{transform:scale(.99)}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .muted{color:#b8b8c2;font-size:13px}
     .pill{display:inline-block;padding:4px 10px;border:1px solid #333;border-radius:999px;font-size:12px;color:#cfcfe6}
     a{color:#8fb1ff}
-    .tabs{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:8px;
-      margin:12px 0;
-    }
-    
-    .tab-btn{
-      background:#16161a;
-      border:1px solid #2b2b31;
-      color:#d9d9e3;
-      padding:12px;
-      border-radius:12px;
-      cursor:pointer;
-    }
-    
-    .tab-btn.active{
-      background:#2b63ff;
-      color:#fff;
-    }
-    
-    .page{
-      display:none;
-    }
-    
-    .active-page{
-      display:block;
-    }
-    
-    .stats-grid{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:12px;
-      margin-top:12px;
-    }
-    
-    .stat-card{
-      background:#0f0f11;
-      border:1px solid #2a2a2e;
-      border-radius:14px;
-      padding:14px;
-    }
-    
-    .stat-label{
-      color:#b8b8c2;
-      font-size:13px;
-      margin-bottom:6px;
-    }
-    
-    .stat-value{
-      font-size:22px;
-      font-weight:800;
-    }
-
-    .menu-overlay{
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,0.45);
-      display:none;
-      z-index:40;
-    }
-    
-    .menu-overlay.open{
-      display:block;
-    }
-    
-    .side-menu{
-      position:fixed;
-      top:0;
-      left:-280px;
-      width:260px;
-      height:100%;
-      background:#121214;
-      border-right:1px solid #2a2a2e;
-      z-index:50;
-      padding:20px;
-      box-sizing:border-box;
-      transition:left 0.25s ease;
-    }
-    
-    .side-menu.open{
-      left:0;
-    }
-    
-    .menu-link{
-      display:block;
-      width:100%;
-      text-align:left;
-      margin:8px 0;
-      background:#16161a;
-      border:1px solid #2b2b31;
-      color:#d9d9e3;
-      padding:12px;
-      border-radius:12px;
-    }
-    
-    .tabs{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:8px;
-      margin:12px 0;
-    }
+    .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+    .tab-btn{background:#16161a;border:1px solid #2b2b31;color:#d9d9e3;padding:12px;border-radius:12px;cursor:pointer}
+    .tab-btn.active{background:#2b63ff;color:#fff}
+    .page{display:none}
+    .active-page{display:block}
+    .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+    .stat-card{background:#0f0f11;border:1px solid #2a2a2e;border-radius:14px;padding:14px}
+    .stat-label{color:#b8b8c2;font-size:13px;margin-bottom:6px}
+    .stat-value{font-size:22px;font-weight:800}
+    .compact-card{background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box}
+    .menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;z-index:40}
+    .menu-overlay.open{display:block}
+    .side-menu{position:fixed;top:0;left:-280px;width:260px;height:100%;background:#121214;border-right:1px solid #2a2a2e;z-index:50;padding:20px;box-sizing:border-box;transition:left 0.25s ease;overflow:auto}
+    .side-menu.open{left:0}
+    .menu-link{display:block;width:100%;text-align:left;margin:8px 0;background:#16161a;border:1px solid #2b2b31;color:#d9d9e3;padding:12px;border-radius:12px}
+    .legacy-hidden{display:none!important}
+    @media(max-width:650px){.row,.stats-grid{grid-template-columns:1fr}.tabs{grid-template-columns:1fr 1fr 1fr}.wrap{padding:12px}}
   </style>
 </head>
 <body>
-  
-    <div id="menuOverlay" class="menu-overlay"></div>
-  
+  <div id="menuOverlay" class="menu-overlay"></div>
+
   <div id="sideMenu" class="side-menu">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-weight:800;">Menu</div>
+      <div style="font-weight:800;">Menú</div>
       <button id="btnCloseMenu" style="width:auto;background:#333;padding:10px 14px;">✕</button>
     </div>
-  
-    <button class="menu-link" data-page="borrowersPage">Borrowers</button>
-    <button class="menu-link" data-page="partnersPage">Partners</button>
-    <button class="menu-link" data-page="defaultsPage">Defaults / Settings</button>
+    <button class="menu-link" data-page="borrowersPage">Clientes</button>
+    <button class="menu-link" data-page="partnersPage">Socios</button>
+    <button class="menu-link" data-page="defaultsPage">Configuración</button>
   </div>
-  
+
   <header>
     <div class="wrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div style="display:flex;align-items:center;gap:10px;">
           <button id="btnMenu" style="width:auto;background:#16161a;border:1px solid #2b2b31;padding:10px 14px;">☰</button>
           <div>
-            <div style="font-weight:800;">Loan Ledger</div>
-            <div class="muted" id="whoami">Not signed in</div>
+            <div style="font-weight:800;">Control de Préstamos</div>
+            <div class="muted" id="whoami">Sesión no iniciada</div>
           </div>
         </div>
-  
         <div>
-          <button id="btnSignOut" style="display:none;background:#333;width:auto;padding:10px 14px;">Sign out</button>
+          <button id="btnSignOut" style="display:none;background:#333;width:auto;padding:10px 14px;">Salir</button>
         </div>
       </div>
     </div>
@@ -156,247 +70,130 @@
 
   <div class="wrap">
     <div class="card" id="authCard">
-      <div style="font-weight:800;margin-bottom:8px;">Sign in</div>
-      <input id="email" placeholder="Email" />
-      <input id="password" type="password" placeholder="Password" />
-      <button id="btnSignIn">Sign in</button>
+      <div style="font-weight:800;margin-bottom:8px;">Iniciar sesión</div>
+      <input id="email" placeholder="Correo electrónico" />
+      <input id="password" type="password" placeholder="Contraseña" />
+      <button id="btnSignIn">Iniciar sesión</button>
       <div class="muted" id="debug" style="margin-top:8px;"></div>
-      <div class="muted">Admin creates users in Supabase (so no one self-registers).</div>
+      <div class="muted">El administrador crea los usuarios en Supabase.</div>
     </div>
 
     <div id="app" style="display:none;">
       <div class="tabs">
-        <button class="tab-btn active" data-page="dashboardPage">Home</button>
-        <button class="tab-btn" data-page="loansPage">Loans</button>
-        <button class="tab-btn" data-page="paymentsPage">Payments</button>
+        <button class="tab-btn active" data-page="dashboardPage">Inicio</button>
+        <button class="tab-btn" data-page="loansPage">Préstamos</button>
+        <button class="tab-btn" data-page="paymentsPage">Pagos</button>
       </div>
-    
-      <!-- DASHBOARD -->
+
       <div id="dashboardPage" class="page active-page">
-        <div class="card">
-          <div style="font-weight:800;">Overview</div>
-    
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-label">Active Loans</div>
-              <div class="stat-value" id="statActiveLoans">0</div>
-            </div>
-    
-            <div class="stat-card">
-              <div class="stat-label">Outstanding</div>
-              <div class="stat-value" id="statOutstanding">$0</div>
-            </div>
-    
-            <div class="stat-card">
-              <div class="stat-label">Payments Logged</div>
-              <div class="stat-value" id="statPaymentsCount">0</div>
-            </div>
-    
-            <div class="stat-card">
-              <div class="stat-label">Borrowers</div>
-              <div class="stat-value" id="statBorrowersCount">0</div>
-            </div>
-          </div>
-        </div>
-    
-        <div class="card">
-          <div style="font-weight:800;">Recent Payments</div>
-          <div id="dashboardRecentPayments" class="muted"></div>
-        </div>
-    
-        <div class="card">
-          <div style="font-weight:800;">Loans Snapshot</div>
-          <div id="dashboardLoansSnapshot" class="muted"></div>
+        <div id="dashboardCommandCenter">
+          <div class="card muted">Cargando inicio...</div>
         </div>
       </div>
-    
-      <!-- LOANS -->
+
       <div id="loansPage" class="page">
-        <div class="card">
-          <div style="font-weight:800;">New Loan</div>
-        
+        <div class="card" data-no-translate="true">
+          <div style="font-weight:800;">Nuevo desembolso / capital agregado</div>
+          <div class="muted" id="disbursementFormNote">Este formulario agrega capital a la cuenta del cliente. Las cuotas futuras se calculan automáticamente.</div>
+
           <div class="row">
             <select id="loanBorrower"></select>
-            <button id="btnToggleNewBorrower" type="button">+ New Borrower</button>
+            <button id="btnToggleNewBorrower" type="button">+ Nuevo cliente</button>
           </div>
-        
+
           <div id="newBorrowerFields" style="display:none;">
             <div class="row">
-              <input id="newBorrowerName" placeholder="Borrower full name" />
-              <input id="newBorrowerPhone" placeholder="Phone (optional)" />
+              <input id="newBorrowerName" placeholder="Nombre completo del cliente" />
+              <input id="newBorrowerPhone" placeholder="Teléfono (opcional)" />
             </div>
-            <input id="newBorrowerNotes" placeholder="Notes (optional)" />
+            <input id="newBorrowerNotes" placeholder="Notas (opcional)" />
           </div>
-        
+
           <div class="row">
-            <input id="principal" type="number" step="0.01" placeholder="Principal (e.g. 1000)" />
+            <input id="principal" type="number" step="0.01" placeholder="Capital desembolsado" />
             <input id="startDate" type="date" />
           </div>
-        
+
           <div class="row">
-            <input id="loanTotalRate" type="number" step="0.01" placeholder="Total monthly interest % (e.g. 10)" />
-            <input id="loanMgmtRate" type="number" step="0.01" placeholder="Management share % (e.g. 3)" />
+            <input id="loanTotalRate" type="number" step="0.01" placeholder="Interés mensual total %" />
+            <input id="loanMgmtRate" type="number" step="0.01" placeholder="Administración %" />
           </div>
-        
-          <div class="muted" id="loanFunderRatePreview">Funders share: —</div>
-        
-          <div class="card" style="margin-top:12px; background:#0f0f11;">
-            <div style="font-weight:800;">Funding Split</div>
+
+          <div class="muted" id="loanFunderRatePreview">Socios: —</div>
+
+          <div class="card" style="margin-top:12px;background:#0f0f11;">
+            <div style="font-weight:800;">Distribución de inversión</div>
             <div id="newLoanFundingList" class="muted" style="margin-top:10px;"></div>
-        
             <div class="row">
               <select id="newLoanFundingPartner"></select>
-              <input id="newLoanFundingPercent" type="number" step="0.01" placeholder="Percent (e.g. 60)" />
+              <input id="newLoanFundingPercent" type="number" step="0.01" placeholder="Porcentaje" />
             </div>
-        
-            <button id="btnAddNewLoanFunding" type="button">Add / Update Split</button>
+            <button id="btnAddNewLoanFunding" type="button">Agregar / actualizar</button>
           </div>
-        
-          <button id="btnCreateLoan">Save Loan</button>
+
+          <button id="btnCreateLoan" type="button">Guardar desembolso</button>
         </div>
-    
-        <div class="card">
-          <div style="font-weight:800;">Loans</div>
-          <div id="loanList" class="muted"></div>
+
+        <div class="card" data-no-translate="true">
+          <div style="font-weight:800;">Cuentas de clientes</div>
+          <div id="loanList" class="muted">Cargando cuentas...</div>
         </div>
       </div>
 
-      <div id="loanDetailsPage" class="page">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:800;">Loan Details</div>
-            <button id="btnBackToLoans" style="width:auto;background:#333;padding:10px 14px;">Back</button>
-          </div>
-      
-          <div id="loanDetailsHeader" class="muted" style="margin-top:12px;"></div>
-        </div>
-
-        <div class="card">
-          <div style="font-weight:800;">Funding Split</div>
-        
-          <div id="loanFundingList" class="muted" style="margin-top:10px;"></div>
-        
-          <div class="row">
-            <select id="fundingPartner"></select>
-            <input id="fundingPercent" type="number" step="0.01" placeholder="Percent (e.g., 60)" />
-          </div>
-        
-          <button id="btnAddFundingSplit">Save funding split</button>
-          <div class="muted" style="margin-top:8px;">Percent is saved per loan. Example: 60 means 60%.</div>
-        </div>
-                
-        <div class="card">
-          <div style="font-weight:800;">Due Schedule</div>
-          <div id="loanDetailsDueList" class="muted"></div>
-        </div>
-      
-        <div class="card">
-          <div style="font-weight:800;">Payment History</div>
-          <div id="loanDetailsPaymentList" class="muted"></div>
-        </div>
-      </div>
-      
-      <!-- PAYMENTS -->
       <div id="paymentsPage" class="page">
-        <div class="card">
-          <div style="font-weight:800;">Record payment (Agent/Admin)</div>
-    
-          <select id="paymentLoan"></select>
-    
-          <div class="row">
-            <input id="paymentDate" type="date" />
-            <input id="paymentAmount" type="number" step="0.01" placeholder="Amount paid (e.g., 120)" />
-          </div>
-    
-          <input id="paymentNotes" placeholder="Notes (optional)" />
-          <button id="btnAddPayment">Add payment</button>
-        </div>
-    
-        <div class="card">
-          <div style="font-weight:800;">Recent payments</div>
-          <div id="paymentList" class="muted"></div>
+        <div class="card" data-no-translate="true">
+          <div style="font-weight:800;">Registrar pago por cliente/cuenta</div>
+          <select id="paymentLoan" class="legacy-hidden"></select>
+          <div class="muted">Cargando formulario de pagos...</div>
         </div>
       </div>
-    
-      <!-- BORROWERS -->
+
       <div id="borrowersPage" class="page">
-        <div class="card">
+        <div class="card" data-no-translate="true">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:800;">Borrowers</div>
-            <span class="pill" id="rolePill">role</span>
+            <div style="font-weight:800;">Clientes</div>
+            <span class="pill" id="rolePill">rol</span>
           </div>
-    
           <div class="row">
-            <input id="bName" placeholder="Borrower full name" />
-            <input id="bPhone" placeholder="Phone (optional)" />
+            <input id="bName" placeholder="Nombre completo del cliente" />
+            <input id="bPhone" placeholder="Teléfono (opcional)" />
           </div>
-    
-          <input id="bNotes" placeholder="Notes (late payer, etc.)" />
-          <button id="btnAddBorrower">Add borrower</button>
+          <input id="bNotes" placeholder="Notas" />
+          <button id="btnAddBorrower">Agregar cliente</button>
         </div>
-    
-        <div class="card">
-          <div style="font-weight:800;">Borrower list</div>
+        <div class="card" data-no-translate="true">
+          <div style="font-weight:800;">Lista de clientes</div>
           <div id="borrowerList" class="muted"></div>
         </div>
       </div>
 
-      <div id="borrowerDetailsPage" class="page">
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:800;">Borrower Details</div>
-            <button id="btnBackToBorrowers" style="width:auto;background:#333;padding:10px 14px;">Back</button>
-          </div>
-      
-          <div id="borrowerDetailsHeader" class="muted" style="margin-top:12px;"></div>
-        </div>
-      
-        <div class="card">
-          <div style="font-weight:800;">Loans</div>
-          <div id="borrowerDetailsLoans" class="muted"></div>
-        </div>
-      
-        <div class="card">
-          <div style="font-weight:800;">Payments</div>
-          <div id="borrowerDetailsPayments" class="muted"></div>
-        </div>
+      <div id="partnersPage" class="page">
+        <div class="card muted">Cargando socios...</div>
       </div>
 
-      <div id="partnersPage" class="page">
-        <div class="card">
-          <div style="font-weight:800;">Partners</div>
-          <div class="muted">Partner earnings and allocation summaries will go here.</div>
-        </div>
-      </div>
-      
       <div id="defaultsPage" class="page">
-        <div class="card">
-          <div style="font-weight:800;">Defaults / Settings</div>
-      
+        <div class="card" data-no-translate="true">
+          <div style="font-weight:800;">Valores predeterminados / Configuración</div>
           <div class="row">
-            <input id="defaultInterestRate" type="number" step="0.01" placeholder="Default total monthly interest % (e.g. 10)" />
-            <input id="defaultManagementRate" type="number" step="0.01" placeholder="Default management share % (e.g. 3)" />
+            <input id="defaultInterestRate" type="number" step="0.01" placeholder="Interés mensual total predeterminado %" />
+            <input id="defaultManagementRate" type="number" step="0.01" placeholder="Administración predeterminada %" />
           </div>
-      
-          <div class="muted">These will be used to prefill new loans.</div>
+          <div class="muted">Se usan para prellenar nuevos desembolsos.</div>
         </div>
-      
-        <div class="card">
-          <div style="font-weight:800;">Default Funding Split</div>
+        <div class="card" data-no-translate="true">
+          <div style="font-weight:800;">Distribución predeterminada</div>
           <div id="defaultFundingList" class="muted"></div>
-      
           <div class="row">
             <select id="defaultFundingPartner"></select>
-            <input id="defaultFundingPercent" type="number" step="0.01" placeholder="Percent (e.g. 60)" />
+            <input id="defaultFundingPercent" type="number" step="0.01" placeholder="Porcentaje" />
           </div>
-      
-          <button id="btnSaveDefaultFunding">Save default split</button>
+          <button id="btnSaveDefaultFunding">Guardar distribución predeterminada</button>
         </div>
       </div>
     </div>
   </div>
 
-  <script type="module" src="app.js"></script>
-  <script type="module" src="due-extension.js?v=1"></script>
+  <script type="module" src="app.js?v=2"></script>
+  <script type="module" src="due-extension.js?v=2"></script>
 </body>
 </html>
