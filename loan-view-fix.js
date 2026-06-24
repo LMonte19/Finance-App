@@ -6,18 +6,19 @@ const db = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publisha
 
 let currentBorrowerId = null;
 let historyBusy = false;
-let lastHistoryKey = "";
 let calendarBusy = false;
 let calendarOffset = 0;
 let selectedDueIso = null;
+let lastHistoryKey = "";
 let lastCalendarKey = "";
+let newDisbursementFunding = [];
 
-const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 const byId = (id) => document.getElementById(id);
+const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
-function accountPageActive() {
-  return byId("borrowerAccountPage")?.classList.contains("active-page");
-}
+function accountPageActive() { return byId("borrowerAccountPage")?.classList.contains("active-page"); }
+function typeLabel(type) { return { INSTALLMENT: "Cuota/interés", PRINCIPAL: "Abono a capital", MIXED: "Mixto", PAYOFF: "Saldar capital" }[type] || type || "—"; }
+async function currentUserId() { const { data, error } = await db.auth.getUser(); if (error) throw error; return data.user?.id; }
 
 function rememberBorrower(card) {
   if (!card) return;
@@ -26,10 +27,6 @@ function rememberBorrower(card) {
   lastCalendarKey = "";
   calendarOffset = 0;
   selectedDueIso = null;
-}
-
-function typeLabel(type) {
-  return { INSTALLMENT: "Cuota/interés", PRINCIPAL: "Abono a capital", MIXED: "Mixto", PAYOFF: "Saldar capital" }[type] || type || "—";
 }
 
 function findCardByTitle(titles) {
@@ -44,13 +41,8 @@ function findCardByTitle(titles) {
 function hideManualGenerationUi() {
   const maintenance = findCardByTitle(["Mantenimiento de cuotas", "Due Schedule Maintenance"]);
   if (maintenance) maintenance.style.display = "none";
-
   const quick = byId("quickGenerateDue");
-  if (quick) {
-    quick.style.display = "none";
-    const status = byId("quickActionStatus");
-    if (status && /Recalculando|cuotas futuras|created|recalculated/i.test(status.textContent || "")) status.textContent = "";
-  }
+  if (quick) quick.style.display = "none";
 }
 
 function ensureCalendarStyle() {
@@ -74,22 +66,10 @@ function ensureCalendarStyle() {
   document.head.appendChild(style);
 }
 
-function parseIso(iso) {
-  const [y, m, d] = String(iso).split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-function toIso(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-function addMonths(date, months) {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1);
-}
-function lastDay(year, monthIndex) {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
+function parseIso(iso) { const [y, m, d] = String(iso).split("-").map(Number); return new Date(y, m - 1, d); }
+function toIso(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
+function addMonths(date, months) { return new Date(date.getFullYear(), date.getMonth() + months, 1); }
+function lastDay(year, monthIndex) { return new Date(year, monthIndex + 1, 0).getDate(); }
 function paymentDatesAround(baseDate, before = 18, after = 24) {
   const dates = [];
   for (let dt = addMonths(baseDate, -before); dt <= addMonths(baseDate, after); dt = addMonths(dt, 1)) {
@@ -100,21 +80,17 @@ function paymentDatesAround(baseDate, before = 18, after = 24) {
 }
 function nextPaymentIso(from = new Date()) {
   const today = parseIso(toIso(from));
-  const all = paymentDatesAround(from, 1, 3);
-  return toIso(all.find((d) => d >= today) || all[0]);
+  return toIso(paymentDatesAround(from, 1, 3).find((d) => d >= today) || from);
 }
 function visibleDates() {
-  const now = new Date();
-  const all = paymentDatesAround(now);
-  const baseIso = selectedDueIso || nextPaymentIso(now);
+  const all = paymentDatesAround(new Date());
+  const baseIso = selectedDueIso || nextPaymentIso(new Date());
   const baseIndex = Math.max(0, all.findIndex((d) => toIso(d) === baseIso));
   let start = baseIndex - 2 + calendarOffset;
   start = Math.max(0, Math.min(start, Math.max(0, all.length - 6)));
   return all.slice(start, start + 6);
 }
-function weekdayLabel(date) {
-  return ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][date.getDay()];
-}
+function weekdayLabel(date) { return ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][date.getDay()]; }
 function monthTitle(dates) {
   const fmt = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" });
   const cap = (s) => s.replace(/^./, (c) => c.toUpperCase());
@@ -122,22 +98,21 @@ function monthTitle(dates) {
   const last = cap(fmt.format(dates[dates.length - 1]));
   return first === last ? first : `${first} – ${last}`;
 }
-function timingStatus(iso, row) {
-  if (row?.status === "PAID") return "PAGADA";
+function statusEs(row) {
+  if (row?.timing_status === "PAID" || row?.status === "PAID") return "PAGADA";
   if (row?.status === "PARTIAL") return "PARCIAL";
-  const today = toIso(new Date());
-  if (iso < today) return "ATRASADA";
-  if (iso === today) return "VENCE HOY";
+  if (row?.timing_status === "OVERDUE") return "ATRASADA";
+  if (row?.timing_status === "DUE_TODAY") return "VENCE HOY";
+  if (row?.timing_status === "CANCELLED" || row?.status === "CANCELLED") return "CANCELADA";
   return "PENDIENTE";
 }
-function detailHtml(date, row, summary) {
-  const iso = toIso(date);
-  const expected = row ? Number(row.expected_total || 0) : Number(summary?.current_cycle_fee || 0);
-  const paid = row ? Number(row.paid_total || 0) : 0;
-  const remaining = Math.max(0, expected - paid);
-  const principal = row ? Number(row.principal_snapshot || 0) : Number(summary?.principal_balance || 0);
+function detailHtml(date, row) {
+  const expected = Number(row?.expected_total || 0);
+  const paid = Number(row?.paid_total || 0);
+  const remaining = Number(row?.amount_due ?? Math.max(0, expected - paid));
+  const principal = Number(row?.principal_snapshot || 0);
   const pretty = date.toLocaleDateString("es", { weekday: "long", month: "long", day: "numeric", year: "numeric" }).replace(/^./, (c) => c.toUpperCase());
-  return `<div class="due-cal-detail" data-no-translate="true"><div style="font-weight:900;font-size:18px;">${pretty}</div><div class="muted" style="margin-top:4px;">Estado: ${timingStatus(iso, row)}</div><div style="margin-top:10px;">Cuota por ciclo: <strong>${money(expected)}</strong><br>Pagado: ${money(paid)} | Pendiente: <strong>${money(remaining)}</strong><br>Capital base: ${money(principal)}</div></div>`;
+  return `<div class="due-cal-detail" data-no-translate="true"><div style="font-weight:900;font-size:18px;">${pretty}</div><div class="muted" style="margin-top:4px;">Estado: ${statusEs(row)}</div><div style="margin-top:10px;">Cuota por ciclo: <strong>${money(expected)}</strong><br>Pagado: ${money(paid)} | Pendiente: <strong>${money(remaining)}</strong><br>Capital base: ${money(principal)}${row?.is_virtual ? `<br><span class="muted">Fecha calculada automáticamente</span>` : ""}</div></div>`;
 }
 
 async function renderDueCalendar(force = false) {
@@ -153,29 +128,21 @@ async function renderDueCalendar(force = false) {
     if (!dates.some((d) => toIso(d) === selectedDueIso)) selectedDueIso = toIso(dates[2] || dates[0]);
     const startIso = toIso(dates[0]);
     const endIso = toIso(dates[dates.length - 1]);
-    const [summaryRes, dueRes] = await Promise.all([
-      db.from("borrower_account_summary").select("*").eq("borrower_id", currentBorrowerId).single(),
-      db.from("borrower_due_events_view").select("*").eq("borrower_id", currentBorrowerId).gte("due_date", startIso).lte("due_date", endIso).order("due_date", { ascending: true }),
-    ]);
-    if (summaryRes.error) throw summaryRes.error;
-    if (dueRes.error) throw dueRes.error;
-    const rows = new Map((dueRes.data || []).map((r) => [r.due_date, r]));
+    const { data, error } = await db.rpc("get_borrower_due_calendar", { p_borrower_id: currentBorrowerId, p_start_date: startIso, p_end_date: endIso });
+    if (error) throw error;
+    const rows = new Map((data || []).map((r) => [r.due_date, r]));
     const selectedDate = parseIso(selectedDueIso);
-    const selectedRow = rows.get(selectedDueIso);
-    const key = JSON.stringify([currentBorrowerId, calendarOffset, selectedDueIso, summaryRes.data?.principal_balance, summaryRes.data?.current_cycle_fee, dueRes.data]);
+    const selectedRow = rows.get(selectedDueIso) || { due_date: selectedDueIso, expected_total: 0, paid_total: 0, amount_due: 0, principal_snapshot: 0, timing_status: "UPCOMING", is_virtual: true };
+    const key = JSON.stringify([currentBorrowerId, calendarOffset, selectedDueIso, data]);
     if (!force && key === lastCalendarKey && dueCard.dataset.virtualCalendar === "true") return;
     lastCalendarKey = key;
     dueCard.dataset.virtualCalendar = "true";
     dueCard.setAttribute("data-no-translate", "true");
-    dueCard.innerHTML = `<div class="due-cal-head"><button id="dueCalPrev" type="button" class="due-cal-nav">‹</button><div><div style="font-weight:800;">Calendario de cuotas</div><div class="due-cal-month">${monthTitle(dates)}</div></div><button id="dueCalNext" type="button" class="due-cal-nav">›</button></div><div class="due-cal-strip">${dates.map((d) => { const iso = toIso(d); return `<button type="button" class="due-cal-day ${iso === selectedDueIso ? "selected" : ""}" data-due-iso="${iso}"><div class="due-cal-dow">${weekdayLabel(d)}</div><div class="due-cal-num">${d.getDate()}</div></button>`; }).join("")}</div>${detailHtml(selectedDate, selectedRow, summaryRes.data)}<div class="muted" style="margin-top:10px;">Las cuotas son los días 15 y último día de cada mes. Las fechas futuras se calculan automáticamente mientras haya capital pendiente.</div>`;
+    dueCard.innerHTML = `<div class="due-cal-head"><button id="dueCalPrev" type="button" class="due-cal-nav">‹</button><div><div style="font-weight:800;">Calendario de cuotas</div><div class="due-cal-month">${monthTitle(dates)}</div></div><button id="dueCalNext" type="button" class="due-cal-nav">›</button></div><div class="due-cal-strip">${dates.map((d) => { const iso = toIso(d); return `<button type="button" class="due-cal-day ${iso === selectedDueIso ? "selected" : ""}" data-due-iso="${iso}"><div class="due-cal-dow">${weekdayLabel(d)}</div><div class="due-cal-num">${d.getDate()}</div></button>`; }).join("")}</div>${detailHtml(selectedDate, selectedRow)}<div class="muted" style="margin-top:10px;">Las cuotas son los días 15 y último día de cada mes. Las fechas futuras se calculan automáticamente mientras haya capital pendiente.</div>`;
     byId("dueCalPrev").onclick = () => { calendarOffset -= 2; lastCalendarKey = ""; renderDueCalendar(true); };
     byId("dueCalNext").onclick = () => { calendarOffset += 2; lastCalendarKey = ""; renderDueCalendar(true); };
     dueCard.querySelectorAll("[data-due-iso]").forEach((btn) => btn.onclick = () => { selectedDueIso = btn.dataset.dueIso; lastCalendarKey = ""; renderDueCalendar(true); });
-  } catch (error) {
-    console.error(error);
-  } finally {
-    calendarBusy = false;
-  }
+  } catch (error) { console.error(error); } finally { calendarBusy = false; }
 }
 
 function paymentHtml(payment) {
@@ -184,7 +151,6 @@ function paymentHtml(payment) {
   const voidBtn = voided ? "" : `<button type="button" class="acctVoidPaymentBtn" data-payment-id="${payment.id}" style="background:#7a2b2b;margin-top:10px;">Anular pago</button>`;
   return `<div class="compact-card" style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;"><strong>${payment.paid_on}</strong> — ${money(payment.amount)} <span class="acct-pill">${typeLabel(payment.payment_type)}</span> ${badge}<br>Cuota/interés: ${money(payment.applied_interest)} | Capital: ${money(payment.applied_principal)}<br>Administración: ${money(payment.applied_mgmt)} | Socios: ${money(payment.applied_funders)}${payment.notes ? `<br><span class="muted">${payment.notes}</span>` : ""}${payment.is_voided && payment.void_reason ? `<br><span class="muted">Motivo anulación: ${payment.void_reason}</span>` : ""}${voidBtn}</div>`;
 }
-
 async function renderPaymentHistory(force = false) {
   if (!accountPageActive() || !currentBorrowerId || historyBusy) return;
   const historyCard = findCardByTitle(["Historial de pagos", "Payment History"]);
@@ -199,13 +165,8 @@ async function renderPaymentHistory(force = false) {
     historyCard.dataset.voidEnhanced = "true";
     historyCard.setAttribute("data-no-translate", "true");
     historyCard.innerHTML = `<div style="font-weight:800">Historial de pagos</div>${(data || []).length ? (data || []).map(paymentHtml).join("") : "No hay pagos."}`;
-  } catch (error) {
-    console.error(error);
-  } finally {
-    historyBusy = false;
-  }
+  } catch (error) { console.error(error); } finally { historyBusy = false; }
 }
-
 async function voidPayment(paymentId) {
   const reason = prompt("Motivo de anulación (opcional):") || null;
   if (!confirm("¿Seguro que quieres anular este pago? Esto va a revertir cuotas/capital y distribuciones.")) return;
@@ -215,10 +176,85 @@ async function voidPayment(paymentId) {
   lastHistoryKey = "";
   lastCalendarKey = "";
   window.dispatchEvent(new CustomEvent("loan-ledger:open-account", { detail: { borrowerId: currentBorrowerId } }));
-  setTimeout(() => renderPaymentHistory(true), 900);
-  setTimeout(() => renderDueCalendar(true), 900);
 }
 
+function renderNewFundingList() {
+  const el = byId("newLoanFundingList");
+  if (!el) return;
+  const total = newDisbursementFunding.reduce((s, r) => s + Number(r.funding_percent || 0), 0);
+  el.innerHTML = newDisbursementFunding.length ? `${newDisbursementFunding.map(r => `<div style="margin:8px 0"><strong>${r.partner_name}</strong><br><span class="muted">${(r.funding_percent * 100).toFixed(2)}%</span></div>`).join("")}<div><strong>Total:</strong> ${(total * 100).toFixed(2)}%</div>` : "Sin distribución agregada todavía.";
+}
+function loadDefaultFundingFromDom() {
+  if (newDisbursementFunding.length) return;
+  const rows = Array.from(document.querySelectorAll("#defaultFundingList [data-partner-id]"));
+  newDisbursementFunding = rows.map(row => ({ partner_user_id: row.dataset.partnerId, funding_percent: Number(row.dataset.percent || 0), partner_name: row.dataset.partnerName || "Socio" })).filter(r => r.partner_user_id && r.funding_percent > 0);
+}
+function addNewDisbursementFunding(event) {
+  const btn = event.target.closest?.("#btnAddNewLoanFunding");
+  if (!btn) return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+  const sel = byId("newLoanFundingPartner");
+  const input = byId("newLoanFundingPercent");
+  const partner_user_id = sel?.value;
+  const pct = Number(input?.value || 0);
+  if (!partner_user_id || !pct) return alert("Socio y porcentaje son requeridos.");
+  const partner_name = sel.selectedOptions?.[0]?.textContent || "Socio";
+  const funding_percent = pct / 100;
+  const idx = newDisbursementFunding.findIndex(x => x.partner_user_id === partner_user_id);
+  if (idx >= 0) newDisbursementFunding[idx] = { partner_user_id, funding_percent, partner_name };
+  else newDisbursementFunding.push({ partner_user_id, funding_percent, partner_name });
+  if (input) input.value = "";
+  renderNewFundingList();
+}
+async function createVirtualDisbursement(event) {
+  const btn = event.target.closest?.("#btnCreateLoan");
+  if (!btn) return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+  try {
+    let borrower_id = byId("loanBorrower")?.value;
+    const newFields = byId("newBorrowerFields");
+    const creatingNew = newFields && getComputedStyle(newFields).display !== "none";
+    const created_by = await currentUserId();
+    if (creatingNew) {
+      const full_name = byId("newBorrowerName")?.value?.trim();
+      if (!full_name) return alert("El nombre del cliente es requerido.");
+      const { data, error } = await db.from("borrowers").insert({ full_name, phone: byId("newBorrowerPhone")?.value?.trim() || null, notes: byId("newBorrowerNotes")?.value?.trim() || null, created_by }).select("id").single();
+      if (error) throw error;
+      borrower_id = data.id;
+    }
+    const principal = Number(byId("principal")?.value || 0);
+    const start_date = byId("startDate")?.value;
+    const monthly_rate_total = Number(byId("loanTotalRate")?.value || 10) / 100;
+    const monthly_rate_mgmt = Number(byId("loanMgmtRate")?.value || 3) / 100;
+    if (!borrower_id || !principal || !start_date) return alert("Cliente, fecha y capital son requeridos.");
+    if (monthly_rate_mgmt > monthly_rate_total) return alert("La administración no puede ser mayor que el interés total.");
+    loadDefaultFundingFromDom();
+    const fundingTotal = newDisbursementFunding.reduce((s, r) => s + Number(r.funding_percent || 0), 0);
+    if (!newDisbursementFunding.length) return alert("Agrega la distribución de inversión antes de guardar el desembolso.");
+    if (Math.abs(fundingTotal - 1) > 0.001) return alert("La distribución de inversión debe sumar 100%.");
+    const { data: loan, error: loanErr } = await db.from("loans").insert({ borrower_id, created_by, start_date, principal_original: principal, principal_outstanding: principal, monthly_rate_total, monthly_rate_mgmt, status: "ACTIVE" }).select("id").single();
+    if (loanErr) throw loanErr;
+    const { error: fundErr } = await db.from("loan_funding").insert(newDisbursementFunding.map(r => ({ loan_id: loan.id, partner_user_id: r.partner_user_id, funding_percent: r.funding_percent })));
+    if (fundErr) throw fundErr;
+    ["principal", "startDate", "newBorrowerName", "newBorrowerPhone", "newBorrowerNotes"].forEach(id => { if (byId(id)) byId(id).value = ""; });
+    if (newFields) newFields.style.display = "none";
+    if (byId("btnToggleNewBorrower")) byId("btnToggleNewBorrower").textContent = "+ Nuevo cliente";
+    newDisbursementFunding = [];
+    renderNewFundingList();
+    alert("Desembolso guardado. Las cuotas futuras se calcularán automáticamente.");
+    window.location.reload();
+  } catch (error) {
+    console.error(error);
+    alert(error.message || String(error));
+  }
+}
+
+document.addEventListener("click", addNewDisbursementFunding, true);
+document.addEventListener("click", createVirtualDisbursement, true);
 document.addEventListener("click", (event) => {
   const borrowerCard = event.target.closest?.("[data-acct-borrower]");
   if (borrowerCard) {
@@ -229,13 +265,8 @@ document.addEventListener("click", (event) => {
     return;
   }
   const voidBtn = event.target.closest?.(".acctVoidPaymentBtn");
-  if (voidBtn) {
-    event.preventDefault();
-    event.stopPropagation();
-    voidPayment(voidBtn.dataset.paymentId);
-  }
+  if (voidBtn) { event.preventDefault(); event.stopPropagation(); voidPayment(voidBtn.dataset.paymentId); }
 }, true);
-
 window.addEventListener("loan-ledger:open-account", (event) => {
   if (event.detail?.borrowerId) {
     currentBorrowerId = event.detail.borrowerId;
@@ -248,11 +279,6 @@ window.addEventListener("loan-ledger:open-account", (event) => {
   setTimeout(() => renderDueCalendar(true), 900);
   setTimeout(hideManualGenerationUi, 900);
 });
+setInterval(() => { hideManualGenerationUi(); renderPaymentHistory(false); renderDueCalendar(false); }, 1500);
 
-setInterval(() => {
-  hideManualGenerationUi();
-  renderPaymentHistory(false);
-  renderDueCalendar(false);
-}, 1500);
-
-console.log("compact due calendar active; manual due generation UI hidden");
+console.log("virtual due calendar active; future due generation bypassed");
