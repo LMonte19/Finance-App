@@ -6,45 +6,79 @@ const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_pu
 
 const qs = (id) => document.getElementById(id);
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;
+const todayIso = () => new Date().toISOString().slice(0, 10);
 let paymentFilter = localStorage.getItem("loanLedger.paymentFilter") || "active";
 let paymentBusy = false;
+let accountBusy = false;
 let lastHtml = "";
 let detailOpen = false;
+let accountsCache = [];
 
 function isPaymentsPage() { return qs("paymentsPage")?.classList.contains("active-page"); }
 function card(html, attrs = "") { return `<div class="compact-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;${attrs ? "cursor:pointer;" : ""}">${html}</div>`; }
 function typeLabel(type) { return { INSTALLMENT: "Cuota/interés", PRINCIPAL: "Abono a capital", MIXED: "Mixto", PAYOFF: "Saldar capital" }[type] || type || "—"; }
+
 function ensurePaymentsDom() {
   const page = qs("paymentsPage");
   if (!page) return;
-  if (qs("accountPaymentList")) return;
-  const listCard = document.createElement("div");
-  listCard.className = "card";
-  listCard.setAttribute("data-no-translate", "true");
-  listCard.innerHTML = `
-    <div style="font-weight:800;">Historial de pagos</div>
-    <div id="paymentFilterBox">
-      <div class="row"><button id="payFilterActive" type="button">Activos</button><button id="payFilterAll" type="button">Todos</button></div>
-      <div class="row"><button id="payFilterVoided" type="button">Anulados</button><button id="payFilterMonth" type="button">Este mes</button></div>
-      <div class="row"><select id="payFilterBorrower"><option value="">Todos los clientes</option></select><input id="paySearch" placeholder="Buscar pago..." /></div>
+  if (qs("accountPaymentForm") && qs("accountPaymentList")) return;
+  page.innerHTML = `
+    <div class="card" id="accountPaymentForm" data-no-translate="true">
+      <div style="font-weight:800;">Registrar pago por cliente/cuenta</div>
+      <div class="muted">Aplica pagos a la cuenta completa del cliente, no a un desembolso individual.</div>
+      <select id="acctPaymentBorrower"><option value="">Cargando clientes...</option></select>
+      <div class="row">
+        <input id="acctPagePaidOn" type="date" value="${todayIso()}" />
+        <input id="acctPageAmount" type="number" step="0.01" placeholder="Monto pagado" />
+      </div>
+      <select id="acctPageType">
+        <option value="INSTALLMENT">Pago de cuota/interés</option>
+        <option value="PRINCIPAL">Abono directo a capital</option>
+        <option value="MIXED">Mixto: cuota y sobrante a capital</option>
+        <option value="PAYOFF">Saldar capital</option>
+      </select>
+      <input id="acctPageNotes" placeholder="Notas del pago (opcional)" />
+      <button id="acctPageApplyPayment" type="button">Aplicar pago</button>
+      <div id="acctPagePaymentStatus" class="muted">Los pagos de cuota no rebajan capital. El capital solo baja con abono a capital, mixto o saldo.</div>
     </div>
-    <div id="accountPaymentList" class="muted">Cargando pagos...</div>
+
+    <div class="card" data-no-translate="true">
+      <div style="font-weight:800;">Historial de pagos</div>
+      <div id="paymentFilterBox">
+        <div class="row"><button id="payFilterActive" type="button">Activos</button><button id="payFilterAll" type="button">Todos</button></div>
+        <div class="row"><button id="payFilterVoided" type="button">Anulados</button><button id="payFilterMonth" type="button">Este mes</button></div>
+        <div class="row"><select id="payFilterBorrower"><option value="">Todos los clientes</option></select><input id="paySearch" placeholder="Buscar pago..." /></div>
+      </div>
+      <div id="accountPaymentList" class="muted">Cargando pagos...</div>
+    </div>
   `;
-  page.appendChild(listCard);
   qs("payFilterActive").onclick = () => setFilter("active");
   qs("payFilterAll").onclick = () => setFilter("all");
   qs("payFilterVoided").onclick = () => setFilter("voided");
   qs("payFilterMonth").onclick = () => setFilter("month");
   qs("payFilterBorrower").onchange = () => renderPayments(true);
   qs("paySearch").oninput = () => renderPayments(true);
+  qs("acctPageApplyPayment").onclick = applyAccountPayment;
 }
-async function populateBorrowers() {
-  const sel = qs("payFilterBorrower");
-  if (!sel || sel.dataset.loaded === "true") return;
-  const { data, error } = await supabase.from("borrowers").select("id, full_name").order("full_name", { ascending: true });
-  if (error) return;
-  sel.innerHTML = `<option value="">Todos los clientes</option>${(data || []).map((b) => `<option value="${b.id}">${b.full_name}</option>`).join("")}`;
-  sel.dataset.loaded = "true";
+
+async function loadAccounts(force = false) {
+  if (accountBusy) return accountsCache;
+  if (!force && accountsCache.length) return accountsCache;
+  accountBusy = true;
+  try {
+    const { data, error } = await supabase.from("borrower_account_summary").select("borrower_id, full_name, principal_balance, current_cycle_fee, account_status").order("full_name", { ascending: true });
+    if (error) throw error;
+    accountsCache = data || [];
+    return accountsCache;
+  } finally { accountBusy = false; }
+}
+async function populateAccountSelects() {
+  const accounts = await loadAccounts();
+  const active = accounts.filter((a) => Number(a.principal_balance || 0) > 0);
+  const options = `<option value="">Selecciona un cliente</option>${active.map((a) => `<option value="${a.borrower_id}">${a.full_name} (${a.account_status}, ${money(a.principal_balance)})</option>`).join("")}`;
+  if (qs("acctPaymentBorrower") && qs("acctPaymentBorrower").innerHTML !== options) qs("acctPaymentBorrower").innerHTML = options;
+  const filterOptions = `<option value="">Todos los clientes</option>${accounts.map((a) => `<option value="${a.borrower_id}">${a.full_name}</option>`).join("")}`;
+  if (qs("payFilterBorrower") && qs("payFilterBorrower").innerHTML !== filterOptions) qs("payFilterBorrower").innerHTML = filterOptions;
 }
 function setFilter(next) {
   paymentFilter = next;
@@ -73,12 +107,31 @@ function filterRows(rows) {
     return true;
   });
 }
+async function applyAccountPayment() {
+  const borrowerId = qs("acctPaymentBorrower")?.value;
+  const paidOn = qs("acctPagePaidOn")?.value;
+  const amount = Number(qs("acctPageAmount")?.value || 0);
+  const paymentType = qs("acctPageType")?.value || "INSTALLMENT";
+  const notes = qs("acctPageNotes")?.value?.trim() || null;
+  const status = qs("acctPagePaymentStatus");
+  if (!borrowerId || !paidOn || !amount) return alert("Cliente, fecha y monto son requeridos.");
+  if (status) status.textContent = "Aplicando pago...";
+  const { error } = await supabase.rpc("apply_borrower_payment", { p_borrower_id: borrowerId, p_paid_on: paidOn, p_amount: amount, p_payment_type: paymentType, p_notes: notes });
+  if (error) { if (status) status.textContent = error.message; return alert(error.message); }
+  if (status) status.textContent = "Pago aplicado.";
+  qs("acctPageAmount").value = "";
+  qs("acctPageNotes").value = "";
+  accountsCache = [];
+  lastHtml = "";
+  await populateAccountSelects();
+  await renderPayments(true);
+}
 async function renderPayments(force = false) {
   ensurePaymentsDom();
   if (!isPaymentsPage() || !qs("accountPaymentList") || paymentBusy || (detailOpen && !force)) return;
   paymentBusy = true;
   try {
-    await populateBorrowers();
+    await populateAccountSelects();
     updateButtons();
     const { data, error } = await supabase.from("borrower_account_payments_view").select("*").order("paid_on", { ascending: false }).order("created_at", { ascending: false }).limit(200);
     if (error) throw error;
@@ -133,6 +186,7 @@ async function openPaymentDetails(paymentId) {
       const { error } = await supabase.rpc("void_payment", { p_payment_id: paymentId, p_reason: reason });
       if (error) return alert(error.message);
       alert("Pago anulado y revertido.");
+      accountsCache = [];
       lastHtml = "";
       await openPaymentDetails(paymentId);
     };
