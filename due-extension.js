@@ -14,7 +14,8 @@ import './dashboard-command.js?v=1';
 import './role-security.js?v=1';
 import './system-check.js?v=1';
 import './language-toggle.js?v=2';
+import './account-ui.js?v=1';
 
-// Emergency-safe loader: visual-polish, theme-toggle, and login-guard were disabled
+// Emergency-safe loader: visual-polish, theme-toggle, and login-guard remain disabled
 // because aggressive observers caused Safari/WebKit to repeatedly reload/crash.
 console.log('safe module loader active');
