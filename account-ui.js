@@ -22,7 +22,7 @@ function card(html, attrs=''){
   return `<div class="compact-card acct-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;${attrs?'cursor:pointer;':''}">${html}</div>`;
 }
 function statusClass(status){ return status === 'ATRASADO' || status === 'OVERDUE' ? 'acct-danger' : 'acct-ok'; }
-function statusLabel(status){ return { ACTIVE:'ACTIVO', CURRENT:'AL DÍA', OVERDUE:'ATRASADO', ATRASADO:'ATRASADO', 'AL DIA':'AL DÍA' }[status] || status || '—'; }
+function statusLabel(status){ return { ACTIVE:'ACTIVO', CURRENT:'AL DÍA', OVERDUE:'ATRASADO', ATRASADO:'ATRASADO', 'AL DIA':'AL DÍA', PAID:'PAGADO', PAID_OFF:'SALDADO', CLOSED:'CERRADO', VOIDED:'ANULADO', DUE:'PENDIENTE', UPCOMING:'PRÓXIMO', DUE_TODAY:'VENCE HOY' }[status] || status || '—'; }
 function paymentTypeLabel(type){ return {INSTALLMENT:'Cuota/interés',PRINCIPAL:'Abono a capital',MIXED:'Mixto',PAYOFF:'Saldar capital'}[type] || type || '—'; }
 
 function ensureAccountStyles(){
@@ -138,12 +138,14 @@ async function renderAccount(){
         <div id="acctPayStatus" class="muted">Los pagos de cuota no rebajan capital.</div>
       </div>
       <div class="card"><div style="font-weight:800">Desembolsos / capital agregado</div>${disb}</div>
+      <div class="card" data-no-translate="true"><div style="font-weight:800">Calendario de cuotas</div><div class="muted">Cargando calendario...</div></div>
       <div class="card"><div style="font-weight:800">Historial de pagos</div>${pays}</div>
       <div class="card"><div style="font-weight:800">Seguimientos</div>${follows}</div>
       <div class="card"><div style="font-weight:800">Notas de contacto</div>${contacts}</div>
     `;
     $('acctBack').onclick = () => { openPage('loansPage'); renderLoanList(true); };
     $('acctPayBtn').onclick = applyAccountPayment;
+    window.dispatchEvent(new CustomEvent('loan-ledger:account-rendered', { detail: { borrowerId } }));
   }catch(error){
     console.error(error);
     if(content) content.innerHTML = `<div class="card" style="color:#ff8b8b;">${error.message || String(error)}</div>`;
