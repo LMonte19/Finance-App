@@ -52,6 +52,12 @@ function ensureDefaultsButtons() {
     }
   }
 }
+function showThemeButton(show) {
+  const btn = qs("btnThemeToggle");
+  if (!btn) return;
+  btn.style.display = show ? "inline-block" : "none";
+  window.loanLedgerTheme?.initThemeButton?.();
+}
 async function loadProfileByUserId(userId) {
   if (!userId) throw new Error("Missing userId for profile lookup.");
   const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
@@ -221,6 +227,7 @@ async function setSignedInUI(profile) {
   qs("authCard").style.display = "none";
   qs("app").style.display = "block";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "inline-block";
+  showThemeButton(true);
   if (qs("whoami")) qs("whoami").textContent = `${profile.full_name ?? "Usuario"} • ${profile.role}`;
   if (qs("rolePill")) qs("rolePill").textContent = profile.role;
   ensureDefaultsButtons();
@@ -237,6 +244,7 @@ async function setSignedOutUI() {
   if (qs("authCard")) qs("authCard").style.display = "block";
   if (qs("app")) qs("app").style.display = "none";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "none";
+  showThemeButton(false);
   if (qs("whoami")) qs("whoami").textContent = "Sesión no iniciada";
   if (qs("rolePill")) qs("rolePill").textContent = "rol";
   setDebug("");
@@ -259,6 +267,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
 (async function init() {
   initTabs();
   initHandlers();
+  window.loanLedgerTheme?.initThemeButton?.();
   const { data } = await supabase.auth.getSession();
   await bootFromSession(data.session, "initialSession");
 })();
