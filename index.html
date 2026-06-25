@@ -38,9 +38,6 @@
     .header-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap}
     .header-actions button{width:auto;margin:0;padding:10px 14px;background:#333;border:1px solid #444;white-space:nowrap}
     #btnThemeToggle{display:none}
-    body.auth-visible .menu-overlay{display:none!important;pointer-events:none!important}
-    body.auth-visible .side-menu{pointer-events:none!important}
-    body.auth-visible #authCard{position:relative;z-index:100;pointer-events:auto!important}
     @media(max-width:650px){.row,.stats-grid{grid-template-columns:1fr}.tabs{grid-template-columns:1fr 1fr 1fr}.wrap{padding:12px}.header-actions{gap:6px}.header-actions button{padding:9px 12px}}
   </style>
 </head>
@@ -200,8 +197,7 @@
     </div>
   </div>
 
-  <script src="login-guard.js?v=1"></script>
   <script type="module" src="app.js?v=2"></script>
-  <script type="module" src="due-extension.js?v=3"></script>
+  <script type="module" src="due-extension.js?v=4"></script>
 </body>
 </html>
