@@ -16,6 +16,7 @@ import './role-security.js?v=1';
 import './system-check.js?v=1';
 import './language-toggle.js?v=2';
 import './visual-polish.js?v=1';
+import './theme-toggle.js?v=1';
 
 const db = createClient('https://eatxkhhpjruwwibhcubf.supabase.co','sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'loan-ledger-auth'}});
 const $ = id => document.getElementById(id);
