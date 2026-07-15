@@ -4,7 +4,7 @@ let currentLang = localStorage.getItem(STORAGE_KEY) || DEFAULT_LANG;
 let timer = null;
 let isApplying = false;
 
-const es = {
+const pairs = {
   "Loan Ledger": "Control de Préstamos",
   "Not signed in": "Sesión no iniciada",
   "Sign in": "Iniciar sesión",
@@ -13,187 +13,236 @@ const es = {
   "Home": "Inicio",
   "Dashboard": "Inicio",
   "Loans": "Préstamos",
+  "Loans / Accounts": "Préstamos / Cuentas",
   "Payments": "Pagos",
   "Borrowers": "Clientes",
+  "Clients": "Clientes",
   "Partners": "Socios",
-  "Defaults / Settings": "Valores predeterminados / Configuración",
-  "Reports / Export": "Reportes / Exportar",
-  "Maintenance": "Mantenimiento",
-  "Due / Overdue": "Cuotas / Atrasos",
-  "Activity / History": "Actividad / Historial",
   "Follow-ups": "Seguimientos",
-  "Loan Health": "Revisión de Préstamos",
-  "System Check": "Revisión del Sistema",
+  "Activity / History": "Actividad / Historial",
+  "Reports / Export": "Reportes / Exportar",
+  "Reports / Export CSV": "Reportes / Exportar CSV",
+  "Loan Health": "Revisión de cuentas",
+  "Account Review": "Revisión de cuentas",
+  "System Check": "Revisión del sistema",
+  "Profiles / Users": "Perfiles / Usuarios",
+  "Maintenance": "Mantenimiento",
+  "Settings": "Configuración",
+  "Defaults / Settings": "Valores predeterminados / Configuración",
 
-  "Overview": "Resumen",
-  "Active Loans": "Préstamos activos",
-  "Outstanding": "Balance pendiente",
-  "Payments Logged": "Pagos registrados",
-  "Recent Payments": "Pagos recientes",
-  "Recent payments": "Pagos recientes",
-  "Loans Snapshot": "Vista rápida de préstamos",
-  "Command Center": "Centro de Control",
-  "Fast view of what needs attention today.": "Vista rápida de lo que necesita atención hoy.",
-  "Total Outstanding": "Total pendiente",
-  "Overdue Amount": "Monto atrasado",
-  "Due Today": "Vence hoy",
-  "Open Follow-ups": "Seguimientos abiertos",
-  "Health Issues": "Alertas del sistema",
-  "Payments This Month": "Pagos del mes",
-  "Quick Actions": "Acciones rápidas",
-  "New Loan": "Nuevo préstamo",
-  "Record Payment": "Registrar pago",
-  "Add Follow-up": "Agregar seguimiento",
-  "Log Contact": "Registrar contacto",
-  "Generate Missing Due Dates": "Generar cuotas faltantes",
-  "Action Queue": "Cola de acciones",
-  "The most urgent things to handle first.": "Lo más urgente para revisar primero.",
-  "Today / Upcoming": "Hoy / Próximamente",
-  "Upcoming Due": "Próximos vencimientos",
-  "Follow-ups Due": "Seguimientos pendientes",
-  "Borrower Risk Snapshot": "Riesgo de clientes",
-  "Loan Health Preview": "Vista rápida de revisión",
-  "Recent Activity": "Actividad reciente",
-  "Recent Contact Notes": "Notas de contacto recientes",
-
-  "Create loan (Agent/Admin)": "Crear préstamo (Agente/Admin)",
-  "Save Loan": "Guardar préstamo",
-  "Create loan + generate due dates": "Crear préstamo y generar cuotas",
+  "Account Summary": "Resumen de cuenta",
+  "Client Account": "Cuenta del cliente",
+  "Customer Account": "Cuenta del cliente",
+  "Client Accounts": "Cuentas de clientes",
+  "New disbursement / added capital": "Nuevo desembolso / capital agregado",
+  "This form adds capital to the client account. Future dues are calculated automatically.": "Este formulario agrega capital a la cuenta del cliente. Las cuotas futuras se calculan automáticamente.",
+  "+ New client": "+ Nuevo cliente",
   "+ New Borrower": "+ Nuevo cliente",
+  "Use existing client": "Usar cliente existente",
   "Use Existing Borrower": "Usar cliente existente",
   "Funding Split": "Distribución de inversión",
-  "Add / Update Split": "Agregar / actualizar distribución",
-  "Loan Details": "Detalles del préstamo",
-  "Back": "Volver",
-  "Save funding split": "Guardar distribución",
+  "Investment split": "Distribución de inversión",
+  "Add / update": "Agregar / actualizar",
+  "Save disbursement": "Guardar desembolso",
+  "Client Accounts": "Cuentas de clientes",
+  "Loading accounts...": "Cargando cuentas...",
+  "Click to open full account.": "Clic para abrir cuenta completa.",
+  "No clients/accounts to show.": "No hay clientes/cuentas para mostrar.",
+
+  "Capital balance": "Balance de capital",
+  "Active capital": "Capital activo",
+  "Total disbursed": "Total desembolsado",
+  "Current monthly fee": "Cuota mensual actual",
+  "Fee per cycle": "Cuota por ciclo",
+  "Next due": "Próxima cuota",
+  "Overdue": "Atrasado",
+  "Days late": "Días tarde",
+  "Status": "Estado",
+  "Disbursements / added capital": "Desembolsos / capital agregado",
+  "Pay calendar": "Calendario de cuotas",
+  "Due calendar": "Calendario de cuotas",
   "Due Schedule": "Calendario de cuotas",
   "Payment History": "Historial de pagos",
-  "Loan Actions": "Acciones del préstamo",
-  "Edit Loan": "Editar préstamo",
-  "Save Changes": "Guardar cambios",
-  "Mark Paid Off": "Marcar como pagado",
-  "Close Loan": "Cerrar préstamo",
-  "Void Loan": "Anular préstamo",
+  "Contact Notes": "Notas de contacto",
+  "No disbursements.": "No hay desembolsos.",
+  "No payments.": "No hay pagos.",
+  "No follow-ups.": "No hay seguimientos.",
+  "No notes.": "No hay notas.",
+  "Back": "Volver",
 
-  "Record payment (Agent/Admin)": "Registrar pago (Agente/Admin)",
-  "Add payment": "Agregar pago",
-  "Payment View": "Vista de pagos",
+  "Record payment": "Registrar pago",
+  "Record payment by client/account": "Registrar pago por cliente/cuenta",
+  "Applies payments to the complete client account, not to an individual disbursement.": "Aplica pagos a la cuenta completa del cliente, no a un desembolso individual.",
+  "Payment of fee/interest": "Pago de cuota/interés",
+  "Direct principal payment": "Abono directo a capital",
+  "Mixed: fee and leftover to principal": "Mixto: cuota y sobrante a capital",
+  "Pay off principal": "Saldar capital",
+  "Apply payment": "Aplicar pago",
+  "Payment applied.": "Pago aplicado.",
+  "Applying payment...": "Aplicando pago...",
+  "Fee payments do not reduce capital. Capital only goes down with principal payment, mixed, or payoff.": "Los pagos de cuota no rebajan capital. El capital solo baja con abono a capital, mixto o saldo.",
+  "Fee payments do not reduce capital.": "Los pagos de cuota no rebajan capital.",
   "Active": "Activos",
   "All": "Todos",
   "Voided": "Anulados",
   "This Month": "Este mes",
+  "All clients": "Todos los clientes",
   "All borrowers": "Todos los clientes",
-  "All loans": "Todos los préstamos",
-  "Payment Details": "Detalles del pago",
-  "Payment Notes": "Notas del pago",
-  "Save Notes": "Guardar notas",
-  "Due Events Paid": "Cuotas pagadas",
-  "Partner Allocations": "Distribución a socios",
+  "Payment Details": "Detalle del pago",
+  "Affected dues": "Cuotas afectadas",
+  "Affected capital": "Capital afectado",
+  "Allocations": "Distribuciones",
   "Actions": "Acciones",
   "Void Payment": "Anular pago",
-  "Click for details": "Clic para ver detalles",
+  "Click for detail": "Clic para detalle",
+  "No payments for this view.": "No hay pagos para esta vista.",
+  "Did not affect dues.": "No afectó cuotas.",
+  "Did not affect capital.": "No afectó capital.",
+  "No allocations.": "No hay distribuciones.",
 
-  "Add borrower": "Agregar cliente",
-  "Borrower list": "Lista de clientes",
-  "Borrower Details": "Detalles del cliente",
-  "Name:": "Nombre:",
-  "Phone:": "Teléfono:",
-  "Notes:": "Notas:",
-  "Total Borrowed:": "Total prestado:",
-  "Total Paid:": "Total pagado:",
-  "Overdue Items:": "Cuotas atrasadas:",
-  "Risk / Late Summary": "Resumen de riesgo / atraso",
-  "Contact / Follow-ups": "Contacto / Seguimientos",
-  "Contact History": "Historial de contacto",
-  "Schedule Follow-up": "Programar seguimiento",
-  "Save Contact Note": "Guardar nota de contacto",
-  "Open Follow-ups": "Seguimientos abiertos",
+  "Overview": "Resumen",
+  "Fast view of accounts, virtual dues, and payments.": "Vista rápida de cuentas, cuotas virtuales y pagos.",
+  "Refresh": "Actualizar",
+  "Current projection": "Proyección actual",
+  "Based on active balances. Upcoming dues are calculated virtually.": "Basado en balances activos. Las próximas cuotas se calculan virtualmente.",
+  "Quick Actions": "Acciones rápidas",
+  "New disbursement": "Nuevo desembolso",
+  "Contact note": "Nota de contacto",
+  "Future dues are calculated automatically.": "Las cuotas futuras se calculan automáticamente.",
+  "Today priority": "Prioridad de hoy",
+  "The most important things to review first.": "Lo más importante para revisar primero.",
+  "No urgent actions now.": "No hay acciones urgentes ahora.",
+  "Virtual dues": "Cuotas virtuales",
+  "Due today": "Vencen hoy",
+  "Upcoming dues": "Próximas cuotas",
+  "No dues due today.": "No hay cuotas venciendo hoy.",
+  "No upcoming dues.": "No hay próximas cuotas.",
+  "Recent payments": "Pagos recientes",
+  "Recent activity": "Actividad reciente",
+  "Recent contact notes": "Notas de contacto recientes",
 
-  "Track calls, WhatsApp/texts, promises to pay, and reminders.": "Registra llamadas, WhatsApp/textos, promesas de pago y recordatorios.",
-  "Open": "Abiertos",
-  "Overdue": "Atrasados",
-  "Completed": "Completados",
-  "Select borrower": "Seleccionar cliente",
-  "Optional loan": "Préstamo opcional",
-  "Follow-up View": "Vista de seguimientos",
-  "Follow-up List": "Lista de seguimientos",
-  "Mark Done": "Marcar como completado",
-
-  "Shows edits, voids, status changes, settings changes, and other tracked actions.": "Muestra cambios, anulaciones, estados, configuración y otras acciones registradas.",
+  "Activity": "Actividad",
+  "Recent Activity": "Actividad reciente",
+  "Activity / History": "Actividad / Historial",
   "All actions": "Todas las acciones",
   "All sections": "Todas las secciones",
-  "Funding Splits": "Distribuciones de inversión",
-  "Default Splits": "Distribuciones predeterminadas",
-  "Settings": "Configuración",
-  "Refresh": "Actualizar",
+  "Clients": "Clientes",
+  "Disbursements / Capital": "Desembolsos / Capital",
+  "Payments": "Pagos",
+  "Investment split": "Distribución de inversión",
+  "Partner allocations": "Distribuciones a socios",
+  "Principal payments": "Abonos a capital",
+  "Contact notes": "Notas de contacto",
+  "Default splits": "Distribuciones predeterminadas",
+  "Profiles": "Perfiles",
+  "No activity for this view.": "No hay actividad para esta vista.",
 
-  "Loan Health / Due Schedule": "Revisión de préstamos / calendario de cuotas",
-  "Checks active loans, future due dates, funding splits, and due-row consistency.": "Revisa préstamos activos, cuotas futuras, distribuciones y consistencia de cuotas.",
-  "Total Issues": "Total de alertas",
+  "Account/system review": "Revisión de cuentas / sistema",
+  "Review view": "Vista de revisión",
+  "Alerts": "Alertas",
   "High": "Alta",
   "Medium": "Media",
-  "Last Generated": "Último generado",
-  "Due Schedule Maintenance": "Mantenimiento de cuotas",
-  "Next 6 months": "Próximos 6 meses",
-  "Next 12 months": "Próximos 12 meses",
-  "Next 18 months": "Próximos 18 meses",
-  "Next 24 months": "Próximos 24 meses",
-  "This only inserts missing due rows. It does not overwrite existing historical amounts.": "Esto solo agrega cuotas faltantes. No sobrescribe montos históricos existentes.",
-  "Health View": "Vista de revisión",
-  "Issues": "Alertas",
-  "Generate Due Dates": "Generar cuotas",
+  "Low": "Baja",
+  "All alerts": "Todas",
+  "No alerts for this view.": "No hay alertas para esta vista.",
+  "System Review": "Revisión del sistema",
+  "Results": "Resultados",
+  "Role permissions": "Permisos por rol",
+  "Manual checklist": "Checklist manual",
+  "All good": "Todo bien",
+  "Review": "Revisar",
+  "Fail": "Falla",
 
-  "Readiness checks before using real data.": "Revisiones antes de usar datos reales.",
-  "Refresh Checks": "Actualizar revisiones",
-  "Check Results": "Resultados de revisión",
-  "Role Permissions": "Permisos por rol",
-  "Manual Test Checklist": "Lista de prueba manual",
-  "Permissions active": "Permisos activos",
-  "Role:": "Rol:",
-
-  "Partner Details": "Detalles del socio",
   "Reports": "Reportes",
   "Export": "Exportar",
+  "Accounts and payments": "Cuentas y pagos",
+  "Export client accounts": "Exportar cuentas de clientes",
+  "Export payments": "Exportar pagos",
+  "Export virtual dues / overdue": "Exportar cuotas virtuales / atrasos",
+  "Export partner summary": "Exportar resumen de socios",
+  "Export partner disbursements": "Exportar desembolsos por socio",
+  "Export partner allocations": "Exportar distribuciones a socios",
   "Download CSV": "Descargar CSV",
-  "Profiles": "Perfiles",
-  "Users": "Usuarios",
-  "Save Profile": "Guardar perfil",
+  "No data to export.": "No hay datos para exportar.",
 
-  "Total": "Total",
-  "Balance": "Balance",
-  "Original": "Original",
-  "Status": "Estado",
-  "Current": "Al día"
+  "Partner Details": "Detalles del socio",
+  "Partner Summary": "Resumen de socio",
+  "Active borrowers": "Clientes activos",
+  "Funded disbursements": "Desembolsos financiados",
+  "Total earned": "Ganancia total",
+  "Management earned": "Administración ganada",
+  "Funding earned": "Ganancia de inversión",
+
+  "Loading...": "Cargando...",
+  "Loading": "Cargando",
+  "Save": "Guardar",
+  "Save Profile": "Guardar perfil",
+  "Save Changes": "Guardar cambios",
+  "Cancel": "Cancelar",
+  "Open": "Abierto",
+  "Completed": "Completado",
+  "Current": "Al día",
+  "ACTIVE": "ACTIVO",
+  "PAID": "PAGADO",
+  "PAID_OFF": "SALDADO",
+  "CLOSED": "CERRADO",
+  "VOIDED": "ANULADO",
+  "CANCELLED": "CANCELADO",
+  "DUE": "PENDIENTE",
+  "PARTIAL": "PARCIAL",
+  "UPCOMING": "PRÓXIMO",
+  "DUE_TODAY": "VENCE HOY",
+  "OVERDUE": "ATRASADO",
+  "HIGH": "ALTA",
+  "MEDIUM": "MEDIA",
+  "LOW": "BAJA",
+  "PASS": "BIEN",
+  "WARN": "REVISAR",
+  "FAIL": "FALLA",
+
+  "Only Admin can edit profile roles.": "Solo Admin puede editar roles de perfiles.",
+  "Unnamed": "Sin nombre",
+  "Display name": "Nombre visible",
+  "No profiles found.": "No hay perfiles.",
+  "Profile updated.": "Perfil actualizado.",
+  "Maintenance": "Mantenimiento",
+  "Admin-only maintenance tools.": "Herramientas de mantenimiento para Admin.",
+  "Reset Test Data": "Borrar datos de prueba",
+  "Only Admin can reset test data.": "Solo Admin puede borrar los datos de prueba.",
+  "Reset cancelled.": "Borrado cancelado.",
+  "Test data reset. Hard refresh the app.": "Datos de prueba borrados. Haz hard refresh en la app."
 };
 
 const placeholdersEs = {
   "Email": "Correo electrónico",
   "Password": "Contraseña",
   "Borrower full name": "Nombre completo del cliente",
+  "Client full name": "Nombre completo del cliente",
+  "Full client name": "Nombre completo del cliente",
   "Phone (optional)": "Teléfono (opcional)",
-  "Notes (late payer, etc.)": "Notas (paga tarde, etc.)",
+  "Notes": "Notas",
   "Notes (optional)": "Notas (opcional)",
   "Principal (e.g., 1000)": "Capital (ej. 1000)",
-  "Principal (e.g. 1000)": "Capital (ej. 1000)",
-  "Total monthly interest % (e.g. 10)": "Interés mensual total % (ej. 10)",
-  "Management share % (e.g. 3)": "Porcentaje de administración % (ej. 3)",
-  "Amount paid (e.g., 120)": "Monto pagado (ej. 120)",
+  "Disbursed capital": "Capital desembolsado",
+  "Total monthly interest %": "Interés mensual total %",
+  "Management %": "Administración %",
+  "Amount paid": "Monto pagado",
   "Payment notes": "Notas del pago",
-  "Percent (e.g. 60)": "Porcentaje (ej. 60)",
-  "Outcome (optional)": "Resultado (opcional)",
-  "Contact notes": "Notas de contacto",
-  "Follow-up reason": "Motivo del seguimiento",
-  "Reason / reminder note (e.g., promised to pay Friday)": "Motivo / recordatorio (ej. prometió pagar el viernes)",
-  "Search loans by borrower, amount, status, due date...": "Buscar préstamos por cliente, monto, estado o fecha...",
-  "Search borrowers by name, phone, notes...": "Buscar clientes por nombre, teléfono o notas...",
-  "Search payments by borrower, date, notes...": "Buscar pagos por cliente, fecha o notas...",
+  "Payment notes (optional)": "Notas del pago (opcional)",
+  "Percent": "Porcentaje",
+  "Search payment...": "Buscar pago...",
+  "Search user, client, action, summary...": "Buscar usuario, cliente, acción o resumen...",
   "Search user, borrower, action, summary...": "Buscar usuario, cliente, acción o resumen...",
+  "Search client, phone, reason, priority...": "Buscar cliente, teléfono, motivo o prioridad...",
   "Search borrower, phone, reason, priority...": "Buscar cliente, teléfono, motivo o prioridad...",
-  "Search borrower, issue, details...": "Buscar cliente, alerta o detalles..."
+  "Search client, alert, details...": "Buscar cliente, alerta o detalles...",
+  "Search borrower, issue, details...": "Buscar cliente, alerta o detalles...",
+  "Display name": "Nombre visible"
 };
 
-const en = Object.fromEntries(Object.entries(es).map(([k, v]) => [v, k]));
-const placeholdersEn = Object.fromEntries(Object.entries(placeholdersEs).map(([k, v]) => [v, k]));
+const es = pairs;
+const en = Object.fromEntries(Object.entries(pairs).map(([english, spanish]) => [spanish, english]));
+const placeholdersEn = Object.fromEntries(Object.entries(placeholdersEs).map(([english, spanish]) => [spanish, english]));
 
 function norm(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -209,13 +258,13 @@ function shouldSkipElement(el) {
   if (!el) return true;
   if (["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "SELECT", "OPTION"].includes(el.tagName)) return true;
   if (el.closest("script,style,textarea,input")) return true;
-  if (el.closest('[translate="no"], [data-no-translate="true"], .no-translate, #stableAccountTop')) return true;
-  if (el.closest('.pill, .acct-pill, .acct-status-pill, .stable-account-value, .stat-value')) return true;
+  if (el.closest('[translate="no"], .no-translate')) return true;
   if (el.id === "debug") return true;
   return false;
 }
 
 function translateTextNodes(root = document.body) {
+  if (!root) return;
   const map = currentLang === "es" ? es : en;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes = [];
@@ -224,13 +273,10 @@ function translateTextNodes(root = document.body) {
   for (const node of nodes) {
     const parent = node.parentElement;
     if (shouldSkipElement(parent)) continue;
-
     const clean = norm(node.nodeValue);
-    if (!clean || clean.length > 80) continue;
-
+    if (!clean || clean.length > 140) continue;
     const translated = exactTranslate(clean, map);
     if (!translated || translated === clean) continue;
-
     node.nodeValue = node.nodeValue.replace(clean, translated);
   }
 }
@@ -238,7 +284,7 @@ function translateTextNodes(root = document.body) {
 function translateAttributes(root = document) {
   const pMap = currentLang === "es" ? placeholdersEs : placeholdersEn;
   root.querySelectorAll("input[placeholder], textarea[placeholder]").forEach((el) => {
-    if (el.closest('[translate="no"], [data-no-translate="true"], .no-translate, #stableAccountTop')) return;
+    if (el.closest('[translate="no"], .no-translate')) return;
     const clean = norm(el.getAttribute("placeholder"));
     const translated = pMap[clean];
     if (translated) el.setAttribute("placeholder", translated);
@@ -246,7 +292,6 @@ function translateAttributes(root = document) {
 
   const map = currentLang === "es" ? es : en;
   root.querySelectorAll("option").forEach((el) => {
-    if (el.closest('[translate="no"], [data-no-translate="true"], .no-translate, #stableAccountTop')) return;
     const clean = norm(el.textContent);
     const translated = map[clean];
     if (translated) el.textContent = translated;
@@ -273,7 +318,7 @@ function ensureLanguageButton() {
   btn.onclick = () => {
     currentLang = currentLang === "es" ? "en" : "es";
     localStorage.setItem(STORAGE_KEY, currentLang);
-    applyTranslations(true);
+    applyTranslations();
   };
 
   container.insertBefore(btn, signOut || container.firstChild);
@@ -303,13 +348,9 @@ function applyTranslations() {
 
 const observer = new MutationObserver(() => {
   clearTimeout(timer);
-  timer = setTimeout(applyTranslations, 150);
+  timer = setTimeout(applyTranslations, 180);
 });
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
-});
-
+observer.observe(document.body, { childList: true, subtree: true });
 applyTranslations();
-setInterval(applyTranslations, 3000);
+setInterval(applyTranslations, 4000);
