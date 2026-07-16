@@ -1,33 +1,68 @@
 .ll-profile-tabs-host .ll-profile-panel{
-  animation:llPanelRelaxed .42s cubic-bezier(.22,.61,.36,1);
+  animation:llPanelRelaxed .46s cubic-bezier(.22,.61,.36,1);
   transform-origin:top center;
 }
 @keyframes llPanelRelaxed{
-  from{opacity:0;transform:translateY(8px)}
+  from{opacity:0;transform:translateY(7px)}
   to{opacity:1;transform:translateY(0)}
 }
 
 .ll-profile-tabs-host .ll-cycle-calendar{
-  animation:llCalendarRelaxed .4s cubic-bezier(.22,.61,.36,1);
+  animation:llCalendarRelaxed .42s cubic-bezier(.22,.61,.36,1);
 }
 @keyframes llCalendarRelaxed{
-  from{opacity:.35;transform:translateY(5px)}
+  from{opacity:.4;transform:translateY(4px)}
   to{opacity:1;transform:translateY(0)}
 }
 
 .ll-profile-tabs-host .ll-cycle-date,
-.ll-profile-tabs-host .ll-cycle-detail,
 .ll-profile-tabs-host .ll-tab,
 .ll-profile-tabs-host .ll-profile-card,
 .ll-tabs .ll-tab{
-  transition:background-color .32s ease,border-color .32s ease,color .32s ease,box-shadow .32s ease,transform .32s ease,opacity .32s ease;
+  transition:
+    background-color .42s cubic-bezier(.22,.61,.36,1),
+    border-color .42s cubic-bezier(.22,.61,.36,1),
+    color .42s cubic-bezier(.22,.61,.36,1),
+    box-shadow .42s cubic-bezier(.22,.61,.36,1),
+    transform .42s cubic-bezier(.22,.61,.36,1),
+    opacity .32s ease;
 }
 .ll-profile-tabs-host .ll-cycle-date:hover{transform:translateY(-2px)}
 .ll-profile-tabs-host .ll-cycle-date.selected{transform:translateY(-1px)}
-.ll-profile-tabs-host .ll-cycle-detail{animation:llDetailRelaxed .38s cubic-bezier(.22,.61,.36,1)}
-@keyframes llDetailRelaxed{
-  from{opacity:.25;transform:translateY(6px)}
-  to{opacity:1;transform:translateY(0)}
+
+.ll-profile-tabs-host .ll-cycle-date-row{
+  position:relative;
+  will-change:transform,opacity;
+  transform:translateX(0);
+  opacity:1;
+}
+.ll-profile-tabs-host .ll-cycle-date-row.ll-carousel-out-forward{
+  animation:llCarouselOutForward .22s cubic-bezier(.4,0,.2,1) forwards;
+}
+.ll-profile-tabs-host .ll-cycle-date-row.ll-carousel-out-backward{
+  animation:llCarouselOutBackward .22s cubic-bezier(.4,0,.2,1) forwards;
+}
+.ll-profile-tabs-host .ll-cycle-date-row.ll-carousel-in-forward{
+  animation:llCarouselInForward .34s cubic-bezier(.22,.61,.36,1) both;
+}
+.ll-profile-tabs-host .ll-cycle-date-row.ll-carousel-in-backward{
+  animation:llCarouselInBackward .34s cubic-bezier(.22,.61,.36,1) both;
+}
+@keyframes llCarouselOutForward{
+  from{opacity:1;transform:translateX(0)}
+  to{opacity:0;transform:translateX(-42px)}
+}
+@keyframes llCarouselOutBackward{
+  from{opacity:1;transform:translateX(0)}
+  to{opacity:0;transform:translateX(42px)}
+}
+@keyframes llCarouselInForward{
+  from{opacity:0;transform:translateX(42px)}
+  to{opacity:1;transform:translateX(0)}
+}
+@keyframes llCarouselInBackward{
+  from{opacity:0;transform:translateX(-42px)}
+  to{opacity:1;transform:translateX(0)}
 }
 
 .ll-profile-tabs-host .ll-cycle-detail.ll-cycle-detail--compact{
@@ -43,6 +78,20 @@
 .ll-profile-tabs-host .ll-cycle-detail.ll-cycle-detail--compact>div:last-child{border-right:0}
 .ll-profile-tabs-host .ll-cycle-detail.ll-cycle-detail--compact small{font-size:9.5px}
 .ll-profile-tabs-host .ll-cycle-detail.ll-cycle-detail--compact strong{font-size:13px}
+
+.ll-profile-tabs-host .ll-cycle-detail strong,
+.ll-profile-tabs-host .ll-cycle-detail .ll-status-pill{
+  transition:opacity .18s ease,transform .18s ease,color .3s ease,background-color .3s ease,border-color .3s ease;
+  will-change:opacity,transform;
+}
+.ll-profile-tabs-host .ll-cycle-detail .ll-value-leaving{
+  opacity:0;
+  transform:translateY(-4px);
+}
+.ll-profile-tabs-host .ll-cycle-detail .ll-value-entering{
+  opacity:0;
+  transform:translateY(4px);
+}
 
 .ll-workspace .ll-client-title{font-size:30px}
 .ll-workspace .ll-tab{font-size:13px}
@@ -72,7 +121,7 @@
 @media(prefers-reduced-motion:reduce){
   .ll-profile-tabs-host .ll-profile-panel,
   .ll-profile-tabs-host .ll-cycle-calendar,
-  .ll-profile-tabs-host .ll-cycle-detail{animation:none!important}
+  .ll-profile-tabs-host .ll-cycle-date-row{animation:none!important}
   .ll-profile-tabs-host *,
   .ll-tabs .ll-tab{transition:none!important}
 }
