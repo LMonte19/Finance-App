@@ -15,6 +15,6 @@ import './language-toggle.js?v=3';
 import './account-ui.js?v=1';
 import './client-detail-desktop.js?v=1';
 import './client-detail-polish.js?v=1';
-import './client-profile-tabs.js?v=1';
+import './client-profile-tabs.js?v=2';
 
 console.log('safe module loader active');
