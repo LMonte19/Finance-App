@@ -1,3 +1,12 @@
+function ensureRefinementStyles() {
+  if (document.getElementById('clientProfileRefinementsCss')) return;
+  const link = document.createElement('link');
+  link.id = 'clientProfileRefinementsCss';
+  link.rel = 'stylesheet';
+  link.href = './client-profile-refinements.css?v=1';
+  document.head.appendChild(link);
+}
+
 const MONEY_FORMATTER = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -50,6 +59,7 @@ function reorderSummaryCards(root) {
 }
 
 function refineProfile() {
+  ensureRefinementStyles();
   const host = document.querySelector('#borrowerAccountContent .ll-profile-tabs-host');
   if (!host || host.dataset.refinementVersion === '1') return;
 
@@ -69,6 +79,7 @@ function queueRefinement() {
   });
 }
 
+ensureRefinementStyles();
 document.addEventListener('DOMContentLoaded', queueRefinement);
 window.addEventListener('loan-ledger:account-rendered', queueRefinement);
 window.addEventListener('loan-ledger:open-account', queueRefinement);
