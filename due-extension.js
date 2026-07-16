@@ -16,5 +16,6 @@ import './account-ui.js?v=1';
 import './client-detail-desktop.js?v=1';
 import './client-detail-polish.js?v=1';
 import './client-profile-tabs.js?v=2';
+import './client-profile-refinements.js?v=1';
 
 console.log('safe module loader active');
