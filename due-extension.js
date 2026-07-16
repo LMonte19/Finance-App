@@ -13,5 +13,6 @@ import './role-security.js?v=1';
 import './system-check.js?v=1';
 import './language-toggle.js?v=3';
 import './account-ui.js?v=1';
+import './client-detail-desktop.js?v=1';
 
 console.log('safe module loader active');
