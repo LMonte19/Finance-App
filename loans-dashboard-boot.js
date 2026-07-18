@@ -8,4 +8,6 @@ function addStyle(id,href){
 addStyle('loansDashboardCss','./loans-dashboard.css?v=1');
 addStyle('loansDashboardOverridesCss','./loans-dashboard-overrides.css?v=1');
 
-import('./loans-dashboard.js?v=1').catch(error=>console.error('loans dashboard failed to load',error));
+import('./loans-dashboard.js?v=1')
+  .then(()=>import('./loans-dashboard-transition-fix.js?v=1'))
+  .catch(error=>console.error('loans dashboard failed to load',error));
