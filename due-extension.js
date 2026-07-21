@@ -19,7 +19,7 @@ import './client-detail-polish.js?v=1';
 import './client-profile-tabs.js?v=2';
 import './client-profile-refinements.js?v=2';
 import './client-profile-cohesion.js?v=4';
-import './client-profile-elegant.js?v=2';
+import './client-profile-elegant.js?v=3';
 import './calendar-dom-controller.js?v=1';
 
 console.log('safe module loader active');
