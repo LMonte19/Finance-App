@@ -12,7 +12,7 @@ const money = value => `$${moneyFormatter.format(Number(value || 0))}`;
 const dateLabel = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'}).replace('.','') : '—';
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
-const state = { filter:'ALL', search:'', sort:'NEXT_DUE', view:'list', data:null, loading:false, lastLoaded:0, opening:false };
+const state = { filter:'ALL', search:'', sortKey:'NEXT_DUE', sortDir:'asc', view:'list', data:null, loading:false, lastLoaded:0, opening:false };
 
 const ICONS = {
   wallet:'<path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
@@ -25,7 +25,7 @@ const ICONS = {
   download:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
   list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
-  arrowDown:'<path d="M12 3v14M7 12l5 5 5-5"/>',
+  arrowDown:'<path d="M12 3v14M7 10l5 5 5-5"/>',
   dollar:'<circle cx="12" cy="12" r="9"/><path d="M16 8.5c-.8-1-2-1.5-4-1.5-2.2 0-3.5 1-3.5 2.5 0 3.8 7.5 1.5 7.5 5.2 0 1.5-1.4 2.6-3.8 2.6-1.9 0-3.4-.6-4.2-1.8M12 5v14"/>',
   alert:'<path d="M10.3 3.7 2.2 18a2 2 0 0 0 1.8 3h16a2 2 0 0 0 1.8-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>'
 };
@@ -34,7 +34,7 @@ const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 function ensureStyles(){
   if($('loansDashboardCss')) return;
   const link=document.createElement('link');
-  link.id='loansDashboardCss';link.rel='stylesheet';link.href='./loans-dashboard.css?v=1';
+  link.id='loansDashboardCss';link.rel='stylesheet';link.href='./loans-dashboard.css?v=2';
   document.head.appendChild(link);
 }
 
@@ -45,9 +45,7 @@ function statusInfo(value){
   return {key:'CURRENT',label:'AL DÍA',className:'current'};
 }
 
-function initials(name){
-  return String(name||'?').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'?';
-}
+function initials(name){ return String(name||'?').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'?'; }
 function avatarClass(index){ return ['','green','','yellow','gray'][index%5]; }
 function borrowerCode(id){ return `CLI-${String(id||'').slice(0,4).toUpperCase()}`; }
 function isLoansPage(){ return $('loansPage')?.classList.contains('active-page'); }
@@ -132,25 +130,53 @@ function trendPoints(payments){
   const map=new Map(months.map(item=>[item.key,item]));
   payments.forEach(row=>{const key=String(row.paid_on||'').slice(0,7);if(map.has(key))map.get(key).value+=Number(row.applied_principal||row.amount||0);});
   const max=Math.max(1,...months.map(item=>item.value));
-  return months.map((item,index)=>({x:5+index*42,y:40-(item.value/max)*31,value:item.value}));
+  return months.map((item,index)=>({x:6+index*42,y:40-(item.value/max)*31,value:item.value}));
 }
 
 function metricCard(iconName,iconClass,label,value,note){return `<article class="ld-metric-card"><div class="ld-metric-main"><span class="ld-metric-icon ${iconClass}">${icon(iconName)}</span><div><div class="ld-metric-label">${label}</div><div class="ld-metric-value">${value}</div><div class="ld-metric-note">${note}</div></div></div></article>`;}
 
 function recoveryCard(data,metrics){
+  const current=data.accounts.filter(row=>statusInfo(row.account_status).key==='CURRENT').length;
+  const overdue=data.accounts.filter(row=>statusInfo(row.account_status).key==='OVERDUE').length;
+  const paid=data.accounts.filter(row=>statusInfo(row.account_status).key==='PAID_OFF').length;
+  const total=Math.max(1,current+overdue+paid);
+  const currentPct=current/total*100,overduePct=overdue/total*100,paidPct=paid/total*100;
+  const combined=Math.max(1,metrics.totalDisbursed+metrics.recovered);
+  const disbursedPct=metrics.totalDisbursed/combined*100;
+  const recoveredPct=metrics.recovered/combined*100;
   const points=trendPoints(data.payments);const poly=points.map(point=>`${point.x},${point.y}`).join(' ');const last=points[points.length-1];
-  return `<article class="ld-recovery-card"><div class="ld-recovery-head"><span>Recuperación de capital</span><small class="ld-recovery-info">Cartera actual</small></div><div class="ld-recovery-rate">${metrics.recoveryRate.toFixed(1)}%</div><div class="ld-recovery-sub">${money(metrics.recovered)} de ${money(metrics.totalDisbursed)}</div><div class="ld-progress"><span style="width:${metrics.recoveryRate}%"></span></div><svg class="ld-trend" viewBox="0 0 220 45" preserveAspectRatio="none"><polyline points="${poly}"></polyline><circle cx="${last.x}" cy="${last.y}" r="3"></circle></svg></article>`;
+  const circumference=2*Math.PI*34;
+  const c1=currentPct/100*circumference,c2=overduePct/100*circumference,c3=paidPct/100*circumference;
+  const pct=n=>`${Math.round(n)}%`;
+  return `<article class="ld-recovery-card ld-recovery-advanced">
+    <div class="ld-recovery-top"><div><div class="ld-recovery-title">Panorama de cartera</div><div class="ld-recovery-subtle">Desembolsado vs Recuperado</div></div><span class="ld-recovery-chip">Este mes⌄</span></div>
+    <div class="ld-recovery-legend-row"><span><i class="ld-dot purple"></i>Desembolsado</span><span><i class="ld-dot lime"></i>Recuperado</span></div>
+    <div class="ld-recovery-values"><strong>${money(metrics.totalDisbursed)}</strong><strong>${money(metrics.recovered)}</strong></div>
+    <div class="ld-split-bar"><span class="ld-split-disbursed" style="width:${disbursedPct}%"></span><span class="ld-split-recovered" style="width:${recoveredPct}%"></span></div>
+    <div class="ld-black-section-title">Distribución de estados</div>
+    <div class="ld-donut-grid"><svg class="ld-donut" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" class="ld-donut-track"></circle><circle cx="50" cy="50" r="34" class="ld-donut-segment current" stroke-dasharray="${c1} ${circumference-c1}" stroke-dashoffset="0"></circle><circle cx="50" cy="50" r="34" class="ld-donut-segment overdue" stroke-dasharray="${c2} ${circumference-c2}" stroke-dashoffset="-${c1}"></circle><circle cx="50" cy="50" r="34" class="ld-donut-segment paid" stroke-dasharray="${c3} ${circumference-c3}" stroke-dashoffset="-${c1+c2}"></circle></svg><div class="ld-status-legend"><div><span><i class="dot current"></i>Al día</span><strong>${current} (${pct(currentPct)})</strong></div><div><span><i class="dot overdue"></i>Atrasados</span><strong>${overdue} (${pct(overduePct)})</strong></div><div><span><i class="dot paid"></i>Pagados</span><strong>${paid} (${pct(paidPct)})</strong></div></div></div>
+    <div class="ld-recovery-bottom"><div><div class="ld-black-section-title">Tasa de recuperación</div><div class="ld-recovery-rate-big">${metrics.recoveryRate.toFixed(1)}%</div><small>${money(metrics.recovered)} recuperados</small></div><svg class="ld-trend ld-trend-large" viewBox="0 0 220 45" preserveAspectRatio="none"><polyline points="${poly}"></polyline><circle cx="${last.x}" cy="${last.y}" r="3"></circle></svg></div>
+  </article>`;
 }
 
+function sortRank(row,data,key){
+  if(key==='NAME')return String(row.full_name||'').toLocaleLowerCase();
+  if(key==='BALANCE')return Number(row.principal_balance||0);
+  if(key==='CYCLE')return Number(row.current_cycle_fee||0);
+  if(key==='NEXT_DUE')return String(row.next_due_date||'9999-12-31');
+  if(key==='STATUS'){const status=statusInfo(row.account_status).key;return {CURRENT:1,OVERDUE:2,PAID_OFF:3}[status]||9;}
+  if(key==='ACTIVITY')return String(data.latestByBorrower.get(row.borrower_id)?.date||'0000-00-00');
+  return '';
+}
 function filteredAccounts(data){
   let rows=[...data.accounts];const query=state.search.trim().toLowerCase();
   if(query)rows=rows.filter(row=>`${row.full_name} ${borrowerCode(row.borrower_id)} ${row.phone||''}`.toLowerCase().includes(query));
   if(state.filter!=='ALL')rows=rows.filter(row=>statusInfo(row.account_status).key===state.filter);
   rows.sort((a,b)=>{
-    if(state.sort==='BALANCE')return Number(b.principal_balance||0)-Number(a.principal_balance||0);
-    if(state.sort==='NAME')return String(a.full_name).localeCompare(String(b.full_name));
-    if(state.sort==='ACTIVITY')return String(data.latestByBorrower.get(b.borrower_id)?.date||'').localeCompare(String(data.latestByBorrower.get(a.borrower_id)?.date||''));
-    return String(a.next_due_date||'9999-12-31').localeCompare(String(b.next_due_date||'9999-12-31'));
+    const av=sortRank(a,data,state.sortKey),bv=sortRank(b,data,state.sortKey);
+    let result=0;
+    if(typeof av==='number'&&typeof bv==='number')result=av-bv;else result=String(av).localeCompare(String(bv));
+    return state.sortDir==='asc'?result:-result;
   });
   return rows;
 }
@@ -176,11 +202,18 @@ function activityHtml(data,limit=4){
   return rows.map(row=>`<div class="ld-activity-item"><span class="ld-mini-icon ${row.type==='PAYMENT'?'green':''}">${icon(row.type==='PAYMENT'?'dollar':'arrowDown')}</span><span><div class="ld-item-title">${esc(row.title)}</div><div class="ld-item-meta">${money(row.amount)} · ${dateLabel(row.date)}</div></span></div>`).join('');
 }
 
+const sortLabels={NAME:'Cliente',BALANCE:'Balance pendiente',CYCLE:'Cuota por ciclo',NEXT_DUE:'Próxima cuota',STATUS:'Estado',ACTIVITY:'Última actividad'};
+function sortHeader(key){
+  const active=state.sortKey===key;const glyph=active?(state.sortDir==='asc'?'↑':'↓'):'↕';
+  return `<button type="button" class="ld-th ${active?'active':''}" data-sort-col="${key}" aria-label="Ordenar por ${sortLabels[key]}"><span>${sortLabels[key]}</span><span class="ld-sort-glyph">${glyph}</span></button>`;
+}
+
 function dashboardHtml(data){
   const metrics=metricData(data);
   return `<div class="ld-page-head"><div><h1 class="ld-page-title">Préstamos</h1><div class="ld-page-subtitle">Gestiona tu cartera de préstamos y el estado de tus clientes.</div></div><div class="ld-head-actions"><button type="button" class="ld-action ld-action-soft" id="ldNewClient">${icon('plus')} Nuevo cliente</button><button type="button" class="ld-action ld-action-primary" id="ldNewDisbursement">${icon('download')} Nuevo desembolso</button></div></div>
-  <section class="ld-metric-grid">${metricCard('wallet','', 'Balance total pendiente',money(metrics.balance),'De capital')}${metricCard('users','lime','Total desembolsado',money(metrics.totalDisbursed),`${data.disbursements.length} desembolsos registrados`)}${metricCard('recover','coral','Capital recuperado',money(metrics.recovered),'Aplicado a capital')}${metricCard('clock','', 'Cuotas pendientes',money(metrics.pendingDues),`${metrics.overdue} clientes atrasados`)}${metricCard('users','blue','Clientes activos',String(metrics.active),`De ${metrics.total} clientes`)}${recoveryCard(data,metrics)}</section>
-  <div class="ld-main-grid"><section class="ld-client-panel ${state.view==='grid'?'grid-mode':''}" id="ldClientPanel"><div class="ld-panel-title">Clientes</div><div class="ld-controls"><label class="ld-search">${icon('search')}<input id="ldSearch" placeholder="Buscar cliente por nombre o ID..." value="${esc(state.search)}"></label><div class="ld-filter-pills"><button data-filter="ALL" class="${state.filter==='ALL'?'active':''}">Todos</button><button data-filter="CURRENT" class="${state.filter==='CURRENT'?'active':''}">Al día</button><button data-filter="OVERDUE" class="${state.filter==='OVERDUE'?'active':''}">Atrasados</button><button data-filter="PAID_OFF" class="${state.filter==='PAID_OFF'?'active':''}">Saldados</button></div><select id="ldSort" class="ld-sort"><option value="NEXT_DUE" ${state.sort==='NEXT_DUE'?'selected':''}>Ordenar por: Próxima cuota</option><option value="BALANCE" ${state.sort==='BALANCE'?'selected':''}>Ordenar por: Balance</option><option value="ACTIVITY" ${state.sort==='ACTIVITY'?'selected':''}>Ordenar por: Actividad</option><option value="NAME" ${state.sort==='NAME'?'selected':''}>Ordenar por: Nombre</option></select><div class="ld-view-toggle"><button type="button" data-view="list" class="${state.view==='list'?'active':''}">${icon('list')}</button><button type="button" data-view="grid" class="${state.view==='grid'?'active':''}">${icon('grid')}</button></div></div><div class="ld-table-head"><span>Cliente</span><span>Balance pendiente</span><span>Cuota por ciclo</span><span>Próxima cuota</span><span>Estado</span><span>Último movimiento</span><span></span></div><div class="ld-client-list" id="ldClientList">${clientRows(data)}</div><div class="ld-client-foot"><span>Selecciona un cliente para ver su cuenta, pagos, desembolsos y seguimientos.</span><button type="button" id="ldGuide">Ver guía rápida ›</button></div></section><aside class="ld-side-stack"><section class="ld-side-card"><div class="ld-side-head"><strong>Próximos vencimientos</strong><button type="button" data-go-page="paymentsPage">Ver calendario</button></div>${upcomingHtml(data)}</section><section class="ld-side-card"><div class="ld-side-head"><strong>Actividad reciente</strong><button type="button" data-go-page="paymentsPage">Ver todo</button></div>${activityHtml(data)}</section></aside></div>`;
+  <div class="ld-dashboard-grid"><main class="ld-dashboard-main"><section class="ld-metric-grid">${metricCard('wallet','', 'Balance total pendiente',money(metrics.balance),'De capital')}${metricCard('users','lime','Total desembolsado',money(metrics.totalDisbursed),`${data.disbursements.length} desembolsos registrados`)}${metricCard('recover','coral','Capital recuperado',money(metrics.recovered),'Aplicado a capital')}${metricCard('clock','', 'Cuotas pendientes',money(metrics.pendingDues),`${metrics.overdue} clientes atrasados`)}${metricCard('users','blue','Clientes activos',String(metrics.active),`De ${metrics.total} clientes`)}</section>
+  <section class="ld-client-panel ${state.view==='grid'?'grid-mode':''}" id="ldClientPanel"><div class="ld-panel-title">Clientes</div><div class="ld-controls"><label class="ld-search">${icon('search')}<input id="ldSearch" placeholder="Buscar cliente por nombre o ID..." value="${esc(state.search)}"></label><div class="ld-filter-pills"><button data-filter="ALL" class="${state.filter==='ALL'?'active':''}">Todos</button><button data-filter="CURRENT" class="${state.filter==='CURRENT'?'active':''}">Al día</button><button data-filter="OVERDUE" class="${state.filter==='OVERDUE'?'active':''}">Atrasados</button><button data-filter="PAID_OFF" class="${state.filter==='PAID_OFF'?'active':''}">Pagados</button></div><select id="ldSort" class="ld-sort"><option value="NEXT_DUE" ${state.sortKey==='NEXT_DUE'?'selected':''}>Ordenar por: Próxima cuota</option><option value="BALANCE" ${state.sortKey==='BALANCE'?'selected':''}>Ordenar por: Balance</option><option value="CYCLE" ${state.sortKey==='CYCLE'?'selected':''}>Ordenar por: Cuota por ciclo</option><option value="STATUS" ${state.sortKey==='STATUS'?'selected':''}>Ordenar por: Estado</option><option value="ACTIVITY" ${state.sortKey==='ACTIVITY'?'selected':''}>Ordenar por: Actividad</option><option value="NAME" ${state.sortKey==='NAME'?'selected':''}>Ordenar por: Nombre</option></select><div class="ld-view-toggle"><button type="button" data-view="list" class="${state.view==='list'?'active':''}">${icon('list')}</button><button type="button" data-view="grid" class="${state.view==='grid'?'active':''}">${icon('grid')}</button></div></div><div class="ld-table-head">${sortHeader('NAME')}${sortHeader('BALANCE')}${sortHeader('CYCLE')}${sortHeader('NEXT_DUE')}${sortHeader('STATUS')}${sortHeader('ACTIVITY')}<span></span></div><div class="ld-client-list" id="ldClientList">${clientRows(data)}</div><div class="ld-client-foot"><span>Selecciona un cliente para ver su cuenta, pagos, desembolsos y seguimientos.</span><button type="button" id="ldGuide">Ver guía rápida ›</button></div></section></main>
+  <aside class="ld-dashboard-side">${recoveryCard(data,metrics)}<section class="ld-side-card"><div class="ld-side-head"><strong>Próximos vencimientos</strong><button type="button" data-go-page="paymentsPage">Ver calendario</button></div>${upcomingHtml(data)}</section><section class="ld-side-card"><div class="ld-side-head"><strong>Actividad reciente</strong><button type="button" data-go-page="paymentsPage">Ver todo</button></div>${activityHtml(data)}</section></aside></div>`;
 }
 
 function repopulateBorrowerSelect(accounts){const select=$('loanBorrower');if(select)select.innerHTML=accounts.map(row=>`<option value="${row.borrower_id}">${esc(row.full_name)}</option>`).join('');}
@@ -194,18 +227,24 @@ async function renderDashboard(force=false){
   finally{state.loading=false;}
 }
 
-function rerenderRows(){if(!state.data)return;const panel=$('ldClientPanel');if(panel)panel.classList.toggle('grid-mode',state.view==='grid');const list=$('ldClientList');if(list)list.innerHTML=clientRows(state.data);wireRowClicks();}
+function rerenderRows(){if(!state.data)return;const panel=$('ldClientPanel');if(panel)panel.classList.toggle('grid-mode',state.view==='grid');const list=$('ldClientList');if(list)list.innerHTML=clientRows(state.data);wireRowClicks();updateSortUi();}
+function updateSortUi(){
+  document.querySelectorAll('#loansDashboardHost [data-sort-col]').forEach(button=>{const active=button.dataset.sortCol===state.sortKey;button.classList.toggle('active',active);const glyph=button.querySelector('.ld-sort-glyph');if(glyph)glyph.textContent=active?(state.sortDir==='asc'?'↑':'↓'):'↕';});
+  if($('ldSort'))$('ldSort').value=state.sortKey;
+}
 function showPage(id){document.querySelectorAll('.tab-btn').forEach(button=>button.classList.toggle('active',button.dataset.page===id));document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active-page',page.id===id));$('sideMenu')?.classList.remove('open');$('menuOverlay')?.classList.remove('open');}
 
+function defaultDirection(key){return ['BALANCE','CYCLE','ACTIVITY'].includes(key)?'desc':'asc';}
 function wireDashboard(){
   $('ldNewClient')?.addEventListener('click',()=>openDrawer('client'));
   $('ldNewDisbursement')?.addEventListener('click',()=>openDrawer('disbursement'));
   $('ldSearch')?.addEventListener('input',event=>{state.search=event.target.value;rerenderRows();});
-  $('ldSort')?.addEventListener('change',event=>{state.sort=event.target.value;rerenderRows();});
+  $('ldSort')?.addEventListener('change',event=>{state.sortKey=event.target.value;state.sortDir=defaultDirection(state.sortKey);rerenderRows();});
+  document.querySelectorAll('#loansDashboardHost [data-sort-col]').forEach(button=>button.addEventListener('click',()=>{const key=button.dataset.sortCol;if(state.sortKey===key)state.sortDir=state.sortDir==='asc'?'desc':'asc';else{state.sortKey=key;state.sortDir=defaultDirection(key);}rerenderRows();}));
   document.querySelectorAll('#loansDashboardHost [data-filter]').forEach(button=>button.addEventListener('click',()=>{state.filter=button.dataset.filter;document.querySelectorAll('#loansDashboardHost [data-filter]').forEach(item=>item.classList.toggle('active',item===button));rerenderRows();}));
   document.querySelectorAll('#loansDashboardHost [data-view]').forEach(button=>button.addEventListener('click',()=>{state.view=button.dataset.view;document.querySelectorAll('#loansDashboardHost [data-view]').forEach(item=>item.classList.toggle('active',item===button));rerenderRows();}));
   document.querySelectorAll('#loansDashboardHost [data-go-page]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.goPage)));
-  $('ldGuide')?.addEventListener('click',()=>alert('Usa la búsqueda y los filtros para encontrar una cuenta. Selecciona una fila para abrir el perfil completo.'));
+  $('ldGuide')?.addEventListener('click',()=>alert('Usa la búsqueda, filtros o encabezados para ordenar la cartera. Selecciona una fila para abrir el perfil completo.'));
   wireRowClicks();
 }
 function wireRowClicks(){document.querySelectorAll('#loansDashboardHost [data-ld-borrower]').forEach(row=>row.addEventListener('click',()=>openClient(row.dataset.ldBorrower,row)));}
