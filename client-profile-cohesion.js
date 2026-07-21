@@ -12,6 +12,6 @@ function addStyle(id, href){
 }
 
 addStyle('clientProfileCohesionCss','./client-profile-cohesion.css?v=1');
-addStyle('clientProfileCohesionFinalCss','./client-profile-cohesion-final.css?v=3');
+addStyle('clientProfileCohesionFinalCss','./client-profile-cohesion-final.css?v=4');
 
 console.log('client profile cohesion active');
