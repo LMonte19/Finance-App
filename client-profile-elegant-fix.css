@@ -1,0 +1,107 @@
+/* Final corrections for approved elegant profile direction. */
+@media (min-width:1221px){
+  /* Financial summary icons: force compact graphic badges and suppress legacy pseudo icons. */
+  #borrowerAccountContent .ll-elegant-profile .ll-summary-stat-grid>div{position:relative!important;padding-left:50px!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-summary-stat-grid>div::before{display:none!important;content:none!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-elegant-metric-icon{
+    width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;max-width:30px!important;max-height:30px!important;
+    display:grid!important;place-items:center!important;overflow:hidden!important;border-radius:50%!important;background:#f4f5f7!important;color:#707784!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-elegant-metric-icon svg,
+  #borrowerAccountContent .ll-elegant-profile .ll-elegant-svg{
+    width:16px!important;height:16px!important;min-width:16px!important;min-height:16px!important;max-width:16px!important;max-height:16px!important;display:block!important;
+  }
+
+  /* Header action order: Registrar pago, Nuevo desembolso, menu at far right. */
+  #borrowerAccountContent .ll-elegant-profile .ll-action-row{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-more-actions{order:3!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-action-row>.ll-primary-btn{order:2!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-elegant-pay{order:1!important}
+
+  /* Black client rail — flat list, initials avatars, subtle selected state with lime rail. */
+  #borrowerAccountContent .ll-elegant-profile .ll-client-rail{padding:17px 16px!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-list{gap:0!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-card{
+    position:relative!important;
+    grid-template-columns:42px minmax(0,1fr) auto!important;
+    min-height:82px!important;
+    padding:13px 4px!important;
+    margin:0!important;
+    gap:11px!important;
+    border:0!important;
+    border-bottom:1px solid rgba(255,255,255,.09)!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-client-card.active{
+    margin:0 -6px!important;
+    padding:13px 10px 13px 16px!important;
+    border-radius:0!important;
+    background:linear-gradient(90deg,#171b20,#111419)!important;
+    color:#fff!important;
+    box-shadow:0 8px 20px rgba(0,0,0,.16)!important;
+    border-bottom-color:rgba(255,255,255,.08)!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-client-card.active::before{
+    content:"";position:absolute;left:0;top:7px;bottom:7px;width:4px;border-radius:0 5px 5px 0;background:#c9f21b;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-client-avatar.ll-initial-avatar{
+    width:42px!important;height:42px!important;border-radius:50%!important;display:grid!important;place-items:center!important;border:1px solid rgba(255,255,255,.36)!important;background:#eef0f3!important;color:#8a929d!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-client-avatar.tone-0{background:#fff4c8!important;color:#b39110!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-avatar.tone-1{background:#eeebff!important;color:#7559df!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-avatar.tone-2{background:#e8f7e8!important;color:#47964e!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-avatar.tone-3{background:#eef1f5!important;color:#7d8793!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-initials{font-size:14px!important;font-weight:750!important;line-height:1!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-name{font-size:13.5px!important;font-weight:700!important;color:#f4f5f6!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-balance{font-size:13px!important;font-weight:550!important;color:#c8ccd2!important;margin-top:6px!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-card.active .ll-client-name{color:#fff!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-card.active .ll-client-balance{color:#d7dbe0!important;font-weight:600!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-id{display:none!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-open{display:none!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-trailing{gap:0!important;justify-content:center!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-rail-badge{
+    font-size:9.5px!important;font-weight:700!important;padding:0!important;background:transparent!important;border:0!important;white-space:nowrap!important;color:#aeb4bd!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-rail-badge.ok{color:#53c760!important;background:transparent!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-rail-badge.danger{color:#ff6b64!important;background:transparent!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-rail-badge.closed{color:#aeb4bd!important;background:transparent!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-client-card.active .ll-rail-badge.danger{color:#ff716b!important;background:transparent!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-rail-badge::before{width:6px!important;height:6px!important}
+
+  /* Movement header filters */
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-card-head{align-items:center!important;margin-bottom:8px!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-card-title{font-size:16px!important;margin:0!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movement-filters{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important;margin-left:auto!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movement-filter{
+    width:auto!important;min-width:88px!important;margin:0!important;padding:8px 18px!important;border-radius:999px!important;background:#fff!important;color:#505660!important;border:1px solid #e2e4e8!important;font-size:11px!important;font-weight:700!important;box-shadow:none!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movement-filter:hover{background:#f7f7f8!important;filter:none!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movement-filter.active{background:#111216!important;color:#fff!important;border-color:#111216!important}
+
+  /* Movements rows — graphic icons, no timeline spine, clean horizontal separators. */
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list{border-top:1px solid #eef0f2!important;gap:0!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list button{
+    grid-template-columns:36px minmax(0,1fr) 18px!important;align-items:center!important;min-height:64px!important;padding:10px 4px!important;gap:12px!important;border-radius:0!important;background:transparent!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list button[hidden]{display:none!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list button:not(:last-child)::after{
+    content:""!important;position:absolute!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;width:auto!important;height:1px!important;background:#eceef1!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-dot{
+    width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;margin:0!important;border-radius:50%!important;display:grid!important;place-items:center!important;box-shadow:none!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-movement-icon-payment{background:#edf8e9!important;color:#6baa4b!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-movement-icon-disbursement{background:#f1edff!important;color:#7354e5!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-movement-icon-note{background:#f2f3f5!important;color:#747c87!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list button:not(:last-child)::before{display:none!important;content:none!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list strong{font-size:11.5px!important;font-weight:650!important;color:#343840!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list small{font-size:9.5px!important;color:#8b919a!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list p{font-size:9.5px!important;color:#747b86!important;margin-top:3px!important}
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list b{font-size:0!important;color:#777f8a!important}
+}
+
+@media (min-width:1500px){
+  #borrowerAccountContent .ll-elegant-profile.ll-account-shell{grid-template-columns:275px minmax(0,1fr)!important}
+}
