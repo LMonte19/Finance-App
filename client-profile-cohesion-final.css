@@ -1,0 +1,61 @@
+/* Final cohesion refinements layered after the functional profile styles. */
+@media (min-width:1221px){
+  /* Remove the redundant outer calendar title: the internal heading already says Cuotas pendientes. */
+  #borrowerAccountContent .ll-profile-card:has(.ll-cycle-calendar)>.ll-card-head{display:none!important}
+  #borrowerAccountContent .ll-profile-card:has(.ll-cycle-calendar){padding-top:13px!important}
+
+  /* Make the selected rail item feel like the row selected from the Loans portfolio, not a giant feature card. */
+  #borrowerAccountContent .ll-client-card.active{
+    box-shadow:0 8px 18px rgba(207,245,45,.17)!important;
+  }
+
+  /* Keep metadata and money visually consistent with the denser Loans table. */
+  #borrowerAccountContent .ll-client-meta,
+  #borrowerAccountContent .ll-summary-stat-grid,
+  #borrowerAccountContent .ll-account-facts,
+  #borrowerAccountContent .ll-cycle-calendar,
+  #borrowerAccountContent .ll-compact-history,
+  #borrowerAccountContent .ll-activity-list{
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* Lighter, more dashboard-like separators. */
+  #borrowerAccountContent .ll-summary-stat-grid>div,
+  #borrowerAccountContent .ll-account-facts>div{
+    border-color:#eceef3!important;
+  }
+
+  /* Status card: dark anchor only in the heading, keeping the information area bright and readable. */
+  #borrowerAccountContent [data-profile-panel="summary"] .ll-panel-side>.ll-profile-card:first-child .ll-card-head::before{
+    content:"";
+    width:7px;height:7px;border-radius:50%;background:#ff6f62;
+    box-shadow:0 0 0 4px rgba(255,111,98,.13);
+    flex:none;
+  }
+  #borrowerAccountContent [data-profile-panel="summary"] .ll-panel-side>.ll-profile-card:first-child .ll-card-head{
+    justify-content:flex-start!important;
+  }
+
+  /* Keep lower sections visually subordinate to the primary account summary. */
+  #borrowerAccountContent [data-profile-panel="summary"] .ll-panel-main>.ll-profile-card:nth-last-child(-n+2){
+    background:#fdfdfc!important;
+  }
+
+  /* More proportional main/right relationship on large desktop screens. */
+  #borrowerAccountContent .ll-profile-tabs-host{max-width:none!important}
+  #borrowerAccountContent .ll-panel-main{min-width:0!important}
+
+  /* Small interaction polish, matching the Loans page rather than oversized app controls. */
+  #borrowerAccountContent .ll-soft-btn,
+  #borrowerAccountContent .ll-primary-btn,
+  #borrowerAccountContent .ll-card-link-button,
+  #borrowerAccountContent .ll-inline-action{
+    transition:transform .2s ease,box-shadow .2s ease,background-color .2s ease,border-color .2s ease!important;
+  }
+  #borrowerAccountContent .ll-soft-btn:hover,
+  #borrowerAccountContent .ll-primary-btn:hover,
+  #borrowerAccountContent .ll-card-link-button:hover,
+  #borrowerAccountContent .ll-inline-action:hover{
+    transform:translateY(-1px)!important;
+  }
+}
