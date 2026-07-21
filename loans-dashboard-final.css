@@ -1,85 +1,94 @@
 /* Final layout corrections for the Loans dashboard. */
 
-/* Remove the artificial vertical expansion in the five summary cards. */
-#loansDashboardHost .ld-dashboard-main .ld-metric-grid{
-  align-items:stretch!important;
-}
+/* Compact summary cards: no artificial empty vertical area. */
+#loansDashboardHost .ld-dashboard-main .ld-metric-grid{align-items:stretch!important}
 #loansDashboardHost .ld-metric-card{
   min-height:0!important;
   height:auto!important;
   padding:16px 17px 13px!important;
   justify-content:flex-start!important;
 }
-#loansDashboardHost .ld-metric-main{
-  flex:0 0 auto!important;
-}
+#loansDashboardHost .ld-metric-main{flex:0 0 auto!important}
 #loansDashboardHost .ld-metric-change{
-  margin-top:15px!important;
+  margin-top:14px!important;
   padding-top:10px!important;
   min-height:18px!important;
 }
 
-/* Keep every analytics heading on one line like the selected reference. */
+/* Give the analytics card enough horizontal space to match the reference. */
+#loansDashboardHost .ld-dashboard-grid{
+  grid-template-columns:minmax(0,1fr) 360px!important;
+}
+#loansDashboardHost .ld-recovery-card.ld-recovery-advanced{
+  padding:24px 25px 23px!important;
+}
+
+/* All chart headings remain on one line, exactly like the reference. */
 #loansDashboardHost .ld-recovery-title,
 #loansDashboardHost .ld-recovery-subtle,
 #loansDashboardHost .ld-black-section-title{
+  display:block!important;
   white-space:nowrap!important;
-  word-break:normal!important;
+  word-break:keep-all!important;
   overflow:visible!important;
   text-overflow:clip!important;
+  max-width:none!important;
 }
 #loansDashboardHost .ld-recovery-title{
-  font-size:16px!important;
-  line-height:1.15!important;
+  font-size:17px!important;
+  font-weight:800!important;
+  letter-spacing:-.02em!important;
+  line-height:1.1!important;
+  margin:0!important;
 }
 #loansDashboardHost .ld-recovery-subtle{
-  font-size:11.5px!important;
-  line-height:1.2!important;
-  margin-top:17px!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  line-height:1.15!important;
+  margin-top:20px!important;
+  color:#f0f2f5!important;
 }
 #loansDashboardHost .ld-black-section-title{
-  font-size:11px!important;
-  line-height:1.2!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  line-height:1.15!important;
+  color:#f0f2f5!important;
 }
 
-/* Give the recovery label enough room so it never wraps. */
-#loansDashboardHost .ld-recovery-bottom{
-  grid-template-columns:142px minmax(0,1fr)!important;
-  gap:14px!important;
+/* Top row proportions and period selector closely match the chosen mockup. */
+#loansDashboardHost .ld-recovery-top{
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:18px!important;
 }
-#loansDashboardHost .ld-recovery-bottom .ld-black-section-title{
-  margin-top:13px!important;
-}
-
-/* Real period selector with the same polished pill proportions as the reference. */
 #loansDashboardHost .ld-recovery-chip{
   padding:0!important;
-  width:126px!important;
-  min-width:126px!important;
-  height:42px!important;
-  border:1px solid rgba(255,255,255,.18)!important;
+  width:132px!important;
+  min-width:132px!important;
+  height:44px!important;
+  border:1px solid rgba(255,255,255,.20)!important;
   border-radius:999px!important;
   overflow:hidden!important;
   position:relative!important;
-  background:rgba(255,255,255,.025)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.035)!important;
+  background:rgba(255,255,255,.022)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 1px 1px rgba(0,0,0,.12)!important;
 }
 #loansDashboardHost .ld-recovery-chip::after{
-  content:"⌄";
-  position:absolute;
-  right:15px;
-  top:50%;
-  transform:translateY(-58%);
-  color:#f0f2f5;
-  font-size:13px;
-  line-height:1;
-  pointer-events:none;
+  content:"⌄"!important;
+  position:absolute!important;
+  right:16px!important;
+  top:50%!important;
+  transform:translateY(-58%)!important;
+  color:#f1f3f6!important;
+  font-size:13px!important;
+  line-height:1!important;
+  pointer-events:none!important;
 }
 #loansDashboardHost #ldRecoveryPeriod{
   width:100%!important;
   height:100%!important;
   margin:0!important;
-  padding:0 36px 0 17px!important;
+  padding:0 37px 0 18px!important;
   border:0!important;
   outline:0!important;
   appearance:none!important;
@@ -89,54 +98,54 @@
   font:inherit!important;
   font-size:11px!important;
   font-weight:800!important;
-  line-height:42px!important;
+  line-height:44px!important;
   cursor:pointer!important;
   border-radius:999px!important;
   white-space:nowrap!important;
+  text-overflow:clip!important;
 }
-#loansDashboardHost #ldRecoveryPeriod:hover{
-  background:rgba(255,255,255,.025)!important;
-}
-#loansDashboardHost #ldRecoveryPeriod:focus{
-  box-shadow:inset 0 0 0 1px rgba(201,255,8,.24)!important;
-}
-#loansDashboardHost #ldRecoveryPeriod option{
-  background:#17191e;
-  color:#f4f5f7;
-}
+#loansDashboardHost #ldRecoveryPeriod:hover{background:rgba(255,255,255,.02)!important}
+#loansDashboardHost #ldRecoveryPeriod:focus{box-shadow:inset 0 0 0 1px rgba(201,255,8,.22)!important}
+#loansDashboardHost #ldRecoveryPeriod option{background:#17191e;color:#f4f5f7}
 
-/* Give the black analytics card a little more breathing room horizontally. */
-#loansDashboardHost .ld-dashboard-grid{
-  grid-template-columns:minmax(0,1fr) 344px!important;
+/* Keep legend/value rows comfortably on one line. */
+#loansDashboardHost .ld-recovery-legend-row{
+  gap:26px!important;
+  margin-top:15px!important;
+  white-space:nowrap!important;
 }
-#loansDashboardHost .ld-recovery-card.ld-recovery-advanced{
-  padding:22px 24px!important;
+#loansDashboardHost .ld-recovery-values{gap:20px!important}
+
+/* Bottom title must never wrap to two lines. */
+#loansDashboardHost .ld-recovery-bottom{
+  grid-template-columns:168px minmax(0,1fr)!important;
+  gap:14px!important;
 }
-#loansDashboardHost .ld-recovery-values{
-  gap:18px!important;
+#loansDashboardHost .ld-recovery-bottom .ld-black-section-title{
+  margin-top:13px!important;
+  white-space:nowrap!important;
 }
 
 #loansDashboardHost .ld-period-loading .ld-recovery-values,
 #loansDashboardHost .ld-period-loading .ld-recovery-bottom,
-#loansDashboardHost .ld-period-loading .ld-split-bar{
-  opacity:.62;
-}
+#loansDashboardHost .ld-period-loading .ld-split-bar{opacity:.62}
 #loansDashboardHost .ld-recovery-values,
 #loansDashboardHost .ld-recovery-bottom,
-#loansDashboardHost .ld-split-bar{
-  transition:opacity .2s ease;
-}
+#loansDashboardHost .ld-split-bar{transition:opacity .2s ease}
 
 @media(max-width:1380px){
   #loansDashboardHost .ld-metric-card{padding:15px 15px 12px!important}
-  #loansDashboardHost .ld-dashboard-grid{grid-template-columns:minmax(0,1fr) 320px!important}
-  #loansDashboardHost .ld-recovery-bottom{grid-template-columns:132px minmax(0,1fr)!important}
-  #loansDashboardHost .ld-recovery-title{font-size:15px!important}
+  #loansDashboardHost .ld-dashboard-grid{grid-template-columns:minmax(0,1fr) 340px!important}
+  #loansDashboardHost .ld-recovery-bottom{grid-template-columns:158px minmax(0,1fr)!important}
+  #loansDashboardHost .ld-recovery-title{font-size:16px!important}
+  #loansDashboardHost .ld-recovery-subtle,#loansDashboardHost .ld-black-section-title{font-size:11.5px!important}
 }
 @media(max-width:1120px){
   #loansDashboardHost .ld-dashboard-grid{grid-template-columns:1fr!important}
 }
 @media(max-width:520px){
-  #loansDashboardHost .ld-recovery-bottom{grid-template-columns:128px minmax(0,1fr)!important}
-  #loansDashboardHost .ld-recovery-chip{width:116px!important;min-width:116px!important}
+  #loansDashboardHost .ld-recovery-bottom{grid-template-columns:150px minmax(0,1fr)!important}
+  #loansDashboardHost .ld-recovery-chip{width:122px!important;min-width:122px!important}
+  #loansDashboardHost .ld-recovery-title{font-size:15px!important}
+  #loansDashboardHost .ld-recovery-subtle,#loansDashboardHost .ld-black-section-title{font-size:11px!important}
 }
