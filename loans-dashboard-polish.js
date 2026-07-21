@@ -82,8 +82,11 @@ async function applyMetricFooters(){
       trendHtml(metrics.activeShare,'de clientes activos',{neutral:true})
     ];
     cards.slice(0,5).forEach((card,index)=>{
+      const next=footers[index];
+      if(card.dataset.metricFooter===next)return;
       card.querySelector('.ld-metric-change')?.remove();
-      card.insertAdjacentHTML('beforeend',footers[index]);
+      card.insertAdjacentHTML('beforeend',next);
+      card.dataset.metricFooter=next;
     });
   }catch(error){console.error('loans metric polish failed',error);}
   finally{loading=false;}
@@ -96,7 +99,7 @@ function polishControls(){
   const search=host.querySelector('#ldSearch');
   if(search)search.placeholder='Buscar cliente por nombre...';
   const sort=host.querySelector('#ldSort');
-  if(sort){sort.title=sort.selectedOptions?.[0]?.textContent||'Ordenar clientes';}
+  if(sort)sort.title=sort.selectedOptions?.[0]?.textContent||'Ordenar clientes';
 }
 
 function polish(){
