@@ -7,6 +7,7 @@ function addStyle(id, href){
 }
 
 addStyle('clientProfileElegantCss','./client-profile-elegant.css?v=2');
+addStyle('clientProfileElegantIconsCss','./client-profile-elegant-icons.css?v=1');
 
 const ELEGANT_ICONS={
   dollar:'<circle cx="12" cy="12" r="8.5"/><path d="M15.2 8.5c-.7-.8-1.7-1.2-3.2-1.2-1.8 0-3 .8-3 2 0 3 6 1.2 6 4.2 0 1.3-1.2 2.2-3.2 2.2-1.6 0-2.8-.5-3.6-1.4M12 5.5v13"/>',
