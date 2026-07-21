@@ -1,3 +1,15 @@
+function ensureReferenceMatchStyle(){
+  const href='./client-profile-reference-match.css?v=1';
+  let link=document.getElementById('clientProfileReferenceMatchCss');
+  if(link){if(link.getAttribute('href')!==href)link.setAttribute('href',href);return;}
+  link=document.createElement('link');
+  link.id='clientProfileReferenceMatchCss';
+  link.rel='stylesheet';
+  link.href=href;
+  document.head.appendChild(link);
+}
+ensureReferenceMatchStyle();
+
 const REF_ICONS={
   dollar:'<path d="M15.2 8.2c-.8-.8-1.8-1.2-3.2-1.2-1.9 0-3.1.8-3.1 2.1 0 3.1 6.2 1.2 6.2 4.4 0 1.4-1.3 2.4-3.4 2.4-1.7 0-3-.5-3.8-1.5M12 5v14"/>',
   trend:'<path d="M5 16.5 10.2 11.3l3.1 3.1L19 8.7"/><path d="M14.7 8.7H19V13"/>',
