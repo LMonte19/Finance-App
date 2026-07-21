@@ -1,0 +1,239 @@
+/* Cohesive client profile layout — visually aligned with the Loans dashboard. */
+
+@media (min-width: 1221px){
+  #borrowerAccountContent .ll-account-shell{
+    grid-template-columns:300px minmax(0,1fr)!important;
+    gap:14px!important;
+    padding:14px!important;
+    min-height:calc(100vh - 108px)!important;
+  }
+
+  /* 1–3. Denser, narrower client rail that feels like contextual navigation. */
+  #borrowerAccountContent .ll-client-rail{
+    border-radius:24px!important;
+    padding:16px 12px!important;
+    gap:11px!important;
+    min-height:calc(100vh - 136px)!important;
+    box-shadow:0 14px 34px rgba(0,0,0,.19)!important;
+  }
+  #borrowerAccountContent .ll-rail-top{
+    grid-template-columns:40px 1fr 36px!important;
+    gap:9px!important;
+  }
+  #borrowerAccountContent .ll-logo-mark{
+    width:40px!important;height:40px!important;border-radius:13px!important;
+  }
+  #borrowerAccountContent .ll-logo-mark .ll-icon{width:21px!important;height:21px!important}
+  #borrowerAccountContent .ll-rail-title{font-size:18px!important}
+  #borrowerAccountContent .ll-icon-btn{width:36px!important;height:36px!important}
+  #borrowerAccountContent .ll-icon-btn .ll-icon{width:16px!important;height:16px!important}
+  #borrowerAccountContent .ll-filter-row{font-size:11.5px!important;padding:0 3px!important}
+  #borrowerAccountContent .ll-client-list{gap:7px!important}
+  #borrowerAccountContent .ll-client-card{
+    grid-template-columns:40px minmax(0,1fr) auto!important;
+    gap:9px!important;
+    border-radius:17px!important;
+    padding:9px 10px!important;
+    min-height:68px!important;
+  }
+  #borrowerAccountContent .ll-client-avatar{width:40px!important;height:40px!important}
+  #borrowerAccountContent .ll-client-avatar .ll-avatar-placeholder{width:31px!important;height:31px!important}
+  #borrowerAccountContent .ll-client-name{font-size:12.5px!important}
+  #borrowerAccountContent .ll-client-id{font-size:9.5px!important;margin-top:2px!important}
+  #borrowerAccountContent .ll-client-balance{font-size:15px!important;margin-top:4px!important}
+  #borrowerAccountContent .ll-client-trailing{gap:8px!important}
+  #borrowerAccountContent .ll-client-open .ll-icon{width:14px!important;height:14px!important}
+  #borrowerAccountContent .ll-rail-badge{font-size:9px!important;padding:4px 7px!important}
+
+  /* 1–2. Overall workspace and header use the same density as Loans. */
+  #borrowerAccountContent .ll-workspace{
+    border-radius:24px!important;
+    padding:18px 20px 20px!important;
+    box-shadow:0 14px 34px rgba(21,22,27,.065)!important;
+  }
+  #borrowerAccountContent .ll-client-header{
+    grid-template-columns:70px minmax(0,1fr) auto!important;
+    gap:14px!important;
+    margin-bottom:8px!important;
+    min-height:72px!important;
+  }
+  #borrowerAccountContent .ll-avatar-xl{
+    width:68px!important;height:70px!important;border-radius:20px!important;
+  }
+  #borrowerAccountContent .ll-avatar-xl .ll-avatar-placeholder{width:62px!important;height:68px!important}
+  #borrowerAccountContent .ll-client-title{font-size:24px!important;letter-spacing:-.035em!important}
+  #borrowerAccountContent .ll-title-row{gap:8px!important}
+  #borrowerAccountContent .ll-client-header .ll-status-pill{font-size:9px!important;padding:4px 8px!important}
+  #borrowerAccountContent .ll-client-meta{font-size:11px!important;gap:10px!important;margin-top:6px!important}
+  #borrowerAccountContent .ll-meta-item{gap:4px!important}
+  #borrowerAccountContent .ll-meta-item .ll-icon{width:13px!important;height:13px!important}
+  #borrowerAccountContent .ll-action-row{min-width:300px!important;gap:7px!important}
+  #borrowerAccountContent .ll-action-row .ll-soft-btn,
+  #borrowerAccountContent .ll-action-row .ll-primary-btn{
+    padding:8px 13px!important;
+    font-size:11px!important;
+    min-height:34px!important;
+    gap:6px!important;
+  }
+  #borrowerAccountContent .ll-action-row .ll-icon{width:14px!important;height:14px!important}
+
+  /* 8–9. Consistent spacing and smaller tab navigation. */
+  #borrowerAccountContent .ll-tabs{
+    gap:23px!important;
+    margin:5px 0 14px!important;
+  }
+  #borrowerAccountContent .ll-tab{
+    padding:9px 2px 10px!important;
+    font-size:11.5px!important;
+    gap:6px!important;
+    border-bottom-width:2px!important;
+  }
+  #borrowerAccountContent .ll-tab .ll-icon{width:14px!important;height:14px!important}
+
+  /* Shared card language. */
+  #borrowerAccountContent .ll-panel-grid{
+    grid-template-columns:minmax(0,1fr) 270px!important;
+    gap:13px!important;
+  }
+  #borrowerAccountContent .ll-panel-main,
+  #borrowerAccountContent .ll-panel-side{gap:11px!important}
+  #borrowerAccountContent .ll-card,
+  #borrowerAccountContent .ll-profile-card{
+    border-radius:18px!important;
+    padding:14px!important;
+    box-shadow:0 6px 16px rgba(28,31,38,.028)!important;
+  }
+  #borrowerAccountContent .ll-panel-side .ll-profile-card{padding:13px!important}
+  #borrowerAccountContent .ll-card-head{margin-bottom:10px!important;gap:9px!important}
+  #borrowerAccountContent .ll-card-title{font-size:13.5px!important;margin-bottom:10px!important}
+  #borrowerAccountContent .ll-card-link{font-size:10px!important}
+  #borrowerAccountContent .ll-card-note{font-size:9px!important}
+
+  /* 4–5. Financial summary mirrors the dashboard's metric language. */
+  #borrowerAccountContent .ll-summary-stat-grid{
+    gap:0!important;
+    align-items:stretch!important;
+  }
+  #borrowerAccountContent .ll-summary-stat-grid>div{
+    position:relative!important;
+    text-align:left!important;
+    padding:8px 10px 8px 48px!important;
+    min-height:72px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+  }
+  #borrowerAccountContent .ll-summary-stat-grid>div::before{
+    position:absolute!important;
+    left:9px!important;top:50%!important;transform:translateY(-50%)!important;
+    width:30px!important;height:30px!important;border-radius:10px!important;
+    display:grid!important;place-items:center!important;
+    font-size:13px!important;font-weight:800!important;
+  }
+  #borrowerAccountContent .ll-summary-stat-grid>div:nth-child(1)::before{content:"$";background:#efe9ff;color:#7559e9}
+  #borrowerAccountContent .ll-summary-stat-grid>div:nth-child(2)::before{content:"↗";background:#f0f9c7;color:#89a900}
+  #borrowerAccountContent .ll-summary-stat-grid>div:nth-child(3)::before{content:"◷";background:#e9f4ff;color:#2587e8}
+  #borrowerAccountContent .ll-summary-stat-grid>div:nth-child(4)::before{content:"↻";background:#fff0df;color:#f08a24}
+  #borrowerAccountContent .ll-summary-stat-grid>div:nth-child(5)::before{content:"▦";background:#e7f3ff;color:#3189df}
+  #borrowerAccountContent .ll-summary-stat-grid span,
+  #borrowerAccountContent .ll-summary-stat-grid small{font-size:9px!important;line-height:1.25!important}
+  #borrowerAccountContent .ll-summary-stat-grid strong{
+    font-size:15px!important;
+    margin:4px 0 2px!important;
+    white-space:nowrap!important;
+  }
+
+  /* 6. Right column is secondary, compact information. */
+  #borrowerAccountContent .ll-account-facts{gap:7px!important}
+  #borrowerAccountContent .ll-account-facts>div{
+    font-size:10.5px!important;
+    padding-bottom:7px!important;
+    gap:10px!important;
+  }
+  #borrowerAccountContent .ll-next-action{gap:6px!important}
+  #borrowerAccountContent .ll-next-action>strong{font-size:12px!important}
+  #borrowerAccountContent .ll-next-action p{font-size:10px!important}
+  #borrowerAccountContent .ll-next-action .ll-purple-btn,
+  #borrowerAccountContent .ll-next-action .ll-soft-btn{
+    min-height:32px!important;padding:7px 10px!important;font-size:10px!important;
+  }
+  #borrowerAccountContent .ll-summary-quick-pay{gap:7px!important}
+  #borrowerAccountContent .ll-summary-quick-pay p{font-size:9.5px!important}
+  #borrowerAccountContent .ll-summary-quick-amounts{gap:5px!important}
+  #borrowerAccountContent .ll-summary-quick-amounts button{padding:6px 4px!important;font-size:9px!important}
+  #borrowerAccountContent .ll-summary-quick-pay input{padding:8px!important;border-radius:10px!important;font-size:10px!important}
+  #borrowerAccountContent .ll-summary-quick-pay .ll-primary-btn{padding:8px!important;font-size:10px!important}
+  #borrowerAccountContent .ll-form-status{font-size:9px!important}
+
+  /* 10. A restrained dark anchor connects the detail view to Panorama de cartera. */
+  #borrowerAccountContent [data-profile-panel="summary"] .ll-panel-side>.ll-profile-card:first-child{
+    border-color:#202126!important;
+    box-shadow:0 8px 20px rgba(16,18,22,.08)!important;
+    overflow:hidden!important;
+  }
+  #borrowerAccountContent [data-profile-panel="summary"] .ll-panel-side>.ll-profile-card:first-child .ll-card-head{
+    background:linear-gradient(135deg,#111217,#1a1c20)!important;
+    color:#fff!important;
+    margin:-13px -13px 10px!important;
+    padding:10px 13px!important;
+  }
+  #borrowerAccountContent [data-profile-panel="summary"] .ll-panel-side>.ll-profile-card:first-child .ll-card-title{color:#fff!important}
+
+  /* 7. Calendar becomes a supporting module instead of dominating the page. */
+  #borrowerAccountContent .ll-cycle-calendar-head{margin-bottom:10px!important}
+  #borrowerAccountContent .ll-cycle-calendar-head strong{font-size:12px!important}
+  #borrowerAccountContent .ll-cycle-calendar-head small{font-size:8.5px!important}
+  #borrowerAccountContent .ll-cycle-calendar-nav{font-size:10px!important;gap:6px!important}
+  #borrowerAccountContent .ll-cycle-calendar-nav button{width:27px!important;height:27px!important;border-radius:8px!important;font-size:16px!important}
+  #borrowerAccountContent .ll-cycle-date-row{gap:7px!important}
+  #borrowerAccountContent .ll-cycle-date{
+    min-height:64px!important;
+    padding:6px 4px!important;
+    border-radius:13px!important;
+    gap:1px!important;
+  }
+  #borrowerAccountContent .ll-cycle-date span,
+  #borrowerAccountContent .ll-cycle-date small{font-size:8.5px!important}
+  #borrowerAccountContent .ll-cycle-date strong{font-size:18px!important}
+  #borrowerAccountContent .ll-cycle-date.selected::after{bottom:-9px!important;width:4px!important;height:4px!important}
+  #borrowerAccountContent .ll-cycle-detail--compact{
+    margin-top:13px!important;
+    padding:10px 12px!important;
+    border-radius:13px!important;
+    gap:9px!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  }
+  #borrowerAccountContent .ll-cycle-detail--compact>div{text-align:center!important}
+  #borrowerAccountContent .ll-cycle-detail--compact small{font-size:8.5px!important}
+  #borrowerAccountContent .ll-cycle-detail--compact strong{font-size:11.5px!important;margin-top:3px!important}
+  #borrowerAccountContent .ll-cycle-detail--compact .ll-status-pill{font-size:8px!important;padding:4px 7px!important}
+
+  /* Lower sections fit the dashboard's compact rhythm. */
+  #borrowerAccountContent .ll-compact-history{gap:5px!important}
+  #borrowerAccountContent .ll-compact-history button{padding:8px 10px!important;border-radius:11px!important}
+  #borrowerAccountContent .ll-compact-history span{font-size:9.5px!important}
+  #borrowerAccountContent .ll-compact-history strong{font-size:11.5px!important}
+  #borrowerAccountContent .ll-activity-list button{padding:7px 3px 9px!important;grid-template-columns:13px minmax(0,1fr) 12px!important;gap:8px!important}
+  #borrowerAccountContent .ll-activity-dot{width:8px!important;height:8px!important;margin-top:4px!important;box-shadow:0 0 0 3px #f0edff!important}
+  #borrowerAccountContent .ll-activity-list strong{font-size:10.5px!important}
+  #borrowerAccountContent .ll-activity-list small{font-size:8.5px!important}
+  #borrowerAccountContent .ll-activity-list p{font-size:9.5px!important;margin-top:2px!important}
+
+  /* Other tabs inherit the same density. */
+  #borrowerAccountContent .ll-payment-layout,
+  #borrowerAccountContent .ll-disbursement-layout{grid-template-columns:minmax(0,1fr) 300px!important;gap:13px!important}
+  #borrowerAccountContent .ll-record-row{padding:10px!important;border-radius:13px!important;gap:10px!important}
+  #borrowerAccountContent .ll-record-title{font-size:11.5px!important}
+  #borrowerAccountContent .ll-record-meta,
+  #borrowerAccountContent .ll-record-note{font-size:9.5px!important}
+  #borrowerAccountContent .ll-profile-form{gap:8px!important}
+  #borrowerAccountContent .ll-profile-form label{font-size:9.5px!important;gap:4px!important}
+  #borrowerAccountContent .ll-profile-form input,
+  #borrowerAccountContent .ll-profile-form select,
+  #borrowerAccountContent .ll-profile-form textarea{padding:8px!important;border-radius:10px!important;font-size:10px!important}
+}
+
+@media (min-width: 1500px){
+  #borrowerAccountContent .ll-account-shell{grid-template-columns:310px minmax(0,1fr)!important}
+  #borrowerAccountContent .ll-panel-grid{grid-template-columns:minmax(0,1fr) 280px!important}
+}
