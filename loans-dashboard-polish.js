@@ -9,6 +9,7 @@ const db=createClient(
 let metricCache=null;
 let metricCacheAt=0;
 let loading=false;
+let polishScheduled=false;
 
 const sum=(rows,field)=>rows.reduce((total,row)=>total+Number(row[field]||0),0);
 const iso=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
@@ -97,9 +98,12 @@ function polishControls(){
   if(!host)return;
   host.querySelectorAll('.ld-client-id').forEach(node=>node.remove());
   const search=host.querySelector('#ldSearch');
-  if(search)search.placeholder='Buscar cliente por nombre...';
+  if(search&&search.placeholder!=='Buscar cliente por nombre...')search.placeholder='Buscar cliente por nombre...';
   const sort=host.querySelector('#ldSort');
-  if(sort)sort.title=sort.selectedOptions?.[0]?.textContent||'Ordenar clientes';
+  if(sort){
+    const nextTitle=sort.selectedOptions?.[0]?.textContent||'Ordenar clientes';
+    if(sort.title!==nextTitle)sort.title=nextTitle;
+  }
 }
 
 function polish(){
@@ -109,10 +113,51 @@ function polish(){
   applyMetricFooters();
 }
 
+function schedulePolish(){
+  if(polishScheduled)return;
+  polishScheduled=true;
+  requestAnimationFrame(()=>{
+    polishScheduled=false;
+    polish();
+  });
+}
+
+function attachHostObserver(){
+  const host=document.getElementById('loansDashboardHost');
+  if(!host||host.dataset.polishObserver==='1')return;
+  host.dataset.polishObserver='1';
+  new MutationObserver(mutations=>{
+    const meaningful=mutations.some(mutation=>
+      [...mutation.addedNodes].some(node=>node.nodeType===1&&(
+        node.classList?.contains('ld-metric-card')||
+        node.classList?.contains('ld-client-row')||
+        node.querySelector?.('.ld-metric-card,.ld-client-row,#ldSearch,#ldSort')
+      ))
+    );
+    if(meaningful)schedulePolish();
+  }).observe(host,{childList:true,subtree:true});
+  schedulePolish();
+}
+
 const app=document.getElementById('app');
-if(app)new MutationObserver(()=>queueMicrotask(polish)).observe(app,{childList:true,subtree:true});
-window.addEventListener('loan-ledger:dashboard-refresh',()=>{metricCache=null;metricCacheAt=0;setTimeout(polish,120);});
-setInterval(()=>{if(document.getElementById('loansPage')?.classList.contains('active-page'))polish();},5000);
-setTimeout(polish,250);setTimeout(polish,1000);polish();
+if(app)new MutationObserver(mutations=>{
+  const hostAdded=mutations.some(mutation=>
+    [...mutation.addedNodes].some(node=>node.nodeType===1&&(
+      node.id==='loansDashboardHost'||node.querySelector?.('#loansDashboardHost')
+    ))
+  );
+  if(hostAdded)attachHostObserver();
+}).observe(app,{childList:true,subtree:false});
+
+window.addEventListener('loan-ledger:dashboard-refresh',()=>{
+  metricCache=null;metricCacheAt=0;
+  setTimeout(()=>{attachHostObserver();schedulePolish();},120);
+});
+setInterval(()=>{
+  if(document.getElementById('loansPage')?.classList.contains('active-page'))schedulePolish();
+},5000);
+setTimeout(()=>{attachHostObserver();schedulePolish();},250);
+setTimeout(()=>{attachHostObserver();schedulePolish();},1000);
+attachHostObserver();
 
 console.log('loans dashboard polish active');
