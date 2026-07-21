@@ -1,0 +1,127 @@
+/* Graphic icon refinements for the approved elegant profile direction. */
+@media (min-width:1221px){
+  #borrowerAccountContent .ll-elegant-profile .ll-elegant-svg{
+    width:16px;
+    height:16px;
+    display:block;
+    flex:none;
+  }
+
+  /* Financial summary — real SVG icons, no keyboard-like pseudo symbols. */
+  #borrowerAccountContent .ll-elegant-profile .ll-summary-stat-grid>div{
+    position:relative!important;
+    padding-left:50px!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-summary-stat-grid>div::before{
+    display:none!important;
+    content:none!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-elegant-metric-icon{
+    position:absolute;
+    left:11px;
+    top:50%;
+    transform:translateY(-50%);
+    width:30px;
+    height:30px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    background:#f4f5f7;
+    color:#707784;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-elegant-metric-icon .ll-elegant-svg{
+    width:15px;
+    height:15px;
+    stroke-width:1.75;
+  }
+
+  /* Movements — clean graphic icons and horizontal row separators. */
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list{
+    border-top:1px solid #eff0f2!important;
+    gap:0!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list button{
+    grid-template-columns:34px minmax(0,1fr) 18px!important;
+    min-height:62px!important;
+    padding:10px 4px!important;
+    gap:12px!important;
+    align-items:center!important;
+    border-bottom:0!important;
+    border-radius:0!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list button:not(:last-child)::after{
+    content:""!important;
+    position:absolute!important;
+    left:0!important;
+    right:0!important;
+    top:auto!important;
+    bottom:0!important;
+    width:auto!important;
+    height:1px!important;
+    background:#eceef1!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-dot{
+    width:30px!important;
+    height:30px!important;
+    margin:0!important;
+    border-radius:50%!important;
+    display:grid!important;
+    place-items:center!important;
+    box-shadow:none!important;
+    z-index:1!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-dot .ll-elegant-svg{
+    width:15px;
+    height:15px;
+    stroke-width:1.9;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-movement-icon-disbursement{
+    background:#f1edff!important;
+    color:#7354e5!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-movement-icon-payment{
+    background:#eaf7e5!important;
+    color:#64a842!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-movement-icon-followup{
+    background:#f1edff!important;
+    color:#7354e5!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-movement-icon-contact{
+    background:#f2f4f6!important;
+    color:#69717e!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list strong{
+    font-size:11.5px!important;
+    line-height:1.35!important;
+    font-weight:650!important;
+    color:#30343b!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list small{
+    margin-top:3px!important;
+    font-size:9.5px!important;
+    color:#8a909a!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list p{
+    margin-top:3px!important;
+    font-size:9.5px!important;
+    line-height:1.35!important;
+    color:#747b86!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list b{
+    width:18px!important;
+    height:18px!important;
+    display:grid!important;
+    place-items:center!important;
+    color:#747c88!important;
+    font-size:0!important;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list b .ll-elegant-svg{
+    width:14px;
+    height:14px;
+    stroke-width:1.8;
+  }
+  #borrowerAccountContent .ll-elegant-profile .ll-movements-card .ll-activity-list button:hover{
+    background:#fafafb!important;
+  }
+}
