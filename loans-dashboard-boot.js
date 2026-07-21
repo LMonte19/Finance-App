@@ -9,7 +9,7 @@ function addStyle(id,href){
 addStyle('loansDashboardCss','./loans-dashboard.css?v=2');
 addStyle('loansDashboardOverridesCss','./loans-dashboard-overrides.css?v=2');
 addStyle('loansDashboardPolishCss','./loans-dashboard-polish.css?v=1');
-addStyle('loansDashboardFinalCss','./loans-dashboard-final.css?v=2');
+addStyle('loansDashboardFinalCss','./loans-dashboard-final.css?v=3');
 
 import('./loans-dashboard.js?v=2')
   .then(()=>import('./loans-dashboard-transition-fix.js?v=1'))
