@@ -19,47 +19,103 @@
   min-height:18px!important;
 }
 
-/* The analytics period control is a real select, but keeps the pill appearance. */
+/* Keep every analytics heading on one line like the selected reference. */
+#loansDashboardHost .ld-recovery-title,
+#loansDashboardHost .ld-recovery-subtle,
+#loansDashboardHost .ld-black-section-title{
+  white-space:nowrap!important;
+  word-break:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+#loansDashboardHost .ld-recovery-title{
+  font-size:16px!important;
+  line-height:1.15!important;
+}
+#loansDashboardHost .ld-recovery-subtle{
+  font-size:11.5px!important;
+  line-height:1.2!important;
+  margin-top:17px!important;
+}
+#loansDashboardHost .ld-black-section-title{
+  font-size:11px!important;
+  line-height:1.2!important;
+}
+
+/* Give the recovery label enough room so it never wraps. */
+#loansDashboardHost .ld-recovery-bottom{
+  grid-template-columns:142px minmax(0,1fr)!important;
+  gap:14px!important;
+}
+#loansDashboardHost .ld-recovery-bottom .ld-black-section-title{
+  margin-top:13px!important;
+}
+
+/* Real period selector with the same polished pill proportions as the reference. */
 #loansDashboardHost .ld-recovery-chip{
   padding:0!important;
-  min-width:112px;
-  height:38px;
+  width:126px!important;
+  min-width:126px!important;
+  height:42px!important;
+  border:1px solid rgba(255,255,255,.18)!important;
   border-radius:999px!important;
-  overflow:hidden;
-  position:relative;
+  overflow:hidden!important;
+  position:relative!important;
   background:rgba(255,255,255,.025)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035)!important;
 }
 #loansDashboardHost .ld-recovery-chip::after{
   content:"⌄";
   position:absolute;
-  right:13px;
+  right:15px;
   top:50%;
-  transform:translateY(-56%);
-  color:#dfe3e9;
-  font-size:12px;
+  transform:translateY(-58%);
+  color:#f0f2f5;
+  font-size:13px;
+  line-height:1;
   pointer-events:none;
 }
 #loansDashboardHost #ldRecoveryPeriod{
   width:100%!important;
   height:100%!important;
   margin:0!important;
-  padding:0 31px 0 14px!important;
+  padding:0 36px 0 17px!important;
   border:0!important;
   outline:0!important;
-  appearance:none;
-  -webkit-appearance:none;
+  appearance:none!important;
+  -webkit-appearance:none!important;
   background:transparent!important;
-  color:#f4f5f7!important;
+  color:#f7f8fa!important;
   font:inherit!important;
-  font-size:10px!important;
+  font-size:11px!important;
   font-weight:800!important;
-  cursor:pointer;
+  line-height:42px!important;
+  cursor:pointer!important;
   border-radius:999px!important;
+  white-space:nowrap!important;
+}
+#loansDashboardHost #ldRecoveryPeriod:hover{
+  background:rgba(255,255,255,.025)!important;
+}
+#loansDashboardHost #ldRecoveryPeriod:focus{
+  box-shadow:inset 0 0 0 1px rgba(201,255,8,.24)!important;
 }
 #loansDashboardHost #ldRecoveryPeriod option{
   background:#17191e;
   color:#f4f5f7;
 }
+
+/* Give the black analytics card a little more breathing room horizontally. */
+#loansDashboardHost .ld-dashboard-grid{
+  grid-template-columns:minmax(0,1fr) 344px!important;
+}
+#loansDashboardHost .ld-recovery-card.ld-recovery-advanced{
+  padding:22px 24px!important;
+}
+#loansDashboardHost .ld-recovery-values{
+  gap:18px!important;
+}
+
 #loansDashboardHost .ld-period-loading .ld-recovery-values,
 #loansDashboardHost .ld-period-loading .ld-recovery-bottom,
 #loansDashboardHost .ld-period-loading .ld-split-bar{
@@ -73,4 +129,14 @@
 
 @media(max-width:1380px){
   #loansDashboardHost .ld-metric-card{padding:15px 15px 12px!important}
+  #loansDashboardHost .ld-dashboard-grid{grid-template-columns:minmax(0,1fr) 320px!important}
+  #loansDashboardHost .ld-recovery-bottom{grid-template-columns:132px minmax(0,1fr)!important}
+  #loansDashboardHost .ld-recovery-title{font-size:15px!important}
+}
+@media(max-width:1120px){
+  #loansDashboardHost .ld-dashboard-grid{grid-template-columns:1fr!important}
+}
+@media(max-width:520px){
+  #loansDashboardHost .ld-recovery-bottom{grid-template-columns:128px minmax(0,1fr)!important}
+  #loansDashboardHost .ld-recovery-chip{width:116px!important;min-width:116px!important}
 }
