@@ -1,0 +1,107 @@
+/* Final polish for Loans portfolio dashboard */
+#loansDashboardHost .ld-client-id{display:none!important}
+#loansDashboardHost .ld-client-ident{grid-template-columns:38px minmax(0,1fr)!important}
+#loansDashboardHost .ld-client-name{display:block;margin-top:1px}
+
+/* Controls: keep the sort select and view toggle clean, fully framed and aligned. */
+#loansDashboardHost .ld-controls{
+  grid-template-columns:minmax(260px,1.15fr) auto minmax(245px,285px) 96px!important;
+  gap:12px!important;
+  align-items:center!important;
+}
+#loansDashboardHost .ld-sort{
+  min-width:245px!important;
+  width:100%!important;
+  height:48px!important;
+  padding:0 44px 0 18px!important;
+  border:1px solid #dfe2e9!important;
+  border-radius:999px!important;
+  background-color:#fff!important;
+  color:#242832!important;
+  font-size:12px!important;
+  font-weight:750!important;
+  line-height:48px!important;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  overflow:hidden;
+  box-shadow:0 3px 10px rgba(25,28,35,.025)!important;
+}
+#loansDashboardHost .ld-view-toggle{
+  width:96px!important;
+  min-width:96px!important;
+  height:48px!important;
+  padding:3px!important;
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  align-items:center!important;
+  gap:2px!important;
+  border:1px solid #dfe2e9!important;
+  border-radius:999px!important;
+  background:#fff!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+  box-shadow:0 3px 10px rgba(25,28,35,.025)!important;
+}
+#loansDashboardHost .ld-view-toggle button{
+  width:42px!important;
+  height:40px!important;
+  min-width:42px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:999px!important;
+  display:grid!important;
+  place-items:center!important;
+  background:transparent!important;
+  color:#69717d!important;
+  box-shadow:none!important;
+}
+#loansDashboardHost .ld-view-toggle button.active{
+  background:#efeaff!important;
+  color:#7654e6!important;
+}
+#loansDashboardHost .ld-view-toggle button:hover{filter:none!important;background:#f6f3ff!important}
+#loansDashboardHost .ld-view-toggle svg{width:18px!important;height:18px!important}
+
+/* Metric cards: restore the useful lower strip from the chosen reference. */
+#loansDashboardHost .ld-metric-card{
+  min-height:160px!important;
+  padding:18px 18px 14px!important;
+}
+#loansDashboardHost .ld-metric-main{flex:1}
+#loansDashboardHost .ld-metric-change{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-height:20px;
+  margin-top:14px;
+  padding-top:11px;
+  border-top:1px solid #eceef2;
+  color:#828894;
+  font-size:9.5px;
+  line-height:1.25;
+  white-space:nowrap;
+}
+#loansDashboardHost .ld-metric-change strong{font-size:10px;font-weight:850}
+#loansDashboardHost .ld-metric-change.good strong{color:#3aa047}
+#loansDashboardHost .ld-metric-change.bad strong{color:#e34d49}
+#loansDashboardHost .ld-metric-change.neutral strong{color:#606773}
+#loansDashboardHost .ld-metric-change .ld-trend-arrow{font-size:12px;font-weight:900;line-height:1}
+#loansDashboardHost .ld-metric-change.good .ld-trend-arrow{color:#3aa047}
+#loansDashboardHost .ld-metric-change.bad .ld-trend-arrow{color:#e34d49}
+#loansDashboardHost .ld-metric-change.neutral .ld-trend-arrow{color:#7c838e}
+
+@media(max-width:1280px){
+  #loansDashboardHost .ld-controls{grid-template-columns:minmax(240px,1fr) auto minmax(220px,250px) 92px!important}
+}
+@media(max-width:1080px){
+  #loansDashboardHost .ld-controls{grid-template-columns:1fr auto!important}
+  #loansDashboardHost .ld-search{grid-column:1/-1}
+  #loansDashboardHost .ld-filter-pills{min-width:0}
+  #loansDashboardHost .ld-sort{min-width:220px!important}
+}
+@media(max-width:700px){
+  #loansDashboardHost .ld-controls{grid-template-columns:1fr!important}
+  #loansDashboardHost .ld-sort{min-width:0!important}
+  #loansDashboardHost .ld-view-toggle{justify-self:start}
+}
