@@ -1,0 +1,76 @@
+/* Final layout corrections for the Loans dashboard. */
+
+/* Remove the artificial vertical expansion in the five summary cards. */
+#loansDashboardHost .ld-dashboard-main .ld-metric-grid{
+  align-items:stretch!important;
+}
+#loansDashboardHost .ld-metric-card{
+  min-height:0!important;
+  height:auto!important;
+  padding:16px 17px 13px!important;
+  justify-content:flex-start!important;
+}
+#loansDashboardHost .ld-metric-main{
+  flex:0 0 auto!important;
+}
+#loansDashboardHost .ld-metric-change{
+  margin-top:15px!important;
+  padding-top:10px!important;
+  min-height:18px!important;
+}
+
+/* The analytics period control is a real select, but keeps the pill appearance. */
+#loansDashboardHost .ld-recovery-chip{
+  padding:0!important;
+  min-width:112px;
+  height:38px;
+  border-radius:999px!important;
+  overflow:hidden;
+  position:relative;
+  background:rgba(255,255,255,.025)!important;
+}
+#loansDashboardHost .ld-recovery-chip::after{
+  content:"⌄";
+  position:absolute;
+  right:13px;
+  top:50%;
+  transform:translateY(-56%);
+  color:#dfe3e9;
+  font-size:12px;
+  pointer-events:none;
+}
+#loansDashboardHost #ldRecoveryPeriod{
+  width:100%!important;
+  height:100%!important;
+  margin:0!important;
+  padding:0 31px 0 14px!important;
+  border:0!important;
+  outline:0!important;
+  appearance:none;
+  -webkit-appearance:none;
+  background:transparent!important;
+  color:#f4f5f7!important;
+  font:inherit!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  cursor:pointer;
+  border-radius:999px!important;
+}
+#loansDashboardHost #ldRecoveryPeriod option{
+  background:#17191e;
+  color:#f4f5f7;
+}
+#loansDashboardHost .ld-period-loading .ld-recovery-values,
+#loansDashboardHost .ld-period-loading .ld-recovery-bottom,
+#loansDashboardHost .ld-period-loading .ld-split-bar{
+  opacity:.62;
+}
+#loansDashboardHost .ld-recovery-values,
+#loansDashboardHost .ld-recovery-bottom,
+#loansDashboardHost .ld-split-bar{
+  transition:opacity .2s ease;
+}
+
+@media(max-width:1380px){
+  #loansDashboardHost .ld-metric-card{padding:15px 15px 12px!important}
+}
