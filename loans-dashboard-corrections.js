@@ -10,6 +10,16 @@ function compactRecoveryPeriodOptions(){
   return changed;
 }
 
+function compactMetricNotes(){
+  let changed=false;
+  document.querySelectorAll('#loansDashboardHost .ld-metric-note').forEach(note=>{
+    const current=note.textContent.trim();
+    const next=current.replace(/\s+registrados$/i,'');
+    if(next!==current){note.textContent=next;changed=true;}
+  });
+  return changed;
+}
+
 let scheduled=false;
 function scheduleCorrection(){
   if(scheduled)return;
@@ -17,6 +27,7 @@ function scheduleCorrection(){
   requestAnimationFrame(()=>{
     scheduled=false;
     compactRecoveryPeriodOptions();
+    compactMetricNotes();
   });
 }
 
@@ -29,7 +40,8 @@ function attachDashboardObserver(){
       [...mutation.addedNodes].some(node=>
         node.nodeType===1&&(
           node.id==='ldRecoveryPeriod'||
-          node.querySelector?.('#ldRecoveryPeriod')
+          node.classList?.contains('ld-metric-card')||
+          node.querySelector?.('#ldRecoveryPeriod,.ld-metric-card')
         )
       )
     );
