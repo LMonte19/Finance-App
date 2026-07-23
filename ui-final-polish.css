@@ -146,3 +146,6 @@
     border-radius:50%!important;
   }
 }
+
+/* Preserve the spacing of the legacy investment distribution block. */
+#newLoanFundingList{margin-top:10px!important;}
