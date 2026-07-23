@@ -1,5 +1,5 @@
 function ensureUiFinalPolishStyle(){
-  const href='./ui-final-polish.css?v=1';
+  const href='./ui-final-polish.css?v=2';
   let link=document.getElementById('uiFinalPolishCss');
   if(link){ if(link.getAttribute('href')!==href) link.setAttribute('href',href); return; }
   link=document.createElement('link');
