@@ -78,9 +78,8 @@
   .ll-global-brand{min-width:0;opacity:0;transform:translateX(-8px);pointer-events:none;transition:opacity .16s ease,transform .22s ease}
   .ll-global-brand strong{display:block;font-size:14px;line-height:1.15;font-weight:750;white-space:nowrap;color:#fff}
   .ll-global-brand span{display:block;margin-top:4px;font-size:10px;line-height:1.2;color:#89919c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  body:not(.ll-global-nav-expanded) .ll-global-head{grid-template-columns:44px}
-  body:not(.ll-global-nav-expanded) .ll-global-brand,
-  body:not(.ll-global-nav-expanded) .ll-global-menu-toggle{display:none!important}
+  body:not(.ll-global-nav-expanded) .ll-global-head{grid-template-columns:1fr!important;grid-template-rows:44px 36px;justify-items:center;gap:8px;min-height:88px}
+  body:not(.ll-global-nav-expanded) .ll-global-brand{display:none!important}
   body.ll-global-nav-expanded .ll-global-brand{opacity:1;transform:none;pointer-events:auto}
 
   .ll-global-primary,
@@ -139,13 +138,11 @@
   .ll-global-logout{color:#b7bdc5!important}
   .ll-global-logout:hover{color:#ff7774!important}
 
-  /* Keep the client rail alongside the global application rail. */
   body.ll-global-shell-active #borrowerAccountContent .ll-account-shell{
     min-height:100vh!important;
     border-radius:0!important;
   }
 
-  /* Client rail can independently collapse to an avatar strip. */
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed{
     grid-template-columns:68px minmax(0,1fr)!important;
   }
