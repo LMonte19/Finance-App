@@ -1,0 +1,148 @@
+@media (min-width:900px){
+  /* The lime brand mark is intentionally removed everywhere. */
+  .ll-global-logo,
+  #borrowerAccountContent .ll-logo-mark{
+    display:none!important;
+  }
+
+  /* Expanded global navigation starts with brand text + hamburger only. */
+  body.ll-global-nav-expanded .ll-global-head{
+    grid-template-columns:minmax(0,1fr) 36px!important;
+    grid-template-rows:52px!important;
+    min-height:52px!important;
+    justify-items:stretch!important;
+    gap:10px!important;
+  }
+  body.ll-global-nav-expanded .ll-global-brand{
+    grid-column:1!important;
+    align-self:center!important;
+    opacity:1!important;
+    transform:none!important;
+    pointer-events:auto!important;
+  }
+  body.ll-global-nav-expanded .ll-global-menu-toggle{
+    grid-column:2!important;
+    justify-self:end!important;
+  }
+
+  /* Collapsed global navigation: hamburger remains the only top control. */
+  body:not(.ll-global-nav-expanded) .ll-global-head{
+    grid-template-columns:1fr!important;
+    grid-template-rows:44px!important;
+    min-height:52px!important;
+    justify-items:center!important;
+    gap:0!important;
+  }
+
+  /* Compact client rail. */
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed{
+    grid-template-columns:58px minmax(0,1fr)!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-rail{
+    padding:10px 6px 8px!important;
+    border-radius:0!important;
+    align-items:stretch!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-rail-top,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-filter-row{
+    display:none!important;
+  }
+
+  .ll-collapsed-client-marker{
+    display:none;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-collapsed-client-marker{
+    flex:0 0 auto!important;
+    width:32px!important;
+    height:32px!important;
+    margin:4px auto 10px!important;
+    display:grid!important;
+    place-items:center!important;
+    color:#89919a!important;
+    border:1px solid rgba(255,255,255,.09)!important;
+    border-radius:10px!important;
+    background:rgba(255,255,255,.025)!important;
+  }
+  .ll-collapsed-client-marker svg{
+    width:18px!important;
+    height:18px!important;
+    display:block!important;
+  }
+
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-list{
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    gap:1px!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card{
+    position:relative!important;
+    width:100%!important;
+    min-height:52px!important;
+    margin:0!important;
+    padding:8px 0!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    place-items:center!important;
+    border:0!important;
+    border-bottom:1px solid rgba(255,255,255,.045)!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card > div:not(.ll-client-avatar),
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-name,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-id,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-balance,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-trailing,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-rail-badge{
+    display:none!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-avatar{
+    width:32px!important;
+    height:32px!important;
+    min-width:32px!important;
+    margin:0 auto!important;
+    border-radius:10px!important;
+    display:grid!important;
+    place-items:center!important;
+    font-size:10.5px!important;
+    font-weight:700!important;
+    filter:saturate(.45) brightness(.96)!important;
+    opacity:.78!important;
+    border:1px solid rgba(255,255,255,.12)!important;
+    box-shadow:none!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card:hover .ll-client-avatar{
+    opacity:.92!important;
+    filter:saturate(.55) brightness(1)!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card.active{
+    background:#13171b!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card.active .ll-client-avatar{
+    opacity:1!important;
+    filter:saturate(.58) brightness(1)!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-active-rail-indicator{
+    left:-6px!important;
+    width:3px!important;
+    top:9px!important;
+    bottom:9px!important;
+    border-radius:0 4px 4px 0!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed #acctBack{
+    width:34px!important;
+    height:34px!important;
+    min-height:34px!important;
+    margin:10px auto 0!important;
+    padding:0!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:50%!important;
+  }
+}
