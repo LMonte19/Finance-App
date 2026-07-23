@@ -23,6 +23,6 @@ import './client-profile-elegant.js?v=3';
 import './client-profile-reference-match.js?v=3';
 import './client-profile-rail-exact.js?v=1';
 import './calendar-dom-controller.js?v=1';
-import './global-app-sidebar.js?v=1';
+import './global-app-sidebar.js?v=2';
 
 console.log('safe module loader active');
