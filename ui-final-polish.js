@@ -1,5 +1,5 @@
 function ensureUiFinalPolishStyle(){
-  const href='./ui-final-polish.css?v=2';
+  const href='./ui-final-polish.css?v=3';
   let link=document.getElementById('uiFinalPolishCss');
   if(link){ if(link.getAttribute('href')!==href) link.setAttribute('href',href); return; }
   link=document.createElement('link');
@@ -82,6 +82,12 @@ function ensureCollapsedClientMarker(){
     marker.innerHTML=PERSON_ICON;
     const list=rail.querySelector('.ll-client-list');
     if(list) rail.insertBefore(marker,list); else rail.appendChild(marker);
+  }
+  const list=rail.querySelector('.ll-client-list');
+  if(list){
+    const count=list.querySelectorAll('.ll-client-card').length;
+    rail.style.setProperty('--ll-client-count',String(Math.max(1,count)));
+    list.style.setProperty('--ll-client-count',String(Math.max(1,count)));
   }
 }
 
