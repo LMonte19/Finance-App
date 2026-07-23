@@ -1,5 +1,5 @@
 function ensureReferenceMatchStyle(){
-  const href='./client-profile-reference-match.css?v=2';
+  const href='./client-profile-reference-match.css?v=3';
   let link=document.getElementById('clientProfileReferenceMatchCss');
   if(link){if(link.getAttribute('href')!==href)link.setAttribute('href',href);return;}
   link=document.createElement('link');
@@ -36,17 +36,6 @@ function matchSummaryIcons(root){
   });
 }
 
-function normalizeRailStatus(card){
-  const badge=card.querySelector('.ll-rail-badge');
-  if(!badge) return;
-  const text=(badge.textContent||'').trim().toUpperCase();
-  badge.classList.remove('ok','danger','closed','pending');
-  if(text.includes('ATRAS')) badge.classList.add('danger');
-  else if(text.includes('SALD')||text.includes('PAGAD')||text.includes('CERRAD')) badge.classList.add('closed');
-  else if(text.includes('PEND')) badge.classList.add('pending');
-  else badge.classList.add('ok');
-}
-
 function formatRailBalance(card){
   const node=card.querySelector('.ll-client-balance');
   if(!node) return;
@@ -63,7 +52,6 @@ function matchRail(root){
   if(filterControl) filterControl.setAttribute('aria-hidden','true');
 
   rail.querySelectorAll('.ll-client-card').forEach(card=>{
-    normalizeRailStatus(card);
     formatRailBalance(card);
     card.querySelector('.ll-active-rail-indicator')?.remove();
     if(card.classList.contains('active')){
