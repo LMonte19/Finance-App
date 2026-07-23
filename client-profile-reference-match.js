@@ -1,5 +1,5 @@
 function ensureReferenceMatchStyle(){
-  const href='./client-profile-reference-match.css?v=1';
+  const href='./client-profile-reference-match.css?v=2';
   let link=document.getElementById('clientProfileReferenceMatchCss');
   if(link){if(link.getAttribute('href')!==href)link.setAttribute('href',href);return;}
   link=document.createElement('link');
@@ -36,12 +36,38 @@ function matchSummaryIcons(root){
   });
 }
 
+function normalizeRailStatus(card){
+  const badge=card.querySelector('.ll-rail-badge');
+  if(!badge) return;
+  const text=(badge.textContent||'').trim().toUpperCase();
+  badge.classList.remove('ok','danger','closed','pending');
+  if(text.includes('ATRAS')) badge.classList.add('danger');
+  else if(text.includes('SALD')||text.includes('PAGAD')||text.includes('CERRAD')) badge.classList.add('closed');
+  else if(text.includes('PEND')) badge.classList.add('pending');
+  else badge.classList.add('ok');
+}
+
 function matchRail(root){
-  const filterControl=root.querySelector('.ll-filter-control');
+  const rail=root.querySelector('.ll-client-rail');
+  if(!rail) return;
+
+  const filterControl=rail.querySelector('.ll-filter-control');
   if(filterControl) filterControl.setAttribute('aria-hidden','true');
 
+  rail.querySelectorAll('.ll-client-card').forEach(card=>{
+    normalizeRailStatus(card);
+    card.querySelector('.ll-active-rail-indicator')?.remove();
+    if(card.classList.contains('active')){
+      const indicator=document.createElement('span');
+      indicator.className='ll-active-rail-indicator';
+      indicator.setAttribute('aria-hidden','true');
+      card.prepend(indicator);
+    }
+  });
+
   const back=root.querySelector('#acctBack');
-  if(back && back.dataset.referenceMatch!=='1'){
+  if(back){
+    back.classList.add('ll-rail-back');
     back.dataset.referenceMatch='1';
     back.innerHTML=`<span class="ll-collapse-icon">${refSvg('chevronLeft')}</span><span>Colapsar</span>`;
   }
@@ -69,7 +95,7 @@ const refHost=document.getElementById('borrowerAccountContent');
 if(refHost && refHost.dataset.referenceMatchObserver!=='1'){
   refHost.dataset.referenceMatchObserver='1';
   new MutationObserver(mutations=>{
-    if(mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.ll-account-shell,.ll-profile-tabs-host')||n.querySelector?.('.ll-account-shell,.ll-profile-tabs-host'))))) queueReferenceMatch();
+    if(mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.ll-account-shell,.ll-profile-tabs-host,.ll-client-card')||n.querySelector?.('.ll-account-shell,.ll-profile-tabs-host,.ll-client-card'))))) queueReferenceMatch();
   }).observe(refHost,{childList:true,subtree:true});
 }
 setTimeout(queueReferenceMatch,400);
