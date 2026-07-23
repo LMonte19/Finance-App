@@ -41,7 +41,7 @@ function formatRailBalance(card){
   if(!node) return;
   const numeric=Number(String(node.textContent||'').replace(/[^0-9.-]/g,''));
   if(!Number.isFinite(numeric)) return;
-  node.textContent=`$${numeric.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  node.textContent=`$${numeric.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}`;
 }
 
 function matchRail(root){
