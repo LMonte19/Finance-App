@@ -1,0 +1,183 @@
+@media (min-width:900px){
+  :root{--ll-global-nav-width:74px;--ll-global-nav-expanded-width:252px;}
+
+  body.ll-global-shell-active{
+    --ll-current-global-nav-width:var(--ll-global-nav-width);
+    background:#f5f5f3!important;
+    overflow-x:hidden!important;
+  }
+  body.ll-global-shell-active.ll-global-nav-expanded{--ll-current-global-nav-width:var(--ll-global-nav-expanded-width)}
+
+  body.ll-global-shell-active>header{display:none!important}
+  body.ll-global-shell-active>#menuOverlay,
+  body.ll-global-shell-active>#sideMenu{display:none!important}
+  body.ll-global-shell-active>#app{display:block!important}
+  body.ll-global-shell-active>.wrap{
+    max-width:none!important;
+    width:auto!important;
+    margin:0 0 0 var(--ll-current-global-nav-width)!important;
+    padding:0!important;
+    min-height:100vh!important;
+    transition:margin-left .28s cubic-bezier(.2,.8,.2,1)!important;
+  }
+  body.ll-global-shell-active #app>#roleSecurityBanner,
+  body.ll-global-shell-active #app>.tabs{display:none!important}
+  body.ll-global-shell-active #app>.page.active-page:not(#borrowerAccountPage){padding:20px 22px 28px!important;box-sizing:border-box!important}
+  body.ll-global-shell-active #borrowerAccountPage{margin-left:0!important;margin-right:0!important;width:auto!important;padding:0!important}
+
+  .ll-global-sidebar{
+    position:fixed;
+    inset:0 auto 0 0;
+    z-index:1000;
+    width:var(--ll-global-nav-width);
+    box-sizing:border-box;
+    padding:14px 10px 12px;
+    display:flex;
+    flex-direction:column;
+    background:linear-gradient(180deg,#0d1013 0%,#080b0e 100%);
+    color:#fff;
+    border-right:1px solid rgba(255,255,255,.06);
+    box-shadow:8px 0 28px rgba(14,17,20,.08);
+    overflow:hidden;
+    transition:width .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s ease;
+  }
+  body.ll-global-nav-expanded .ll-global-sidebar{width:var(--ll-global-nav-expanded-width);box-shadow:14px 0 36px rgba(14,17,20,.15)}
+
+  .ll-global-head{
+    min-height:52px;
+    display:grid;
+    grid-template-columns:44px minmax(0,1fr) 36px;
+    align-items:center;
+    gap:10px;
+    margin-bottom:13px;
+  }
+  .ll-global-logo,
+  .ll-global-menu-toggle{
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    display:grid!important;
+    place-items:center!important;
+    cursor:pointer;
+  }
+  .ll-global-logo{
+    width:44px!important;height:44px!important;
+    border-radius:13px!important;
+    background:#d5fa1b!important;
+    color:#101214!important;
+  }
+  .ll-global-logo .ll-global-svg{width:25px;height:25px;stroke-width:2.1}
+  .ll-global-menu-toggle{
+    width:36px!important;height:36px!important;
+    border-radius:11px!important;
+    background:#1a1e22!important;
+    color:#e9ebee!important;
+    border:1px solid #292d32!important;
+  }
+  .ll-global-menu-toggle .ll-global-svg{width:17px;height:17px}
+  .ll-global-brand{min-width:0;opacity:0;transform:translateX(-8px);pointer-events:none;transition:opacity .16s ease,transform .22s ease}
+  .ll-global-brand strong{display:block;font-size:14px;line-height:1.15;font-weight:750;white-space:nowrap;color:#fff}
+  .ll-global-brand span{display:block;margin-top:4px;font-size:10px;line-height:1.2;color:#89919c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body:not(.ll-global-nav-expanded) .ll-global-head{grid-template-columns:44px}
+  body:not(.ll-global-nav-expanded) .ll-global-brand,
+  body:not(.ll-global-nav-expanded) .ll-global-menu-toggle{display:none!important}
+  body.ll-global-nav-expanded .ll-global-brand{opacity:1;transform:none;pointer-events:auto}
+
+  .ll-global-primary,
+  .ll-global-secondary{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .ll-global-divider{height:1px;background:rgba(255,255,255,.08);margin:10px 4px}
+  .ll-global-secondary{overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-bottom:5px}
+  .ll-global-secondary::-webkit-scrollbar{display:none}
+
+  .ll-global-nav-item,
+  .ll-global-action{
+    width:100%!important;
+    min-height:44px!important;
+    margin:0!important;
+    padding:0 11px!important;
+    border:0!important;
+    border-radius:11px!important;
+    background:transparent!important;
+    color:#9da4ae!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:13px!important;
+    text-align:left!important;
+    font-size:12px!important;
+    font-weight:620!important;
+    white-space:nowrap!important;
+    box-sizing:border-box!important;
+    cursor:pointer;
+    transition:background .16s ease,color .16s ease,transform .16s ease!important;
+  }
+  .ll-global-nav-item:hover,
+  .ll-global-action:hover{background:rgba(255,255,255,.055)!important;color:#fff!important;filter:none!important}
+  .ll-global-nav-item.active{background:#202429!important;color:#fff!important}
+  .ll-global-nav-item.active::before{
+    content:"";position:absolute;left:0;width:3px;height:26px;border-radius:0 4px 4px 0;background:#d5fa1b;
+  }
+  .ll-global-nav-item{position:relative}
+  .ll-global-nav-item.active .ll-global-svg{color:#d5fa1b}
+  .ll-global-svg{width:19px;height:19px;min-width:19px;display:block;flex:none}
+  .ll-global-nav-item span,
+  .ll-global-action span,
+  .ll-global-action em{opacity:0;transition:opacity .14s ease}
+  body.ll-global-nav-expanded .ll-global-nav-item span,
+  body.ll-global-nav-expanded .ll-global-action span,
+  body.ll-global-nav-expanded .ll-global-action em{opacity:1}
+  body:not(.ll-global-nav-expanded) .ll-global-nav-item,
+  body:not(.ll-global-nav-expanded) .ll-global-action{justify-content:center!important;padding:0!important}
+  body:not(.ll-global-nav-expanded) .ll-global-nav-item span,
+  body:not(.ll-global-nav-expanded) .ll-global-action span,
+  body:not(.ll-global-nav-expanded) .ll-global-action em{display:none!important}
+  body:not(.ll-global-nav-expanded) .ll-global-divider{margin:10px 8px}
+  body:not(.ll-global-nav-expanded) .ll-global-secondary-item{display:none!important}
+
+  .ll-global-spacer{flex:1;min-height:14px}
+  .ll-global-footer{padding-top:10px;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:4px}
+  .ll-global-action em{margin-left:auto;font-style:normal;font-size:9px;font-weight:750;color:#cbd0d6;border:1px solid #363b42;border-radius:6px;padding:2px 5px}
+  .ll-global-logout{color:#b7bdc5!important}
+  .ll-global-logout:hover{color:#ff7774!important}
+
+  /* Keep the client rail alongside the global application rail. */
+  body.ll-global-shell-active #borrowerAccountContent .ll-account-shell{
+    min-height:100vh!important;
+    border-radius:0!important;
+  }
+
+  /* Client rail can independently collapse to an avatar strip. */
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed{
+    grid-template-columns:68px minmax(0,1fr)!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-rail{
+    padding-left:8px!important;padding-right:8px!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-rail-top{
+    grid-template-columns:1fr!important;justify-items:center!important;padding-bottom:14px!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-rail-title,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-rail-top .ll-icon-btn,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-filter-row,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card>div:nth-child(2),
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-trailing,
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed #acctBack>span:last-child{display:none!important}
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-logo-mark{width:42px!important;height:42px!important}
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-list{
+    margin-left:0!important;margin-right:0!important;width:100%!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card{
+    grid-template-columns:42px!important;justify-content:center!important;min-height:62px!important;padding:10px 5px!important;margin:0!important;border-bottom-color:rgba(255,255,255,.065)!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card.active{
+    padding:10px 5px!important;background:#15191e!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-active-rail-indicator{left:-8px!important}
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed #acctBack{
+    align-self:center!important;margin:14px auto 0!important;
+  }
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-collapse-icon .ll-ref-svg{transform:rotate(180deg)}
+}
+
+@media (max-width:899px){
+  .ll-global-sidebar{display:none!important}
+}
