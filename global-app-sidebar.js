@@ -50,7 +50,7 @@ const PAGE_META={
 
 function ensureStyle(){
   let link=document.getElementById('globalAppSidebarCss');
-  const href='./global-app-sidebar.css?v=1';
+  const href='./global-app-sidebar.css?v=2';
   if(link){if(link.getAttribute('href')!==href)link.setAttribute('href',href);return;}
   link=document.createElement('link');link.id='globalAppSidebarCss';link.rel='stylesheet';link.href=href;document.head.appendChild(link);
 }
