@@ -47,6 +47,14 @@ function normalizeRailStatus(card){
   else badge.classList.add('ok');
 }
 
+function formatRailBalance(card){
+  const node=card.querySelector('.ll-client-balance');
+  if(!node) return;
+  const numeric=Number(String(node.textContent||'').replace(/[^0-9.-]/g,''));
+  if(!Number.isFinite(numeric)) return;
+  node.textContent=`$${numeric.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+}
+
 function matchRail(root){
   const rail=root.querySelector('.ll-client-rail');
   if(!rail) return;
@@ -56,6 +64,7 @@ function matchRail(root){
 
   rail.querySelectorAll('.ll-client-card').forEach(card=>{
     normalizeRailStatus(card);
+    formatRailBalance(card);
     card.querySelector('.ll-active-rail-indicator')?.remove();
     if(card.classList.contains('active')){
       const indicator=document.createElement('span');
