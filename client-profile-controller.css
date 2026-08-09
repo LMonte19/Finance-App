@@ -1,6 +1,18 @@
 /* Single persistent client profile: structure mounts once; only dynamic slots transition. */
 #borrowerAccountContent .ll-account-shell .ll-workspace{position:relative}
 
+/* The legacy desktop stylesheet animates the entire account shell from the right.
+   The persistent controller owns entry motion now, so the shell/workspace must always
+   be born in their final geometry. */
+#borrowerAccountContent .ll-account-shell{
+  animation:none!important;
+  transform:none!important;
+}
+#borrowerAccountContent .ll-account-shell>.ll-workspace{
+  animation:none!important;
+  transform:none!important;
+}
+
 #borrowerAccountContent .ll-dynamic-value{
   transition:opacity .18s ease,transform .18s ease,color .30s ease,background-color .30s ease,border-color .30s ease;
   will-change:opacity,transform;
@@ -98,6 +110,19 @@
   #borrowerAccountContent .ll-reference-match .ll-controller-search{grid-column:2!important}
 }
 @media (min-width:900px){
+  /* Keep the rail's final column dark while its one-time visual entrance runs.
+     The workspace never shifts, so there is no white seam beside the global menu. */
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed{
+    background:linear-gradient(90deg,#080b0e 0 54px,#f6f6f5 54px)!important;
+  }
+  #borrowerAccountContent .ll-account-shell>.ll-client-rail{
+    animation:llControllerClientRailFromLeft .38s cubic-bezier(.22,.72,.22,1) both!important;
+  }
+  @keyframes llControllerClientRailFromLeft{
+    from{transform:translateX(-54px);opacity:.76}
+    to{transform:translateX(0);opacity:1}
+  }
+
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-search-wrap{display:none!important}
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card.active::before{display:none!important;content:none!important}
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-active-rail-indicator{
@@ -115,5 +140,6 @@
   #borrowerAccountContent .ll-list-host,
   #borrowerAccountContent .ll-next-action-host,
   .ll-controller-loading-badge{transition:none!important}
+  #borrowerAccountContent .ll-account-shell>.ll-client-rail{animation:none!important}
   .ll-controller-loading-dot{animation:none!important}
 }
