@@ -1,0 +1,168 @@
+/* Single persistent client profile: structure mounts once; only dynamic slots transition. */
+#borrowerAccountContent .ll-account-shell .ll-workspace{position:relative}
+
+#borrowerAccountContent .ll-dynamic-value{
+  transition:opacity .18s ease,transform .18s ease,color .30s ease,background-color .30s ease,border-color .30s ease;
+  will-change:opacity,transform;
+}
+#borrowerAccountContent .ll-dynamic-value.ll-value-leaving{
+  opacity:0!important;
+  transform:translateY(-4px)!important;
+}
+#borrowerAccountContent .ll-dynamic-value.ll-value-entering{
+  opacity:0!important;
+  transform:translateY(4px)!important;
+}
+
+#borrowerAccountContent .ll-list-host,
+#borrowerAccountContent .ll-next-action-host{
+  opacity:1;
+  transform:translateY(0);
+  transition:opacity .18s ease,transform .18s ease;
+  will-change:opacity,transform;
+}
+#borrowerAccountContent .ll-list-host.ll-list-leaving,
+#borrowerAccountContent .ll-next-action-host.ll-list-leaving{
+  opacity:0;
+  transform:translateY(-4px);
+}
+#borrowerAccountContent .ll-list-host.ll-list-entering,
+#borrowerAccountContent .ll-next-action-host.ll-list-entering{
+  opacity:0;
+  transform:translateY(4px);
+}
+
+/* Nothing structural participates in a client-to-client transition. */
+#borrowerAccountContent .ll-account-shell,
+#borrowerAccountContent .ll-client-rail,
+#borrowerAccountContent .ll-workspace,
+#borrowerAccountContent .ll-client-header,
+#borrowerAccountContent .ll-tabs,
+#borrowerAccountContent .ll-profile-tabs-host,
+#borrowerAccountContent .ll-profile-panel,
+#borrowerAccountContent .ll-panel-grid,
+#borrowerAccountContent .ll-panel-main,
+#borrowerAccountContent .ll-panel-side,
+#borrowerAccountContent .ll-profile-card,
+#borrowerAccountContent .ll-card-head,
+#borrowerAccountContent .ll-card-title,
+#borrowerAccountContent .ll-summary-stat-grid,
+#borrowerAccountContent .ll-cycle-calendar,
+#borrowerAccountContent .ll-cycle-calendar-head,
+#borrowerAccountContent .ll-cycle-detail,
+#borrowerAccountContent .ll-account-facts{
+  backface-visibility:hidden;
+}
+
+.ll-controller-loading-badge{
+  position:absolute;
+  top:14px;
+  right:16px;
+  z-index:80;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:30px;
+  padding:0 12px;
+  border-radius:999px;
+  border:1px solid #e5e2ee;
+  background:rgba(255,255,255,.96);
+  color:#6d55c9;
+  box-shadow:0 7px 20px rgba(42,34,72,.06);
+  font-size:10.5px;
+  font-weight:700;
+  opacity:0;
+  transform:translateY(-4px);
+  pointer-events:none;
+  transition:opacity .16s ease,transform .18s ease;
+}
+.ll-controller-loading-badge.visible{opacity:1;transform:translateY(0)}
+.ll-controller-loading-dot{
+  width:7px;height:7px;border-radius:50%;background:#7659df;
+  animation:llControllerLoadingPulse .9s ease-in-out infinite;
+}
+@keyframes llControllerLoadingPulse{0%,100%{opacity:.32;transform:scale(.82)}50%{opacity:1;transform:scale(1)}}
+
+#borrowerAccountContent .ll-controller-first-load{
+  width:100%;
+  min-width:0;
+  height:100vh;
+  display:grid;
+  grid-template-columns:54px minmax(0,1fr);
+  gap:12px;
+  padding:0 12px 0 0;
+  box-sizing:border-box;
+  background:#f5f5f3;
+}
+#borrowerAccountContent .ll-controller-first-load>aside{
+  height:100vh;
+  display:grid;
+  place-items:start center;
+  padding-top:18px;
+  box-sizing:border-box;
+  color:rgba(200,205,212,.62);
+  background:linear-gradient(180deg,#0b0f12 0%,#080b0e 100%);
+}
+#borrowerAccountContent .ll-controller-first-load>main{
+  min-width:0;
+  height:calc(100vh - 12px);
+  margin-top:12px;
+  display:grid;
+  place-items:center;
+  background:#fbfbfa;
+  border:1px solid rgba(226,227,231,.72);
+  border-radius:24px 24px 0 0;
+  box-shadow:0 14px 34px rgba(21,22,27,.045);
+}
+.ll-controller-first-load-badge{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:36px;
+  padding:0 15px;
+  border-radius:999px;
+  border:1px solid #e4e2eb;
+  background:#fff;
+  color:#6d55c9;
+  box-shadow:0 6px 18px rgba(32,27,56,.045);
+  font-size:11px;
+  font-weight:700;
+}
+.ll-controller-load-error{margin:24px;padding:18px;border:1px solid #e5d4d4;border-radius:14px;background:#fff;color:#a33}
+
+.ll-client-search-wrap{padding:0 8px 8px}
+.ll-client-search-input{
+  width:100%;
+  height:34px;
+  margin:0!important;
+  padding:0 10px!important;
+  border-radius:9px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  background:rgba(255,255,255,.04)!important;
+  color:#f2f4f6!important;
+  font-size:11px!important;
+}
+.ll-client-search-input::placeholder{color:rgba(225,229,234,.42)}
+.ll-client-copy{min-width:0}
+.ll-client-card[hidden]{display:none!important}
+
+/* Keep the compact rail completely stable while only the active marker moves. */
+#borrowerAccountContent .ll-client-card{
+  transition:background-color .18s ease,opacity .18s ease!important;
+}
+#borrowerAccountContent .ll-active-rail-indicator{
+  transition:opacity .18s ease,transform .18s ease;
+}
+
+@media(max-width:899px){
+  #borrowerAccountContent .ll-controller-first-load{grid-template-columns:1fr;padding:0}
+  #borrowerAccountContent .ll-controller-first-load>aside{display:none}
+  #borrowerAccountContent .ll-controller-first-load>main{height:100vh;margin:0;border-radius:0}
+}
+@media(prefers-reduced-motion:reduce){
+  #borrowerAccountContent .ll-dynamic-value,
+  #borrowerAccountContent .ll-list-host,
+  #borrowerAccountContent .ll-next-action-host,
+  .ll-controller-loading-badge{transition:none!important}
+  .ll-controller-loading-dot{animation:none!important}
+}
