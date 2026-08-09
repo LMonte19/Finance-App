@@ -1,9 +1,3 @@
-const liveSwitchStabilityCss=document.createElement('link');
-liveSwitchStabilityCss.id='clientProfileLiveSwitchStabilityCss';
-liveSwitchStabilityCss.rel='stylesheet';
-liveSwitchStabilityCss.href='./client-profile-live-switch.css?v=2';
-document.head.appendChild(liveSwitchStabilityCss);
-
 import './admin-tools.js?v=2';
 import './batch-tools.js?v=2';
 import './menu-page-fix.js?v=1';
@@ -19,22 +13,9 @@ import './role-security.js?v=1';
 import './system-check.js?v=1';
 import './language-toggle.js?v=3';
 import './account-router.js?v=1';
-import './loans-dashboard-boot.js?v=11';
-import './client-detail-desktop.js?v=3';
-import './client-detail-polish.js?v=1';
-import './calendar-dom-controller.js?v=1';
-import './client-profile-motion-lock.js?v=2';
-import './client-profile-live-switch.js?v=2';
-import './client-profile-tabs.js?v=2';
-import './client-profile-refinements.js?v=2';
-import './client-profile-cohesion.js?v=4';
-import './client-profile-elegant.js?v=3';
-import './client-profile-reference-match.js?v=4';
-import './client-profile-rail-exact.js?v=1';
+import './loans-dashboard-boot.js?v=12';
 import './global-app-sidebar.js?v=2';
-import './client-profile-fixed-shell.js?v=1';
-import './ui-final-polish.js?v=3';
 import './loans-dashboard-global-shell.js?v=1';
-import './client-final-mount-gate.js?v=11';
+import './client-profile-controller.js?v=1';
 
-console.log('safe module loader active');
+console.log('safe module loader active — single client profile controller');
