@@ -16,7 +16,9 @@ import './account-router.js?v=1';
 import './loans-dashboard-boot.js?v=12';
 import './global-app-sidebar.js?v=2';
 import './loans-dashboard-global-shell.js?v=1';
-import './client-profile-controller.js?v=1';
-import './client-profile-entry-motion.js?v=1';
+import './client-profile-controller.js?v=2';
+
+const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
+if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
 
 console.log('safe module loader active — single client profile controller');
