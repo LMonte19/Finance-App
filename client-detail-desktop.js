@@ -6,6 +6,7 @@ const money = n => `$${Number(n || 0).toFixed(2)}`;
 const today = () => new Date().toISOString().slice(0,10);
 let activeBorrowerId = null;
 let rendering = false;
+let identitySequence = 0;
 
 function statusLabel(status){
   return {ACTIVE:'ACTIVO',CURRENT:'AL DÍA',OVERDUE:'ATRASADO',ATRASADO:'ATRASADO',PAID:'PAGADO',PAID_OFF:'SALDADO',CLOSED:'CERRADO',VOIDED:'ANULADO',DUE:'PENDIENTE',UPCOMING:'PRÓXIMO',DUE_TODAY:'VENCE HOY'}[status] || status || '—';
@@ -173,9 +174,48 @@ async function renderDesktopClient(borrowerId){
   }finally{ rendering = false; }
 }
 
+function setPolishedMetaText(item,text){
+  if(!item) return;
+  const target=item.querySelector('span:last-child');
+  if(target && item.querySelector('svg')) target.textContent=text;
+  else item.textContent=text;
+}
+
+async function updateClientIdentityInPlace(borrowerId){
+  const sequence=++identitySequence;
+  activeBorrowerId=borrowerId;
+  const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
+  if(!root) return;
+  root.dataset.inplaceHeaderBorrower='loading';
+  try{
+    const {data:a,error}=await db.from('borrower_account_summary').select('*').eq('borrower_id',borrowerId).single();
+    if(error) throw error;
+    if(sequence!==identitySequence || !document.contains(root)) return;
+    const title=root.querySelector('.ll-client-title');
+    if(title) title.textContent=a.full_name || 'Cuenta del cliente';
+    const status=root.querySelector('.ll-client-header .ll-status-pill');
+    if(status){ status.className=`ll-status-pill ${statusTone(a.account_status)}`; status.textContent=statusLabel(a.account_status); }
+    const meta=[...root.querySelectorAll('.ll-client-meta > span')];
+    setPolishedMetaText(meta[0],a.phone || 'Sin teléfono');
+    setPolishedMetaText(meta[1],`ID: ${clientIdShort(a.borrower_id)}`);
+    setPolishedMetaText(meta[2],`Próxima cuota: ${fmtDate(a.next_due_date)}`);
+    setPolishedMetaText(meta[3],`Atrasado: ${money(a.overdue_amount)}`);
+    root.dataset.activeBorrower=String(borrowerId);
+    root.dataset.inplaceHeaderBorrower=String(borrowerId);
+  }catch(error){
+    console.error('in-place client identity update failed',error);
+    if(sequence===identitySequence && document.contains(root)) root.dataset.inplaceHeaderBorrower='error';
+  }
+}
+
 window.addEventListener('loan-ledger:account-rendered', event => {
   const id = event.detail?.borrowerId;
-  if(id) setTimeout(() => renderDesktopClient(id), 80);
+  if(!id) return;
+  if(event.detail?.source==='inplace-profile-switch'){
+    updateClientIdentityInPlace(id);
+    return;
+  }
+  setTimeout(() => renderDesktopClient(id), 80);
 });
 
 console.log('desktop client detail renderer active');
