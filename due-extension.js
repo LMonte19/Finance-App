@@ -16,6 +16,7 @@ import './account-router.js?v=1';
 import './loans-dashboard-boot.js?v=12';
 import './global-app-sidebar.js?v=2';
 import './loans-dashboard-global-shell.js?v=1';
+import './clients-management.js?v=1';
 import './client-profile-controller.js?v=2';
 
 const paymentManagementCss=document.getElementById('paymentManagementCss');
@@ -24,4 +25,4 @@ if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=2
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
 
-console.log('safe module loader active — single client profile controller');
+console.log('safe module loader active — modern clients and single client profile controller');
