@@ -1,5 +1,5 @@
 function ensureMountGateStyle(){
-  const href='./client-final-mount-gate.css?v=6';
+  const href='./client-final-mount-gate.css?v=7';
   let link=document.getElementById('clientFinalMountGateCss');
   if(link){ if(link.getAttribute('href')!==href) link.setAttribute('href',href); return; }
   link=document.createElement('link');
@@ -20,7 +20,7 @@ const PERSON_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const CHEVRON_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
 
 function esc(value){
-  return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[char]));
+  return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 function initials(name='?'){
   return String(name||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]?.toUpperCase()||'').join('')||'?';
@@ -82,23 +82,6 @@ function clientsFromLoans(selectedId){
       tone:clientStatusClass(status),
       index,
       active:String(item.id)===String(selectedId)
-    };
-  });
-}
-
-function clientsFromCurrentRail(selectedId){
-  const cards=[...document.querySelectorAll('#borrowerAccountContent .ll-client-rail [data-acct-borrower]')];
-  return cards.map((card,index)=>{
-    const id=String(card.dataset.acctBorrower||'');
-    const status=card.querySelector('.ll-rail-badge')?.textContent.trim()||'';
-    return {
-      id,
-      name:card.querySelector('.ll-client-name')?.textContent.trim()||'Cliente',
-      balance:wholeMoney(card.querySelector('.ll-client-balance')?.textContent||''),
-      status,
-      tone:clientStatusClass(status),
-      index,
-      active:id===String(selectedId)
     };
   });
 }
@@ -208,6 +191,26 @@ function waitForFinal(targetId,sequence,timeout=15000){
   });
 }
 
+function waitForInPlaceFinal(targetId,sequence,root,timeout=15000){
+  return new Promise(resolve=>{
+    let stable=0;
+    const started=performance.now();
+    const tick=()=>{
+      if(sequence!==mountSequence || !document.contains(root)) return resolve(false);
+      const active=root.querySelector('.ll-client-card.active[data-acct-borrower]');
+      const activeMatches=active && String(active.dataset.acctBorrower)===String(targetId);
+      const tabsReady=root.dataset.functionalTabs==='ready';
+      const headerReady=String(root.dataset.inplaceHeaderBorrower||'')===String(targetId);
+      const panelReady=!!root.querySelector('.ll-profile-tabs-host [data-profile-panel].active');
+      if(activeMatches && tabsReady && headerReady && panelReady) stable+=1; else stable=0;
+      if(stable>=3) return requestAnimationFrame(()=>resolve(true));
+      if(performance.now()-started>=timeout) return resolve(false);
+      setTimeout(tick,42);
+    };
+    tick();
+  });
+}
+
 function dispatchRender(id,source){
   window.dispatchEvent(new CustomEvent('loan-ledger:account-rendered',{detail:{borrowerId:id,source}}));
 }
@@ -216,13 +219,8 @@ function revealFinal(sequence){
   if(sequence!==mountSequence) return;
   const page=accountPage();
   if(!page) return;
-
-  /* Apply the rail state while the real profile is still hidden by ll-profile-loading.
-     Force layout before the loading shell starts fading so an expanded rail can never
-     become visible for even a single frame. */
   const root=applyDesiredRailState();
   if(root) root.getBoundingClientRect();
-
   requestAnimationFrame(()=>{
     if(sequence!==mountSequence) return;
     applyDesiredRailState();
@@ -240,13 +238,42 @@ function showLoadFailure(sequence){
   if(badge) badge.textContent='La carga está tardando más de lo esperado...';
 }
 
+function ensureInPlaceBadge(root){
+  const workspace=root?.querySelector('.ll-workspace');
+  if(!workspace) return null;
+  let badge=workspace.querySelector(':scope > .ll-inplace-loading-badge');
+  if(!badge){
+    badge=document.createElement('div');
+    badge.className='ll-inplace-loading-badge';
+    badge.innerHTML='<span class="ll-loading-dot"></span><strong>Cargando...</strong>';
+    workspace.appendChild(badge);
+  }
+  return badge;
+}
+
+function beginInPlaceSwitch(root){
+  root.classList.remove('ll-inplace-reveal');
+  root.classList.add('ll-inplace-switching');
+  ensureInPlaceBadge(root)?.classList.add('visible');
+}
+
+function finishInPlaceSwitch(root){
+  const badge=root.querySelector('.ll-inplace-loading-badge');
+  badge?.classList.remove('visible');
+  root.classList.remove('ll-inplace-switching');
+  root.classList.add('ll-inplace-reveal');
+  setTimeout(()=>{
+    root.classList.remove('ll-inplace-reveal');
+    badge?.remove();
+  },420);
+}
+
 async function openFromLoans(id){
   if(!id || switching) return;
   switching=true;
   const sequence=++mountSequence;
   const clients=clientsFromLoans(id);
 
-  /* Every fresh entry to a client profile starts with the contextual rail collapsed. */
   forceInitialRailCollapsed();
   showLoadingShell(clients,id,{collapsed:true,animateRail:true});
   showAccountPage();
@@ -263,37 +290,41 @@ async function openFromLoans(id){
 
 async function switchInsideRail(id,card){
   if(!id || switching) return;
+  const root=accountContent()?.querySelector('.ll-account-shell');
+  if(!root) return;
   switching=true;
   const sequence=++mountSequence;
-  const clients=clientsFromCurrentRail(id);
 
-  /* Every client-to-client switch starts collapsed from the first loading frame. */
+  /* The profile shell and client rail stay mounted. Only client-specific data changes. */
   forceInitialRailCollapsed();
-  showLoadingShell(clients,id,{collapsed:true,animateRail:false});
-  showAccountPage();
-  if(card){
-    card.closest('.ll-client-rail')?.querySelectorAll('.ll-client-card.active').forEach(node=>node.classList.remove('active'));
-    card.classList.add('active');
-  }
-  dispatchRender(id,'rail-loading-shell');
+  applyDesiredRailState();
+  root.dataset.functionalTabs='switch-requested';
+  root.dataset.inplaceHeaderBorrower='loading';
+  beginInPlaceSwitch(root);
+
+  root.querySelectorAll('.ll-client-card.active').forEach(node=>node.classList.remove('active'));
+  card.classList.add('active');
+
+  dispatchRender(id,'inplace-profile-switch');
 
   try{
-    const ready=await waitForFinal(id,sequence);
+    const ready=await waitForInPlaceFinal(id,sequence,root);
     if(sequence!==mountSequence) return;
-    if(ready) revealFinal(sequence); else showLoadFailure(sequence);
+    if(ready) finishInPlaceSwitch(root);
+    else {
+      const badge=ensureInPlaceBadge(root);
+      if(badge) badge.querySelector('strong').textContent='La carga está tardando más de lo esperado...';
+    }
   }finally{
     if(sequence===mountSequence) switching=false;
   }
 }
 
-/* Ensure every newly-rendered account shell receives the intended rail state while it is
-   still hidden behind the loading workspace. MutationObserver callbacks run before paint. */
 new MutationObserver(()=>{
   if(!document.body.classList.contains('ll-client-load-active')) return;
   applyDesiredRailState();
 }).observe(document.body,{childList:true,subtree:true});
 
-/* Own Loans-row clicks before the older dashboard transition code can run. */
 window.addEventListener('click',event=>{
   const row=event.target.closest?.('#loansDashboardHost [data-ld-borrower]');
   if(!row) return;
@@ -304,7 +335,6 @@ window.addEventListener('click',event=>{
   openFromLoans(id);
 },true);
 
-/* Client-to-client changes keep the loading rail collapsed and replace only the details. */
 window.addEventListener('click',event=>{
   const page=accountPage();
   if(!page?.classList.contains('active-page')) return;
@@ -324,4 +354,4 @@ window.addEventListener('loan-ledger:open-account',event=>{
   openFromLoans(id);
 });
 
-console.log('immediate client loading shell active');
+console.log('stable client profile mount and in-place switching active');
