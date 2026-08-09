@@ -13,6 +13,9 @@ ensureMountGateStyle();
 let pendingBorrowerId=null;
 let mountSequence=0;
 let switching=false;
+let loansFreezeObserver=null;
+let loansFreezeSnapshot=null;
+let loansFreezeRestoring=false;
 
 function accountPage(){ return document.getElementById('borrowerAccountPage'); }
 function accountContent(){ return document.getElementById('borrowerAccountContent'); }
@@ -80,16 +83,62 @@ function clearEntryClass(page){
   setTimeout(()=>page.classList.remove('ll-client-entry'),620);
 }
 
+function restoreFrozenLoansValues(){
+  if(loansFreezeRestoring || !loansFreezeSnapshot) return;
+  const host=document.getElementById('loansDashboardHost');
+  if(!host) return;
+  loansFreezeRestoring=true;
+  try{
+    const metricGrid=host.querySelector('.ld-metric-grid');
+    if(metricGrid && loansFreezeSnapshot.metricGrid!==null && metricGrid.innerHTML!==loansFreezeSnapshot.metricGrid){
+      metricGrid.innerHTML=loansFreezeSnapshot.metricGrid;
+    }
+    const recovery=host.querySelector('.ld-recovery-card');
+    if(recovery && loansFreezeSnapshot.recovery!==null && recovery.innerHTML!==loansFreezeSnapshot.recovery){
+      recovery.innerHTML=loansFreezeSnapshot.recovery;
+    }
+  }finally{
+    loansFreezeRestoring=false;
+  }
+}
+
+function startLoansVisualFreeze(){
+  stopLoansVisualFreeze();
+  const host=document.getElementById('loansDashboardHost');
+  if(!host) return;
+  const metricGrid=host.querySelector('.ld-metric-grid');
+  const recovery=host.querySelector('.ld-recovery-card');
+  loansFreezeSnapshot={
+    metricGrid:metricGrid?.innerHTML ?? null,
+    recovery:recovery?.innerHTML ?? null
+  };
+  window.__loanLedgerLoansVisualFreeze=true;
+  loansFreezeObserver=new MutationObserver(()=>restoreFrozenLoansValues());
+  loansFreezeObserver.observe(host,{childList:true,subtree:true,characterData:true});
+  restoreFrozenLoansValues();
+}
+
+function stopLoansVisualFreeze(){
+  loansFreezeObserver?.disconnect();
+  loansFreezeObserver=null;
+  loansFreezeSnapshot=null;
+  loansFreezeRestoring=false;
+  window.__loanLedgerLoansVisualFreeze=false;
+}
+
 function holdLoansVisible(){
+  startLoansVisualFreeze();
   document.body.classList.add('ll-opening-client-from-loans');
   document.getElementById('loansPage')?.classList.add('active-page');
 }
 
 function releaseLoansIntoClient(page){
+  restoreFrozenLoansValues();
   showAccountPage();
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
       document.body.classList.remove('ll-opening-client-from-loans');
+      stopLoansVisualFreeze();
       clearEntryClass(page);
     });
   });
@@ -104,7 +153,7 @@ async function openFromLoans(id){
   const page=ensureAccountPage();
   if(!page){ switching=false; return; }
 
-  /* Keep the exact Loans frame visible while the final account UI mounts offscreen. */
+  /* Keep the exact Loans frame and its real values visible while the final account UI mounts offscreen. */
   holdLoansVisible();
   page.classList.add('ll-client-preparing');
 
@@ -113,6 +162,7 @@ async function openFromLoans(id){
     await waitForFinal(id,sequence);
     if(sequence!==mountSequence) return;
 
+    restoreFrozenLoansValues();
     page.classList.remove('ll-client-preparing');
     page.classList.add('ll-client-entry');
     releaseLoansIntoClient(page);
@@ -121,7 +171,10 @@ async function openFromLoans(id){
       pendingBorrowerId=null;
       switching=false;
       /* Fail-safe: never leave the dashboard locked by the preparation class. */
-      setTimeout(()=>document.body.classList.remove('ll-opening-client-from-loans'),900);
+      setTimeout(()=>{
+        document.body.classList.remove('ll-opening-client-from-loans');
+        stopLoansVisualFreeze();
+      },900);
     }
   }
 }
@@ -173,8 +226,8 @@ async function switchInsideRail(id){
   }
 }
 
-/* Own the Loans-row click at the window capture phase. No temporary lime row state is
-   applied: the dashboard remains visually unchanged until the final profile is ready. */
+/* Own the Loans-row click at the window capture phase. No temporary row state is
+   applied: the dashboard and its last real numbers remain unchanged until the final profile is ready. */
 window.addEventListener('click',event=>{
   const row=event.target.closest?.('#loansDashboardHost [data-ld-borrower]');
   if(!row) return;
