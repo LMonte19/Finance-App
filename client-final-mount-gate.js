@@ -13,6 +13,7 @@ ensureMountGateStyle();
 let mountSequence=0;
 let switching=false;
 
+const CLIENT_RAIL_STORAGE='loanLedger.clientRailCollapsed';
 const SEARCH_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>';
 const PERSON_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20c.6-4.4 2.8-6.6 6.5-6.6s5.9 2.2 6.5 6.6"/></svg>';
 const CHEVRON_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
@@ -104,7 +105,11 @@ function clientsFromCurrentRail(selectedId){
 function railIsCollapsed(){
   const live=document.querySelector('#borrowerAccountContent .ll-account-shell');
   if(live) return live.classList.contains('ll-client-rail-collapsed');
-  return localStorage.getItem('loanLedger.clientRailCollapsed')==='true';
+  return localStorage.getItem(CLIENT_RAIL_STORAGE)==='1';
+}
+
+function forceInitialRailCollapsed(){
+  localStorage.setItem(CLIENT_RAIL_STORAGE,'1');
 }
 
 function clientRowsHtml(clients){
@@ -211,8 +216,9 @@ async function openFromLoans(id){
   const sequence=++mountSequence;
   const clients=clientsFromLoans(id);
 
-  /* React immediately: switch pages and show the client rail + neutral loading workspace. */
-  showLoadingShell(clients,id,{collapsed:railIsCollapsed(),animateRail:true});
+  /* Every fresh entry to a client profile starts with the contextual rail collapsed. */
+  forceInitialRailCollapsed();
+  showLoadingShell(clients,id,{collapsed:true,animateRail:true});
   showAccountPage();
   dispatchRender(id,'loans-loading-shell');
 
@@ -232,7 +238,7 @@ async function switchInsideRail(id,card){
   const clients=clientsFromCurrentRail(id);
   const collapsed=railIsCollapsed();
 
-  /* Keep a stable copy of the rail visible; only the white detail area becomes loading. */
+  /* Keep the user's current rail state while switching between clients in-place. */
   showLoadingShell(clients,id,{collapsed,animateRail:false});
   showAccountPage();
   if(card){
