@@ -1,3 +1,9 @@
+const liveSwitchStabilityCss=document.createElement('link');
+liveSwitchStabilityCss.id='clientProfileLiveSwitchStabilityCss';
+liveSwitchStabilityCss.rel='stylesheet';
+liveSwitchStabilityCss.href='./client-profile-live-switch.css?v=2';
+document.head.appendChild(liveSwitchStabilityCss);
+
 import './admin-tools.js?v=2';
 import './batch-tools.js?v=2';
 import './menu-page-fix.js?v=1';
