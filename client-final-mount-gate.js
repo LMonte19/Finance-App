@@ -1,5 +1,5 @@
 function ensureMountGateStyle(){
-  const href='./client-final-mount-gate.css?v=2';
+  const href='./client-final-mount-gate.css?v=3';
   let link=document.getElementById('clientFinalMountGateCss');
   if(link){ if(link.getAttribute('href')!==href) link.setAttribute('href',href); return; }
   link=document.createElement('link');
@@ -80,7 +80,22 @@ function clearEntryClass(page){
   setTimeout(()=>page.classList.remove('ll-client-entry'),620);
 }
 
-async function openFromLoans(id,row){
+function holdLoansVisible(){
+  document.body.classList.add('ll-opening-client-from-loans');
+  document.getElementById('loansPage')?.classList.add('active-page');
+}
+
+function releaseLoansIntoClient(page){
+  showAccountPage();
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      document.body.classList.remove('ll-opening-client-from-loans');
+      clearEntryClass(page);
+    });
+  });
+}
+
+async function openFromLoans(id){
   if(!id || switching) return;
   switching=true;
   mountSequence+=1;
@@ -89,21 +104,26 @@ async function openFromLoans(id,row){
   const page=ensureAccountPage();
   if(!page){ switching=false; return; }
 
-  row?.classList.add('selected-opening');
+  /* Keep the exact Loans frame visible while the final account UI mounts offscreen. */
+  holdLoansVisible();
   page.classList.add('ll-client-preparing');
 
-  /* Build the complete client profile while Loans remains visible. */
-  dispatchRender(id,'loans-preload');
-  await waitForFinal(id,sequence);
-  if(sequence!==mountSequence){ switching=false; return; }
+  try{
+    dispatchRender(id,'loans-preload');
+    await waitForFinal(id,sequence);
+    if(sequence!==mountSequence) return;
 
-  page.classList.remove('ll-client-preparing');
-  page.classList.add('ll-client-entry');
-  showAccountPage();
-  clearEntryClass(page);
-  row?.classList.remove('selected-opening');
-  pendingBorrowerId=null;
-  switching=false;
+    page.classList.remove('ll-client-preparing');
+    page.classList.add('ll-client-entry');
+    releaseLoansIntoClient(page);
+  }finally{
+    if(sequence===mountSequence){
+      pendingBorrowerId=null;
+      switching=false;
+      /* Fail-safe: never leave the dashboard locked by the preparation class. */
+      setTimeout(()=>document.body.classList.remove('ll-opening-client-from-loans'),900);
+    }
+  }
 }
 
 function clearViewTransitionNames(){
@@ -153,8 +173,8 @@ async function switchInsideRail(id){
   }
 }
 
-/* Own the click from the Loans table so its older transition never opens an
-   intermediate account page. The profile is prepared while Loans remains visible. */
+/* Own the Loans-row click at the window capture phase. No temporary lime row state is
+   applied: the dashboard remains visually unchanged until the final profile is ready. */
 window.addEventListener('click',event=>{
   const row=event.target.closest?.('#loansDashboardHost [data-ld-borrower]');
   if(!row) return;
@@ -162,7 +182,7 @@ window.addEventListener('click',event=>{
   if(!id) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  openFromLoans(id,row);
+  openFromLoans(id);
 },true);
 
 /* Client-to-client changes keep the current final UI visually frozen through the
@@ -179,13 +199,13 @@ window.addEventListener('click',event=>{
   switchInsideRail(id);
 },true);
 
-/* Keep external account requests functional, but do not introduce a blocking loader. */
+/* External account requests use the same stable Loans-to-profile transition. */
 window.addEventListener('loan-ledger:open-account',event=>{
   const id=event.detail?.borrowerId;
   if(!id || switching) return;
   const page=ensureAccountPage();
   if(page?.classList.contains('active-page')) return;
-  openFromLoans(id,null);
+  openFromLoans(id);
 });
 
 console.log('final client profile transitions active');
