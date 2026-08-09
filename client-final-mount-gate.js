@@ -12,6 +12,7 @@ ensureMountGateStyle();
 
 let mountSequence=0;
 let switching=false;
+let desiredRailCollapsed=true;
 
 const CLIENT_RAIL_STORAGE='loanLedger.clientRailCollapsed';
 const SEARCH_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>';
@@ -108,8 +109,25 @@ function railIsCollapsed(){
   return localStorage.getItem(CLIENT_RAIL_STORAGE)==='1';
 }
 
+function setDesiredRailState(collapsed){
+  desiredRailCollapsed=!!collapsed;
+  localStorage.setItem(CLIENT_RAIL_STORAGE,desiredRailCollapsed?'1':'0');
+}
+
 function forceInitialRailCollapsed(){
-  localStorage.setItem(CLIENT_RAIL_STORAGE,'1');
+  setDesiredRailState(true);
+}
+
+function applyDesiredRailState(){
+  const root=accountContent()?.querySelector('.ll-account-shell');
+  if(!root) return null;
+  root.classList.toggle('ll-client-rail-collapsed',desiredRailCollapsed);
+  const btn=root.querySelector('#acctBack');
+  if(btn){
+    btn.setAttribute('aria-label',desiredRailCollapsed?'Expandir clientes':'Colapsar clientes');
+    btn.title=desiredRailCollapsed?'Expandir clientes':'Colapsar clientes';
+  }
+  return root;
 }
 
 function clientRowsHtml(clients){
@@ -159,8 +177,9 @@ function showLoadingShell(clients,selectedId,{collapsed=railIsCollapsed(),animat
 }
 
 function finalProfileReady(targetId){
-  const root=accountContent()?.querySelector('.ll-account-shell');
+  const root=applyDesiredRailState();
   if(!root) return false;
+  if(root.classList.contains('ll-client-rail-collapsed')!==desiredRailCollapsed) return false;
   const active=root.querySelector('.ll-client-card.active[data-acct-borrower]');
   if(!active || String(active.dataset.acctBorrower)!==String(targetId)) return false;
   if(root.dataset.functionalTabs!=='ready') return false;
@@ -197,11 +216,22 @@ function revealFinal(sequence){
   if(sequence!==mountSequence) return;
   const page=accountPage();
   if(!page) return;
-  page.classList.add('ll-profile-revealing');
-  page.classList.remove('ll-profile-loading');
-  document.body.classList.remove('ll-client-load-active');
-  removeLoadingShell(false);
-  setTimeout(()=>page.classList.remove('ll-profile-revealing'),380);
+
+  /* Apply the rail state while the real profile is still hidden by ll-profile-loading.
+     Force layout before the loading shell starts fading so an expanded rail can never
+     become visible for even a single frame. */
+  const root=applyDesiredRailState();
+  if(root) root.getBoundingClientRect();
+
+  requestAnimationFrame(()=>{
+    if(sequence!==mountSequence) return;
+    applyDesiredRailState();
+    page.classList.add('ll-profile-revealing');
+    page.classList.remove('ll-profile-loading');
+    document.body.classList.remove('ll-client-load-active');
+    removeLoadingShell(false);
+    setTimeout(()=>page.classList.remove('ll-profile-revealing'),380);
+  });
 }
 
 function showLoadFailure(sequence){
@@ -237,6 +267,7 @@ async function switchInsideRail(id,card){
   const sequence=++mountSequence;
   const clients=clientsFromCurrentRail(id);
   const collapsed=railIsCollapsed();
+  setDesiredRailState(collapsed);
 
   /* Keep the user's current rail state while switching between clients in-place. */
   showLoadingShell(clients,id,{collapsed,animateRail:false});
@@ -255,6 +286,13 @@ async function switchInsideRail(id,card){
     if(sequence===mountSequence) switching=false;
   }
 }
+
+/* Ensure every newly-rendered account shell receives the intended rail state while it is
+   still hidden behind the loading workspace. MutationObserver callbacks run before paint. */
+new MutationObserver(()=>{
+  if(!document.body.classList.contains('ll-client-load-active')) return;
+  applyDesiredRailState();
+}).observe(document.body,{childList:true,subtree:true});
 
 /* Own Loans-row clicks before the older dashboard transition code can run. */
 window.addEventListener('click',event=>{
