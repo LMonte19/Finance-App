@@ -134,7 +134,7 @@ async function renderDesktopClient(borrowerId){
     const followsHtml = follows.map(f => simpleCard(`<strong>${f.due_date}</strong> — ${f.priority} | ${statusLabel(f.timing_status)}<br><span class="muted">${f.reason || '—'}</span>`)).join('') || 'No hay seguimientos.';
     const contactsHtml = contacts.map(c => simpleCard(`<strong>${c.contact_type}</strong> — ${c.contact_date}<br><span class="muted">${c.outcome || '—'}</span><br>${c.notes || ''}`)).join('') || 'No hay notas.';
 
-    content.innerHTML = `<div class="ll-account-shell">
+    content.innerHTML = `<div class="ll-account-shell ll-client-rail-collapsed">
       ${renderClientRail(accounts, borrowerId)}
       <main class="ll-workspace" data-no-translate="true">
         <section class="ll-client-header">
