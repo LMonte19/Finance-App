@@ -191,19 +191,28 @@ function waitForFinal(targetId,sequence,timeout=15000){
   });
 }
 
+function inPlaceProfileReady(targetId,root){
+  const active=root.querySelector('.ll-client-card.active[data-acct-borrower]');
+  const host=root.querySelector('.ll-profile-tabs-host');
+  const activeMatches=active && String(active.dataset.acctBorrower)===String(targetId);
+  const tabsReady=root.dataset.functionalTabs==='ready';
+  const headerReady=String(root.dataset.inplaceHeaderBorrower||'')===String(targetId);
+  const panelReady=!!host?.querySelector('[data-profile-panel].active');
+  const refined=host?.dataset.refinementVersion==='3';
+  const compactCalendar=!!host?.querySelector('[data-profile-panel="summary"] .ll-cycle-detail--compact');
+  const elegantMetrics=!!host?.querySelector('[data-profile-panel="summary"] .ll-elegant-metric-icon');
+  const movementsFinal=!!host?.querySelector('[data-profile-panel="summary"] .ll-movements-card');
+  return !!(activeMatches && tabsReady && headerReady && panelReady && refined && compactCalendar && elegantMetrics && movementsFinal);
+}
+
 function waitForInPlaceFinal(targetId,sequence,root,timeout=15000){
   return new Promise(resolve=>{
     let stable=0;
     const started=performance.now();
     const tick=()=>{
       if(sequence!==mountSequence || !document.contains(root)) return resolve(false);
-      const active=root.querySelector('.ll-client-card.active[data-acct-borrower]');
-      const activeMatches=active && String(active.dataset.acctBorrower)===String(targetId);
-      const tabsReady=root.dataset.functionalTabs==='ready';
-      const headerReady=String(root.dataset.inplaceHeaderBorrower||'')===String(targetId);
-      const panelReady=!!root.querySelector('.ll-profile-tabs-host [data-profile-panel].active');
-      if(activeMatches && tabsReady && headerReady && panelReady) stable+=1; else stable=0;
-      if(stable>=3) return requestAnimationFrame(()=>resolve(true));
+      if(inPlaceProfileReady(targetId,root)) stable+=1; else stable=0;
+      if(stable>=3) return requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true)));
       if(performance.now()-started>=timeout) return resolve(false);
       setTimeout(tick,42);
     };
@@ -295,7 +304,7 @@ async function switchInsideRail(id,card){
   switching=true;
   const sequence=++mountSequence;
 
-  /* The profile shell and client rail stay mounted. Only client-specific data changes. */
+  /* Keep the shell, rail, tabs and section headings mounted; refresh client data only. */
   forceInitialRailCollapsed();
   applyDesiredRailState();
   root.dataset.functionalTabs='switch-requested';
