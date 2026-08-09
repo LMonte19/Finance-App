@@ -1,0 +1,147 @@
+#borrowersPage.ll-clients-page{
+  min-height:100vh;
+  padding:26px 30px 42px!important;
+  box-sizing:border-box;
+  background:#f6f6f4!important;
+  color:#17191e!important;
+}
+#borrowersPage .ll-clients-workspace{width:100%;min-width:0}
+#borrowersPage .ll-clients-header{
+  position:static!important;top:auto!important;z-index:auto!important;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  margin:0 0 22px;padding:0!important;border:0!important;background:transparent!important;
+}
+#borrowersPage .ll-clients-header h1{margin:0;font-size:30px;line-height:1.05;letter-spacing:-.04em;font-weight:800;color:#17191e}
+#borrowersPage .ll-clients-header p{margin:7px 0 0;color:#7b818c;font-size:12.5px}
+#borrowersPage .ll-clients-primary{
+  width:auto!important;min-width:144px;min-height:40px;margin:0!important;padding:0 17px!important;
+  border:1px solid #c7ed18!important;border-radius:10px!important;background:linear-gradient(180deg,#d9fb28,#c5ed0f)!important;
+  color:#171b0d!important;font-size:11.5px!important;font-weight:800!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;
+  box-shadow:0 8px 20px rgba(191,225,15,.11)!important;
+}
+#borrowersPage .ll-clients-layout{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(310px,.72fr);gap:18px;align-items:start}
+#borrowersPage .ll-clients-list-card,
+#borrowersPage .ll-client-add-card,
+#borrowersPage .ll-client-activity-card{
+  background:#fff;border:1px solid #e5e6e9;border-radius:18px;box-shadow:0 6px 20px rgba(25,27,31,.026);box-sizing:border-box;
+}
+#borrowersPage .ll-clients-list-card{padding:18px}
+#borrowersPage .ll-clients-side{display:flex;flex-direction:column;gap:14px}
+#borrowersPage .ll-client-add-card,#borrowersPage .ll-client-activity-card{padding:17px}
+#borrowersPage .ll-clients-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+#borrowersPage .ll-clients-card-head h2{margin:0;font-size:17px;letter-spacing:-.025em;color:#1b1d22}
+#borrowersPage .ll-client-add-icon,#borrowersPage .ll-client-activity-icon{
+  width:31px;height:31px;display:grid;place-items:center;border-radius:50%;background:#eff9bf;color:#687d19
+}
+#borrowersPage .ll-clients-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 190px auto;gap:10px;align-items:center}
+#borrowersPage .ll-clients-search{
+  height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid #e2e4e8;border-radius:9px;background:#fff;color:#939aa5;box-sizing:border-box
+}
+#borrowersPage .ll-clients-search input{
+  flex:1;min-width:0;height:38px;margin:0!important;padding:0!important;border:0!important;background:transparent!important;color:#343941!important;font-size:10.5px!important;outline:0!important
+}
+#borrowersPage .ll-clients-search input::placeholder{color:#9aa0aa}
+#borrowersPage #clientsSort{
+  height:40px;margin:0!important;padding:0 34px 0 12px!important;border:1px solid #e2e4e8!important;border-radius:9px!important;background:#fff!important;color:#676e79!important;font-size:10.5px!important
+}
+#borrowersPage .ll-clients-view-toggle{height:40px;display:flex;align-items:center;border:1px solid #e2e4e8;border-radius:9px;overflow:hidden;background:#fff}
+#borrowersPage .ll-clients-view-toggle button{
+  width:39px!important;height:38px!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:#fff!important;color:#5f6670!important;display:grid!important;place-items:center!important
+}
+#borrowersPage .ll-clients-view-toggle button.active{background:#f2f8cd!important;color:#687c17!important}
+#borrowersPage .ll-clients-filters{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 10px}
+#borrowersPage .ll-clients-filters button{
+  width:auto!important;height:31px!important;margin:0!important;padding:0 12px!important;border:1px solid #e2e4e7!important;border-radius:8px!important;background:#fff!important;color:#5e6570!important;font-size:9.5px!important;font-weight:700!important
+}
+#borrowersPage .ll-clients-filters button.active{background:#f4f8dc!important;border-color:#dce89e!important;color:#617214!important}
+#borrowersPage .ll-clients-table-head,
+#borrowersPage .ll-client-row{
+  display:grid;grid-template-columns:minmax(180px,1.2fr) minmax(130px,.8fr) minmax(190px,1.15fr) 128px 22px;gap:10px;align-items:center
+}
+#borrowersPage .ll-clients-table-head{min-height:34px;padding:0 9px;border:1px solid #e7e8eb;border-radius:8px 8px 0 0;background:#fbfbfb;color:#737b86;font-size:9.4px;font-weight:700}
+#borrowersPage .ll-clients-list:not(.grid-view){border:1px solid #e7e8eb;border-top:0;border-radius:0 0 9px 9px;overflow:hidden}
+#borrowersPage .ll-client-row{
+  width:100%!important;min-height:54px;margin:0!important;padding:0 9px!important;border:0!important;border-bottom:1px solid #eceef1!important;border-radius:0!important;background:#fff!important;color:#30343a!important;text-align:left;cursor:pointer;box-shadow:none!important;transition:background-color .15s ease
+}
+#borrowersPage .ll-client-row:last-child{border-bottom:0!important}
+#borrowersPage .ll-client-row:hover{background:#fafbfb!important;filter:none!important;transform:none!important}
+#borrowersPage .ll-client-person{display:flex;align-items:center;gap:9px;min-width:0}
+#borrowersPage .ll-client-person>i,
+#borrowersPage .ll-client-grid-top>i{
+  position:relative;width:30px;height:30px;min-width:30px;display:grid;place-items:center;border-radius:50%;font-style:normal;font-size:9px;font-weight:800
+}
+#borrowersPage .tone-0{background:#eff9c6;color:#677919}#borrowersPage .tone-1{background:#eee8ff;color:#7357db}#borrowersPage .tone-2{background:#ffe8ea;color:#c35c64}#borrowersPage .tone-3{background:#e8f3ff;color:#427db7}#borrowersPage .tone-4{background:#fff3d6;color:#a7791f}#borrowersPage .tone-5{background:#e2f6f0;color:#2f8976}
+#borrowersPage .ll-client-person i b,#borrowersPage .ll-client-grid-top i b{position:absolute;right:-1px;bottom:-1px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#aeb4bc}
+#borrowersPage .ll-client-person i b.ok,#borrowersPage .ll-client-grid-top i b.ok{background:#50b66b}
+#borrowersPage .ll-client-person i b.danger,#borrowersPage .ll-client-grid-top i b.danger{background:#ef6b61}
+#borrowersPage .ll-client-person i b.closed,#borrowersPage .ll-client-grid-top i b.closed{background:#a8afb8}
+#borrowersPage .ll-client-person strong{font-size:10.7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#292d33}
+#borrowersPage .ll-client-phone{display:flex;align-items:center;gap:6px;color:#696f79;font-size:9.7px}
+#borrowersPage .ll-client-notes{font-size:9.5px;color:#969ca5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#borrowersPage .ll-client-last{font-size:9.5px;color:#777e88}
+#borrowersPage .ll-client-chevron{display:grid;place-items:center;color:#59616c}
+#borrowersPage .ll-clients-list.grid-view{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#borrowersPage .ll-client-grid-card{
+  width:100%!important;min-height:164px;margin:0!important;padding:14px!important;border:1px solid #e7e8eb!important;border-radius:13px!important;background:#fff!important;color:#2c3036!important;text-align:left;box-shadow:none!important
+}
+#borrowersPage .ll-client-grid-card:hover{background:#fafbfb!important;filter:none!important;transform:none!important}
+#borrowersPage .ll-client-grid-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;color:#777f89}
+#borrowersPage .ll-client-grid-card>strong{display:block;font-size:12px}.ll-client-grid-card>small{display:block;margin-top:4px;color:#7b828d;font-size:9px}
+#borrowersPage .ll-client-grid-card>p{min-height:28px;margin:10px 0;color:#8b919a;font-size:9px;line-height:1.45}
+#borrowersPage .ll-client-grid-card>footer{padding-top:9px;border-top:1px solid #eef0f2;color:#9298a1;font-size:8.5px}
+#borrowersPage .ll-clients-pagination{display:flex;align-items:center;justify-content:space-between;min-height:42px;padding-top:9px;color:#858c97;font-size:9.5px}
+#borrowersPage .ll-clients-pagination>div{display:flex;align-items:center;gap:6px}
+#borrowersPage .ll-clients-pagination button{width:29px!important;height:29px!important;margin:0!important;padding:0!important;border:1px solid #e2e4e8!important;border-radius:8px!important;background:#fff!important;color:#59606a!important;font-size:16px!important}
+#borrowersPage .ll-clients-pagination button:disabled{opacity:.35;cursor:default}
+#borrowersPage #clientsPageNumber{width:29px;height:29px;display:grid;place-items:center;border:1px solid #d3e16d;border-radius:7px;background:#f7fbe5;color:#607015;font-size:10px;font-weight:750}
+#borrowersPage .ll-client-add-form label{display:block;margin-bottom:12px}
+#borrowersPage .ll-client-add-form label>span{display:block;margin-bottom:6px;color:#606873;font-size:9.4px;font-weight:700}
+#borrowersPage .ll-client-add-form label>span small{font-weight:500;color:#9298a1}
+#borrowersPage .ll-client-add-form input,#borrowersPage .ll-client-add-form textarea{
+  width:100%!important;box-sizing:border-box!important;margin:0!important;border:1px solid #e1e3e7!important;border-radius:9px!important;background:#fff!important;color:#343941!important;font-size:10.2px!important;outline:0!important
+}
+#borrowersPage .ll-client-add-form input{height:38px!important;padding:0 11px!important}
+#borrowersPage .ll-client-add-form textarea{min-height:76px;padding:10px 11px!important;resize:vertical}
+#borrowersPage .ll-client-add-form input:focus,#borrowersPage .ll-client-add-form textarea:focus{border-color:#c9d77f!important;box-shadow:0 0 0 3px rgba(190,216,64,.08)!important}
+#borrowersPage .ll-client-add-submit{
+  width:100%!important;height:40px!important;margin:2px 0 0!important;padding:0!important;border:0!important;border-radius:9px!important;background:#17191d!important;color:#fff!important;font-size:10.5px!important;font-weight:750!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important
+}
+#borrowersPage .ll-client-add-status{min-height:17px;margin-top:8px;font-size:9px;color:#858c96}
+#borrowersPage .ll-client-add-status.success{color:#4d9a45}.ll-client-add-status.error{color:#df5c5c}
+#borrowersPage .ll-client-recent-activity{display:flex;flex-direction:column}
+#borrowersPage .ll-client-recent-activity button{
+  width:100%!important;min-height:51px;margin:0!important;padding:8px 0!important;border:0!important;border-bottom:1px solid #eef0f2!important;border-radius:0!important;background:#fff!important;color:#30343a!important;display:grid!important;grid-template-columns:30px minmax(0,1fr) auto;gap:9px;align-items:center;text-align:left
+}
+#borrowersPage .ll-client-recent-activity button:last-child{border-bottom:0!important}
+#borrowersPage .ll-activity-bubble{width:29px;height:29px;display:grid;place-items:center;border-radius:50%;background:#e8f5ef;color:#3e9075}
+#borrowersPage .ll-activity-bubble.payment{background:#edf2ff;color:#5578c8}.ll-activity-bubble.edit{background:#f1ebff;color:#795be0}.ll-activity-bubble.note{background:#fff2db;color:#a7792a}
+#borrowersPage .ll-client-recent-activity small{display:block;color:#969ca5;font-size:8px}.ll-client-recent-activity strong{display:block;margin-top:2px;color:#30343a;font-size:9.6px}
+#borrowersPage .ll-client-recent-activity time{color:#969ca5;font-size:8px;white-space:nowrap}
+#borrowersPage .ll-client-activity-link{width:auto!important;margin:9px 0 0!important;padding:0!important;border:0!important;background:transparent!important;color:#7c9415!important;font-size:9.2px!important;font-weight:750!important;display:flex!important;gap:6px!important;align-items:center!important}
+#borrowersPage .ll-clients-loading,#borrowersPage .ll-clients-empty{min-height:150px;display:grid;place-items:center;color:#969ca5;font-size:10px}.ll-clients-loading.compact,.ll-clients-empty.small{min-height:90px!important}
+
+@media(max-width:1220px){
+  #borrowersPage{padding:22px!important}
+  #borrowersPage .ll-clients-layout{grid-template-columns:minmax(0,1fr) 310px}
+  #borrowersPage .ll-clients-toolbar{grid-template-columns:1fr 170px auto}
+  #borrowersPage .ll-clients-table-head,#borrowersPage .ll-client-row{grid-template-columns:minmax(160px,1.2fr) 130px minmax(140px,1fr) 110px 20px}
+}
+@media(max-width:980px){
+  #borrowersPage .ll-clients-layout{grid-template-columns:1fr}
+  #borrowersPage .ll-clients-side{display:grid;grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  #borrowersPage{padding:16px!important}
+  #borrowersPage .ll-clients-header{align-items:flex-start}
+  #borrowersPage .ll-clients-header h1{font-size:26px}
+  #borrowersPage .ll-clients-primary{min-width:0!important;padding:0 13px!important}
+  #borrowersPage .ll-clients-toolbar{grid-template-columns:1fr auto}
+  #borrowersPage .ll-clients-search{grid-column:1 / -1}
+  #borrowersPage #clientsSort{min-width:0}
+  #borrowersPage .ll-clients-table-head{display:none!important}
+  #borrowersPage .ll-clients-list:not(.grid-view){border:0}
+  #borrowersPage .ll-client-row{grid-template-columns:1fr auto;gap:5px 10px;padding:10px!important;border:1px solid #e8e9ec!important;border-radius:11px!important;margin-bottom:8px!important}
+  #borrowersPage .ll-client-person{grid-column:1}.ll-client-chevron{grid-column:2;grid-row:1}.ll-client-phone{grid-column:1}.ll-client-notes{grid-column:1}.ll-client-last{grid-column:2;grid-row:2 / 4;align-self:end}
+  #borrowersPage .ll-clients-list.grid-view{grid-template-columns:1fr}
+  #borrowersPage .ll-clients-side{display:flex}
+}
