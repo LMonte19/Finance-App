@@ -20,7 +20,7 @@ const PERSON_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const CHEVRON_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
 
 function esc(value){
-  return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[char]));
 }
 function initials(name='?'){
   return String(name||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]?.toUpperCase()||'').join('')||'?';
@@ -266,11 +266,10 @@ async function switchInsideRail(id,card){
   switching=true;
   const sequence=++mountSequence;
   const clients=clientsFromCurrentRail(id);
-  const collapsed=railIsCollapsed();
-  setDesiredRailState(collapsed);
 
-  /* Keep the user's current rail state while switching between clients in-place. */
-  showLoadingShell(clients,id,{collapsed,animateRail:false});
+  /* Every client-to-client switch starts collapsed from the first loading frame. */
+  forceInitialRailCollapsed();
+  showLoadingShell(clients,id,{collapsed:true,animateRail:false});
   showAccountPage();
   if(card){
     card.closest('.ll-client-rail')?.querySelectorAll('.ll-client-card.active').forEach(node=>node.classList.remove('active'));
@@ -305,7 +304,7 @@ window.addEventListener('click',event=>{
   openFromLoans(id);
 },true);
 
-/* Client-to-client changes preserve the rail and replace only the details with loading. */
+/* Client-to-client changes keep the loading rail collapsed and replace only the details. */
 window.addEventListener('click',event=>{
   const page=accountPage();
   if(!page?.classList.contains('active-page')) return;
