@@ -1,5 +1,5 @@
 function ensureMountGateStyle(){
-  const href='./client-final-mount-gate.css?v=4';
+  const href='./client-final-mount-gate.css?v=5';
   let link=document.getElementById('clientFinalMountGateCss');
   if(link){ if(link.getAttribute('href')!==href) link.setAttribute('href',href); return; }
   link=document.createElement('link');
@@ -109,15 +109,11 @@ async function openFromLoans(id){
 
   try{
     if(document.startViewTransition){
-      /* The browser snapshots the exact Loans frame before this async callback runs.
-         While the profile is being built, that frozen snapshot remains what the user sees,
-         so dashboard refreshes or temporary zero values cannot flash on screen. */
       const transition=document.startViewTransition(async()=>{
         await buildAndRevealFromLoans(id,sequence);
       });
       await transition.finished;
     }else{
-      /* Fallback: keep Loans active until the final profile is ready, then reveal it. */
       await buildAndRevealFromLoans(id,sequence);
       accountPage()?.classList.add('ll-client-entry-fallback');
       setTimeout(()=>accountPage()?.classList.remove('ll-client-entry-fallback'),520);
@@ -180,7 +176,6 @@ async function switchInsideRail(id){
   }
 }
 
-/* Own Loans-row clicks before the dashboard's older transition handlers. */
 window.addEventListener('click',event=>{
   const row=event.target.closest?.('#loansDashboardHost [data-ld-borrower]');
   if(!row) return;
@@ -191,8 +186,6 @@ window.addEventListener('click',event=>{
   openFromLoans(id);
 },true);
 
-/* Client-to-client changes keep the current final profile visually frozen while the next
-   one mounts, then crossfade only the final workspace. */
 window.addEventListener('click',event=>{
   const page=accountPage();
   if(!page?.classList.contains('active-page')) return;
