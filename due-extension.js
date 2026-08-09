@@ -14,7 +14,7 @@ import './system-check.js?v=1';
 import './language-toggle.js?v=3';
 import './account-router.js?v=1';
 import './loans-dashboard-boot.js?v=11';
-import './client-detail-desktop.js?v=2';
+import './client-detail-desktop.js?v=3';
 import './client-detail-polish.js?v=1';
 import './client-profile-tabs.js?v=2';
 import './client-profile-refinements.js?v=2';
@@ -27,6 +27,6 @@ import './global-app-sidebar.js?v=2';
 import './client-profile-fixed-shell.js?v=1';
 import './ui-final-polish.js?v=3';
 import './loans-dashboard-global-shell.js?v=1';
-import './client-final-mount-gate.js?v=9';
+import './client-final-mount-gate.js?v=10';
 
 console.log('safe module loader active');
