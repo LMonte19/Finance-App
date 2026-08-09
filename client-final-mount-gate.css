@@ -1,7 +1,18 @@
 #borrowerAccountPage{position:relative;background:#f7f7f6}
 
-/* While the account is prepared in the background from Loans, the page is not active,
-   so no intermediate scaffold is visible. */
+/* Keep Loans painted until the final client profile is ready, even if another legacy
+   page-state mutation removes active-page during the background mount. */
+body.ll-opening-client-from-loans #loansPage{
+  display:block!important;
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:none!important;
+}
+body.ll-opening-client-from-loans #borrowerAccountPage{
+  display:none!important;
+}
+
+/* The account scaffold mounts offscreen/invisible during preparation. */
 #borrowerAccountPage.ll-client-preparing #borrowerAccountContent{visibility:hidden}
 
 /* First entrance from Loans: client rail slides in from the left, final workspace fades in. */
@@ -12,11 +23,11 @@
   animation:llClientWorkspaceEnter .48s cubic-bezier(.22,.72,.24,1) .06s both;
 }
 @keyframes llClientRailEnter{
-  from{opacity:.15;transform:translateX(-42px)}
+  from{opacity:.12;transform:translateX(-46px)}
   to{opacity:1;transform:translateX(0)}
 }
 @keyframes llClientWorkspaceEnter{
-  from{opacity:0;transform:translateY(7px)}
+  from{opacity:0;transform:translateY(6px)}
   to{opacity:1;transform:translateY(0)}
 }
 
