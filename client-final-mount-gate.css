@@ -1,43 +1,53 @@
 #borrowerAccountPage{position:relative;background:#f7f7f6}
 
-/* The account scaffold is prepared while the Loans snapshot remains visible. */
+/* The account scaffold is prepared while Loans remains the visible frame. */
 #borrowerAccountPage.ll-client-preparing #borrowerAccountContent{visibility:hidden}
 
-/* Native View Transition: keep the exact Loans frame intact until the final profile exists. */
+/*
+  Loans -> client transition.
+  Keep the old Loans snapshot fully painted while the final client rail/workspace
+  are already entering above it. Only fade Loans after the new UI is visibly present.
+*/
+::view-transition-group(root){
+  z-index:1;
+}
 ::view-transition-old(root){
-  animation:llLoansSnapshotOut .34s cubic-bezier(.22,.72,.24,1) both;
+  animation:llLoansSnapshotOut .52s cubic-bezier(.22,.72,.24,1) both;
   mix-blend-mode:normal;
 }
 ::view-transition-new(root){
-  animation:llClientRootIn .34s cubic-bezier(.22,.72,.24,1) both;
+  animation:none;
+  opacity:1;
   mix-blend-mode:normal;
 }
 @keyframes llLoansSnapshotOut{
-  0%,45%{opacity:1}
+  0%,62%{opacity:1}
   100%{opacity:0}
 }
-@keyframes llClientRootIn{
-  0%,16%{opacity:0}
-  100%{opacity:1}
+
+/* New client pieces sit above the outgoing Loans snapshot. */
+::view-transition-group(ll-client-entry-rail),
+::view-transition-group(ll-client-entry-workspace){
+  z-index:3;
 }
 
-/* The secondary client rail enters independently from the left. */
+/* The secondary client rail slides in while Loans is still fully visible. */
 ::view-transition-new(ll-client-entry-rail){
   animation:llClientEntryRail .48s cubic-bezier(.2,.78,.22,1) both;
   mix-blend-mode:normal;
 }
 @keyframes llClientEntryRail{
-  from{opacity:.08;transform:translateX(-52px)}
+  from{opacity:.34;transform:translateX(-54px)}
   to{opacity:1;transform:translateX(0)}
 }
 
-/* Final white workspace appears only after the final DOM is already complete. */
+/* The final workspace starts fading in before Loans begins fading away. */
 ::view-transition-new(ll-client-entry-workspace){
-  animation:llClientEntryWorkspace .46s cubic-bezier(.22,.72,.24,1) .04s both;
+  animation:llClientEntryWorkspace .46s cubic-bezier(.22,.72,.24,1) .025s both;
   mix-blend-mode:normal;
 }
 @keyframes llClientEntryWorkspace{
-  from{opacity:0;transform:translateY(7px)}
+  from{opacity:0;transform:translateY(6px)}
   to{opacity:1;transform:translateY(0)}
 }
 
@@ -46,9 +56,9 @@
   animation:llClientRailFallback .46s cubic-bezier(.2,.78,.22,1) both;
 }
 #borrowerAccountPage.ll-client-entry-fallback #borrowerAccountContent .ll-workspace{
-  animation:llClientWorkspaceFallback .46s cubic-bezier(.22,.72,.24,1) .04s both;
+  animation:llClientWorkspaceFallback .46s cubic-bezier(.22,.72,.24,1) .025s both;
 }
-@keyframes llClientRailFallback{from{opacity:.08;transform:translateX(-48px)}to{opacity:1;transform:translateX(0)}}
+@keyframes llClientRailFallback{from{opacity:.34;transform:translateX(-48px)}to{opacity:1;transform:translateX(0)}}
 @keyframes llClientWorkspaceFallback{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
 /* Client-to-client switches: keep the rail stable and crossfade only final content. */
