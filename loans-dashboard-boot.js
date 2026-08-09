@@ -13,7 +13,6 @@ addStyle('loansDashboardFinalCss','./loans-dashboard-final.css?v=3');
 addStyle('loansDashboardCorrectionsCss','./loans-dashboard-corrections.css?v=2');
 
 import('./loans-dashboard.js?v=2')
-  .then(()=>import('./loans-dashboard-transition-fix.js?v=1'))
   .then(()=>import('./loans-dashboard-polish.js?v=3'))
   .then(()=>import('./loans-dashboard-period.js?v=1'))
   .then(()=>import('./loans-dashboard-corrections.js?v=3'))
