@@ -1,5 +1,5 @@
 function ensureMountGateStyle(){
-  const href='./client-final-mount-gate.css?v=1';
+  const href='./client-final-mount-gate.css?v=2';
   let link=document.getElementById('clientFinalMountGateCss');
   if(link){ if(link.getAttribute('href')!==href) link.setAttribute('href',href); return; }
   link=document.createElement('link');
@@ -8,29 +8,36 @@ function ensureMountGateStyle(){
   link.href=href;
   document.head.appendChild(link);
 }
-
 ensureMountGateStyle();
 
 let pendingBorrowerId=null;
-let watchTimer=null;
-let failSafeTimer=null;
 let mountSequence=0;
+let switching=false;
 
 function accountPage(){ return document.getElementById('borrowerAccountPage'); }
 function accountContent(){ return document.getElementById('borrowerAccountContent'); }
 
-function ensureGate(){
-  const page=accountPage();
-  if(!page) return null;
-  let gate=page.querySelector(':scope > .ll-final-mount-gate');
-  if(!gate){
-    gate=document.createElement('div');
-    gate.className='ll-final-mount-gate';
-    gate.setAttribute('aria-hidden','true');
-    gate.innerHTML='<div class="ll-final-mount-loader"><span></span><span></span><span></span></div>';
-    page.appendChild(gate);
-  }
-  return gate;
+function ensureAccountPage(){
+  const app=document.getElementById('app');
+  if(!app) return null;
+  let page=accountPage();
+  if(page) return page;
+  page=document.createElement('div');
+  page.id='borrowerAccountPage';
+  page.className='page';
+  page.innerHTML='<div id="borrowerAccountContent"></div>';
+  app.appendChild(page);
+  return page;
+}
+
+function showAccountPage(){
+  const page=ensureAccountPage();
+  if(!page) return;
+  document.querySelectorAll('.tab-btn').forEach(button=>button.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(node=>node.classList.remove('active-page'));
+  page.classList.add('active-page');
+  document.getElementById('sideMenu')?.classList.remove('open');
+  document.getElementById('menuOverlay')?.classList.remove('open');
 }
 
 function finalProfileReady(targetId){
@@ -49,59 +56,117 @@ function finalProfileReady(targetId){
   return true;
 }
 
-function stopWatching(){
-  if(watchTimer){ clearInterval(watchTimer); watchTimer=null; }
-  if(failSafeTimer){ clearTimeout(failSafeTimer); failSafeTimer=null; }
+function waitForFinal(targetId,sequence,timeout=5000){
+  return new Promise(resolve=>{
+    let stable=0;
+    const started=performance.now();
+    const tick=()=>{
+      if(sequence!==mountSequence) return resolve(false);
+      if(finalProfileReady(targetId)) stable+=1; else stable=0;
+      if(stable>=3) return requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true)));
+      if(performance.now()-started>=timeout) return resolve(false);
+      setTimeout(tick,38);
+    };
+    tick();
+  });
 }
 
-function finishMount(sequence){
-  if(sequence!==mountSequence) return;
-  stopWatching();
-  const page=accountPage();
+function dispatchRender(id,source){
+  window.dispatchEvent(new CustomEvent('loan-ledger:account-rendered',{detail:{borrowerId:id,source}}));
+}
+
+function clearEntryClass(page){
   if(!page) return;
-  page.classList.remove('ll-final-mounting');
-  page.classList.add('ll-final-mounted');
-  pendingBorrowerId=null;
-  setTimeout(()=>page.classList.remove('ll-final-mounted'),260);
+  setTimeout(()=>page.classList.remove('ll-client-entry'),620);
 }
 
-function watchFinal(targetId,sequence){
-  let stableHits=0;
-  watchTimer=setInterval(()=>{
-    if(sequence!==mountSequence){ stopWatching(); return; }
-    if(finalProfileReady(targetId)) stableHits+=1; else stableHits=0;
-    if(stableHits>=5){
-      stopWatching();
-      requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>finishMount(sequence),90)));
-    }
-  },45);
-  failSafeTimer=setTimeout(()=>finishMount(sequence),4500);
-}
-
-function beginMount(targetId){
-  if(!targetId) return;
-  const page=accountPage();
-  if(!page) return;
-  if(pendingBorrowerId===String(targetId) && page.classList.contains('ll-final-mounting')) return;
+async function openFromLoans(id,row){
+  if(!id || switching) return;
+  switching=true;
   mountSequence+=1;
   const sequence=mountSequence;
-  pendingBorrowerId=String(targetId);
-  stopWatching();
-  ensureGate();
-  page.classList.remove('ll-final-mounted');
-  page.classList.add('ll-final-mounting');
-  watchFinal(targetId,sequence);
+  pendingBorrowerId=String(id);
+  const page=ensureAccountPage();
+  if(!page){ switching=false; return; }
+
+  row?.classList.add('selected-opening');
+  page.classList.add('ll-client-preparing');
+
+  /* Build the complete client profile while Loans remains visible. */
+  dispatchRender(id,'loans-preload');
+  await waitForFinal(id,sequence);
+  if(sequence!==mountSequence){ switching=false; return; }
+
+  page.classList.remove('ll-client-preparing');
+  page.classList.add('ll-client-entry');
+  showAccountPage();
+  clearEntryClass(page);
+  row?.classList.remove('selected-opening');
+  pendingBorrowerId=null;
+  switching=false;
 }
 
-function visuallySelectClient(card){
-  const rail=card.closest('.ll-client-rail');
-  if(!rail) return;
-  rail.querySelectorAll('.ll-client-card.active').forEach(item=>item.classList.remove('active'));
-  card.classList.add('active');
+function clearViewTransitionNames(){
+  document.querySelectorAll('[style*="view-transition-name"]').forEach(node=>node.style.viewTransitionName='');
 }
 
-/* Direct client-to-client switches: account-router intentionally ignores rail clicks,
-   so this is the only route used inside the client rail. */
+async function switchInsideRail(id){
+  if(!id || switching) return;
+  switching=true;
+  mountSequence+=1;
+  const sequence=mountSequence;
+  pendingBorrowerId=String(id);
+  const page=accountPage();
+  page?.classList.add('ll-client-switching');
+
+  const doUpdate=async()=>{
+    dispatchRender(id,'rail-switch');
+    await waitForFinal(id,sequence);
+    const nextWorkspace=accountContent()?.querySelector('.ll-workspace');
+    const nextRail=accountContent()?.querySelector('.ll-client-rail');
+    if(nextWorkspace) nextWorkspace.style.viewTransitionName='ll-client-workspace';
+    if(nextRail) nextRail.style.viewTransitionName='ll-client-rail';
+  };
+
+  try{
+    const oldWorkspace=accountContent()?.querySelector('.ll-workspace');
+    const oldRail=accountContent()?.querySelector('.ll-client-rail');
+    if(oldWorkspace) oldWorkspace.style.viewTransitionName='ll-client-workspace';
+    if(oldRail) oldRail.style.viewTransitionName='ll-client-rail';
+
+    if(document.startViewTransition){
+      const transition=document.startViewTransition(doUpdate);
+      await transition.finished;
+    }else{
+      await doUpdate();
+      page?.classList.add('ll-client-switch-fallback-in');
+      setTimeout(()=>page?.classList.remove('ll-client-switch-fallback-in'),360);
+    }
+  }catch(error){
+    console.error('Client transition failed:',error);
+    await doUpdate();
+  }finally{
+    clearViewTransitionNames();
+    page?.classList.remove('ll-client-switching');
+    pendingBorrowerId=null;
+    switching=false;
+  }
+}
+
+/* Own the click from the Loans table so its older transition never opens an
+   intermediate account page. The profile is prepared while Loans remains visible. */
+window.addEventListener('click',event=>{
+  const row=event.target.closest?.('#loansDashboardHost [data-ld-borrower]');
+  if(!row) return;
+  const id=row.dataset.ldBorrower;
+  if(!id) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  openFromLoans(id,row);
+},true);
+
+/* Client-to-client changes keep the current final UI visually frozen through the
+   browser view transition while the new final profile mounts underneath. */
 window.addEventListener('click',event=>{
   const page=accountPage();
   if(!page?.classList.contains('active-page')) return;
@@ -111,20 +176,16 @@ window.addEventListener('click',event=>{
   if(!id) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  visuallySelectClient(card);
-  beginMount(id);
-  window.dispatchEvent(new CustomEvent('loan-ledger:account-rendered',{detail:{borrowerId:id,source:'final-mount-gate'}}));
+  switchInsideRail(id);
 },true);
 
-/* Requests from the loans dashboard arrive here before the desktop renderer has time
-   to paint its scaffold, so the gate is already visible when that scaffold is inserted. */
-window.addEventListener('loan-ledger:open-account',event=>beginMount(event.detail?.borrowerId));
-window.addEventListener('loan-ledger:account-rendered',event=>beginMount(event.detail?.borrowerId));
+/* Keep external account requests functional, but do not introduce a blocking loader. */
+window.addEventListener('loan-ledger:open-account',event=>{
+  const id=event.detail?.borrowerId;
+  if(!id || switching) return;
+  const page=ensureAccountPage();
+  if(page?.classList.contains('active-page')) return;
+  openFromLoans(id,null);
+});
 
-/* If the account page is created after this module initializes, keep the gate available. */
-new MutationObserver(()=>{
-  const page=accountPage();
-  if(page && pendingBorrowerId){ ensureGate(); page.classList.add('ll-final-mounting'); }
-}).observe(document.body,{childList:true,subtree:true});
-
-console.log('final client profile mount gate active');
+console.log('final client profile transitions active');
