@@ -26,5 +26,6 @@ import './calendar-dom-controller.js?v=1';
 import './global-app-sidebar.js?v=2';
 import './client-profile-fixed-shell.js?v=1';
 import './ui-final-polish.js?v=3';
+import './loans-dashboard-global-shell.js?v=1';
 
 console.log('safe module loader active');
