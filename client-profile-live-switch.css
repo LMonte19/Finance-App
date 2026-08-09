@@ -1,0 +1,34 @@
+/* Client-to-client switches are data updates, not page transitions. */
+#borrowerAccountContent .ll-account-shell.ll-inplace-switching .ll-client-title,
+#borrowerAccountContent .ll-account-shell.ll-inplace-switching .ll-client-meta,
+#borrowerAccountContent .ll-account-shell.ll-inplace-switching .ll-client-header .ll-status-pill,
+#borrowerAccountContent .ll-account-shell.ll-inplace-switching .ll-profile-card>:not(.ll-card-head){
+  opacity:1!important;
+  transform:none!important;
+  transition:none!important;
+}
+
+#borrowerAccountContent .ll-account-shell.ll-inplace-reveal .ll-client-title,
+#borrowerAccountContent .ll-account-shell.ll-inplace-reveal .ll-client-meta,
+#borrowerAccountContent .ll-account-shell.ll-inplace-reveal .ll-client-header .ll-status-pill,
+#borrowerAccountContent .ll-account-shell.ll-inplace-reveal .ll-profile-card>:not(.ll-card-head){
+  animation:none!important;
+}
+
+/* Only values/records that are actually replaced animate. */
+.ll-live-value{will-change:opacity,transform}
+.ll-live-region{will-change:opacity,transform}
+
+/* Keep every structural label completely stable during a client switch. */
+.ll-inplace-switching .ll-card-head,
+.ll-inplace-switching .ll-card-title,
+.ll-inplace-switching .ll-summary-stat-grid span,
+.ll-inplace-switching .ll-cycle-calendar-head,
+.ll-inplace-switching .ll-cycle-detail small,
+.ll-inplace-switching .ll-account-facts span,
+.ll-inplace-switching .ll-profile-form label,
+.ll-inplace-switching .ll-tabs,
+.ll-inplace-switching .ll-client-rail{
+  opacity:1!important;
+  transform:none!important;
+}
