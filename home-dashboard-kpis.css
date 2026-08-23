@@ -1,0 +1,41 @@
+/* Home dashboard KPI proportions */
+#dashboardPage .ll-home-kpi{
+  min-height:150px;
+  padding:18px 20px 14px;
+  justify-content:flex-start;
+}
+#dashboardPage .ll-home-kpi-main{
+  align-items:center;
+}
+#dashboardPage .ll-home-kpi-icon{
+  margin-top:0;
+  align-self:center;
+}
+#dashboardPage .ll-home-kpi strong{
+  margin-top:5px;
+  font-size:23px;
+}
+#dashboardPage .ll-home-kpi p{
+  margin-top:7px;
+}
+#dashboardPage .ll-home-kpi-change{
+  margin-top:10px;
+  padding-top:10px;
+  justify-content:center;
+  text-align:center;
+}
+
+@media(max-width:1320px){
+  #dashboardPage .ll-home-kpi strong{font-size:21px;}
+}
+
+@media(max-width:640px){
+  #dashboardPage .ll-home-kpi{
+    min-height:132px;
+    padding:13px 12px 11px;
+  }
+  #dashboardPage .ll-home-kpi-main{align-items:center;}
+  #dashboardPage .ll-home-kpi strong{font-size:14px;margin-top:4px;}
+  #dashboardPage .ll-home-kpi p{margin-top:5px;}
+  #dashboardPage .ll-home-kpi-change{margin-top:8px;padding-top:8px;}
+}
