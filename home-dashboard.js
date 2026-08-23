@@ -7,7 +7,7 @@ const supabase=createClient(
 );
 
 function ensureStyle(){
-  const href="./home-dashboard.css?v=2";
+  const href="./home-dashboard.css?v=3";
   let link=document.getElementById("homeDashboardCss");
   if(!link){link=document.createElement("link");link.id="homeDashboardCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;
@@ -22,6 +22,7 @@ const addDays=(iso,days)=>{const d=new Date(`${iso}T00:00:00`);d.setDate(d.getDa
 const monthKey=(date=new Date())=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
 const previousMonthKey=()=>{const d=new Date();d.setMonth(d.getMonth()-1);return monthKey(d);};
 const initials=name=>String(name||"?").trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]?.toUpperCase()||"").join("")||"?";
+const pct1=value=>`${Math.abs(Number(value||0)).toFixed(1)}%`;
 
 let dataCache=null;
 let loading=false;
@@ -89,7 +90,7 @@ function ensureDom(){
   </div>`;
   wire();
 }
-function kpiSkeleton(){return `<article class="ll-home-kpi is-loading"><span class="ll-home-kpi-icon"></span><div><small>—</small><strong>—</strong><p>—</p></div></article>`;}
+function kpiSkeleton(){return `<article class="ll-home-kpi is-loading"><div class="ll-home-kpi-main"><span class="ll-home-kpi-icon"></span><div class="ll-home-kpi-copy"><small>—</small><strong>—</strong><p>—</p></div></div><div class="ll-home-kpi-change neutral"><span>•</span><b>—</b><em>—</em></div></article>`;}
 
 function wire(){
   const root=qs("homeDashboard");if(!root||root.dataset.bound==="1")return;root.dataset.bound="1";
@@ -139,20 +140,26 @@ async function fetchUpcomingDue(activeAccounts){
 }
 
 async function fetchData(){
-  const [accountsRes,paymentsRes,activityRes]=await Promise.all([
+  const [accountsRes,paymentsRes,disbursementsRes,activityRes]=await Promise.all([
     supabase.from("borrower_account_summary").select("*").order("principal_balance",{ascending:false}).limit(250),
     supabase.from("borrower_account_payments_view").select("*").order("paid_on",{ascending:false}).order("created_at",{ascending:false}).limit(300),
+    supabase.from("borrower_disbursements_view").select("*").order("start_date",{ascending:false}).order("created_at",{ascending:false}).limit(300),
     supabase.from("activity_log_view").select("*").order("created_at",{ascending:false}).limit(30)
   ]);
-  if(accountsRes.error)throw accountsRes.error;if(paymentsRes.error)throw paymentsRes.error;if(activityRes.error)throw activityRes.error;
+  if(accountsRes.error)throw accountsRes.error;
+  if(paymentsRes.error)throw paymentsRes.error;
+  if(disbursementsRes.error)throw disbursementsRes.error;
+  if(activityRes.error)throw activityRes.error;
   const accounts=accountsRes.data||[];
   const activeAccounts=accounts.filter(a=>Number(a.principal_balance||0)>0);
   const upcomingDue=await fetchUpcomingDue(activeAccounts);
   const payments=paymentsRes.data||[];
+  const disbursements=disbursementsRes.data||[];
   const activePayments=payments.filter(p=>!p.is_voided);
   const currentMonth=monthKey(),previousMonth=previousMonthKey();
   const monthPayments=activePayments.filter(p=>String(p.paid_on||"").slice(0,7)===currentMonth);
   const previousPayments=activePayments.filter(p=>String(p.paid_on||"").slice(0,7)===previousMonth);
+  const monthDisbursements=disbursements.filter(d=>String(d.start_date||"").slice(0,7)===currentMonth);
   const sum=(rows,field)=>rows.reduce((total,row)=>total+Number(row[field]||0),0);
   const activeCapital=sum(activeAccounts,"principal_balance");
   const overdueAccounts=activeAccounts.filter(a=>Number(a.overdue_amount||0)>0).sort((a,b)=>Number(b.overdue_amount||0)-Number(a.overdue_amount||0));
@@ -161,12 +168,16 @@ async function fetchData(){
   const overdueTotal=sum(overdueAccounts,"overdue_amount");
   const monthPaid=sum(monthPayments,"amount");
   const previousPaid=sum(previousPayments,"amount");
+  const monthPrincipalPaid=sum(monthPayments,"applied_principal");
+  const monthDisbursed=sum(monthDisbursements,"principal_original");
+  const openingCapital=Math.max(0,activeCapital-monthDisbursed+monthPrincipalPaid);
+  const capitalChangePct=openingCapital?((activeCapital-openingCapital)/openingCapital)*100:0;
   const monthlyFee=sum(activeAccounts,"current_monthly_fee");
   const monthlyMgmt=sum(activeAccounts,"current_monthly_mgmt");
   const monthlyFunders=sum(activeAccounts,"current_monthly_funders");
   const dueSoon=upcomingDue.filter(row=>row.due_date<=addDays(todayIso(),DUE_SOON_DAYS));
   const dueSoonAmount=sum(dueSoon,"amount_due");
-  return {accounts,activeAccounts,currentAccounts,overdueAccounts,closedAccounts,activeCapital,overdueTotal,payments,activePayments,monthPayments,monthPaid,previousPaid,monthlyFee,monthlyMgmt,monthlyFunders,upcomingDue,dueSoon,dueSoonAmount,activity:activityRes.data||[]};
+  return {accounts,activeAccounts,currentAccounts,overdueAccounts,closedAccounts,activeCapital,openingCapital,capitalChangePct,overdueTotal,payments,activePayments,monthPayments,monthPaid,previousPaid,monthPrincipalPaid,disbursements,monthDisbursements,monthDisbursed,monthlyFee,monthlyMgmt,monthlyFunders,upcomingDue,dueSoon,dueSoonAmount,activity:activityRes.data||[]};
 }
 
 async function refresh(force=false){
@@ -181,18 +192,25 @@ function render(data){
   renderKpis(data);renderPortfolio(data);renderRecovery(data);renderMonthly(data);renderPriority(data);renderOperations();renderActivity(data);
   const stamp=qs("homeDashboard")?.querySelector(".ll-home-updated span");if(stamp)stamp.textContent="Actualizado ahora";
 }
+function kpiChangeMarkup(kind,value,label){
+  const symbol=kind==="good"?"↑":kind==="bad"?"↓":"•";
+  return `<div class="ll-home-kpi-change ${kind}"><span>${symbol}</span><b>${value}</b><em>${label}</em></div>`;
+}
 function renderKpis(data){
   const host=qs("homeKpis");if(!host)return;
-  const overduePct=data.activeCapital?Math.round((data.overdueTotal/data.activeCapital)*100):0;
-  const change=data.previousPaid?Math.round(((data.monthPaid-data.previousPaid)/Math.abs(data.previousPaid))*100):null;
-  const changeText=change===null?(data.monthPaid?"Nuevo vs. mes anterior":"Sin cambio vs. mes anterior"):`${change>=0?"↑":"↓"} ${Math.abs(change)}% vs mes anterior`;
+  const overduePct=data.activeCapital?(data.overdueTotal/data.activeCapital)*100:0;
+  const paymentChange=data.previousPaid?((data.monthPaid-data.previousPaid)/Math.abs(data.previousPaid))*100:null;
+  const capitalTone=data.capitalChangePct>0.0001?"good":data.capitalChangePct<-0.0001?"bad":"neutral";
+  const capitalValue=pct1(data.capitalChangePct);
+  const paymentTone=paymentChange===null?(data.monthPaid>0?"good":"neutral"):(paymentChange>0?"good":paymentChange<0?"bad":"neutral");
+  const paymentValue=paymentChange===null?(data.monthPaid>0?"Nuevo":"0.0%"):pct1(paymentChange);
   const cards=[
-    ["lime","wallet","Capital activo",money(data.activeCapital),"Total en cartera"],
-    ["coral","alert","Atrasado total",money(data.overdueTotal),`${overduePct}% de la cartera`],
-    ["purple","dollar","Pagos del mes",money(data.monthPaid),changeText],
-    ["lime","calendar","Próximas cuotas",money(data.dueSoonAmount),`${data.dueSoon.length} vencen pronto`]
+    {tone:"lime",icon:"wallet",label:"Capital activo",value:money(data.activeCapital),sub:"Total en cartera",change:kpiChangeMarkup(capitalTone,capitalValue,"vs. inicio de mes")},
+    {tone:"coral",icon:"alert",label:"Atrasado total",value:money(data.overdueTotal),sub:`${data.overdueAccounts.length} clientes atrasados`,change:kpiChangeMarkup("neutral",pct1(overduePct),"del capital activo")},
+    {tone:"purple",icon:"dollar",label:"Pagos del mes",value:money(data.monthPaid),sub:`${data.monthPayments.length} ${data.monthPayments.length===1?"pago registrado":"pagos registrados"}`,change:kpiChangeMarkup(paymentTone,paymentValue,"vs. mes anterior")},
+    {tone:"lime",icon:"calendar",label:"Próximas cuotas",value:money(data.dueSoonAmount),sub:"Monto a cobrar",change:kpiChangeMarkup("neutral",String(data.dueSoon.length),`vencen en ${DUE_SOON_DAYS} días`)}
   ];
-  host.innerHTML=cards.map(([tone,icon,label,value,sub])=>`<article class="ll-home-kpi ${tone}"><span class="ll-home-kpi-icon">${svg(icon,21)}</span><div><small>${label}</small><strong>${value}</strong><p>${sub}</p></div></article>`).join("");
+  host.innerHTML=cards.map(card=>`<article class="ll-home-kpi ${card.tone}"><div class="ll-home-kpi-main"><span class="ll-home-kpi-icon">${svg(card.icon,22)}</span><div class="ll-home-kpi-copy"><small>${card.label}</small><strong>${card.value}</strong><p>${card.sub}</p></div></div>${card.change}</article>`).join("");
 }
 function renderPortfolio(data){
   const host=qs("homePortfolioChart");if(!host)return;
