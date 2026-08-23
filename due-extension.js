@@ -8,7 +8,7 @@ import './payment-management.js?v=4';
 import './activity-log.js?v=2';
 import './followups.js?v=1';
 import './loan-health.js?v=1';
-import './dashboard-command.js?v=1';
+import './home-dashboard.js?v=1';
 import './role-security.js?v=1';
 import './system-check.js?v=1';
 import './language-toggle.js?v=3';
@@ -25,4 +25,4 @@ if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=2
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
 
-console.log('safe module loader active — modern clients and single client profile controller');
+console.log('safe module loader active — modern home, payments, clients and single client profile controller');
