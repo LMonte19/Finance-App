@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",
-  "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8EA7q",
+  "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q",
   {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:"loan-ledger-auth"}}
 );
 
