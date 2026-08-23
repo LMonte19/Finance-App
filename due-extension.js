@@ -25,6 +25,15 @@ if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=2
 const homeDashboardCss=document.getElementById('homeDashboardCss');
 if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=4';
 
+let homeDashboardKpiCss=document.getElementById('homeDashboardKpiCss');
+if(!homeDashboardKpiCss){
+  homeDashboardKpiCss=document.createElement('link');
+  homeDashboardKpiCss.id='homeDashboardKpiCss';
+  homeDashboardKpiCss.rel='stylesheet';
+  document.head.appendChild(homeDashboardKpiCss);
+}
+homeDashboardKpiCss.href='./home-dashboard-kpis.css?v=1';
+
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
 
