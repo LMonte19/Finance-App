@@ -32,7 +32,7 @@ if(!homeDashboardKpiCss){
   homeDashboardKpiCss.rel='stylesheet';
   document.head.appendChild(homeDashboardKpiCss);
 }
-homeDashboardKpiCss.href='./home-dashboard-kpis.css?v=1';
+homeDashboardKpiCss.href='./home-dashboard-kpis.css?v=2';
 
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
