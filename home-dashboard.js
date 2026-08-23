@@ -2,12 +2,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",
-  "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q",
+  "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8EA7q",
   {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:"loan-ledger-auth"}}
 );
 
 function ensureStyle(){
-  const href="./home-dashboard.css?v=1";
+  const href="./home-dashboard.css?v=2";
   let link=document.getElementById("homeDashboardCss");
   if(!link){link=document.createElement("link");link.id="homeDashboardCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;
@@ -28,6 +28,7 @@ let loading=false;
 let lastLoadAt=0;
 let operationTab="dues";
 const REFRESH_MS=45000;
+const DUE_SOON_DAYS=14;
 
 const ICONS={
   wallet:'<path d="M5 6.5h12.5A2.5 2.5 0 0 1 20 9v9a2 2 0 0 1-2 2H6a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2h11"/><path d="M15 11h5v5h-5a2.5 2.5 0 0 1 0-5Z"/>',
@@ -163,7 +164,7 @@ async function fetchData(){
   const monthlyFee=sum(activeAccounts,"current_monthly_fee");
   const monthlyMgmt=sum(activeAccounts,"current_monthly_mgmt");
   const monthlyFunders=sum(activeAccounts,"current_monthly_funders");
-  const dueSoon=upcomingDue.filter(row=>row.due_date<=addDays(todayIso(),7));
+  const dueSoon=upcomingDue.filter(row=>row.due_date<=addDays(todayIso(),DUE_SOON_DAYS));
   const dueSoonAmount=sum(dueSoon,"amount_due");
   return {accounts,activeAccounts,currentAccounts,overdueAccounts,closedAccounts,activeCapital,overdueTotal,payments,activePayments,monthPayments,monthPaid,previousPaid,monthlyFee,monthlyMgmt,monthlyFunders,upcomingDue,dueSoon,dueSoonAmount,activity:activityRes.data||[]};
 }
@@ -205,11 +206,15 @@ function renderRecovery(data){
   const days=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
   const byDay=Array.from({length:days},()=>0);
   data.monthPayments.forEach(p=>{const day=Number(String(p.paid_on||"").slice(8,10));if(day>=1&&day<=days)byDay[day-1]+=Number(p.amount||0);});
-  let running=0;const cumulative=byDay.map(v=>(running+=v));const max=Math.max(1,...cumulative);const W=520,H=155,padX=20,padY=15,plotW=W-padX*2,plotH=H-padY*2;
-  const points=cumulative.map((v,i)=>`${padX+(i/(Math.max(1,days-1)))*plotW},${H-padY-(v/max)*plotH}`).join(" ");
-  const bars=byDay.map((v,i)=>{const x=padX+(i/days)*plotW+2,w=Math.max(3,plotW/days-4),h=(v/max)*plotH,y=H-padY-h;return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="2"/>`;}).join("");
+  let running=0;
+  const cumulative=byDay.map(v=>(running+=v));
+  const goal=Math.max(Number(data.monthlyFee||0),1);
+  const chartMax=Math.max(goal,...cumulative,1);
+  const W=520,H=155,padX=20,padY=15,plotW=W-padX*2,plotH=H-padY*2;
+  const points=cumulative.map((v,i)=>`${padX+(i/(Math.max(1,days-1)))*plotW},${H-padY-(v/chartMax)*plotH}`).join(" ");
+  const bars=byDay.map((v,i)=>{const x=padX+(i/days)*plotW+2,w=Math.max(3,plotW/days-4),h=(v/chartMax)*plotH,y=H-padY-h;return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="2"/>`;}).join("");
   host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Recuperación acumulada del mes"><g class="bars">${bars}</g><polyline points="${points}"/></svg><div class="ll-chart-axis"><span>1</span><span>8</span><span>15</span><span>22</span><span>${days}</span></div>`;
-  const goalHost=qs("homeRecoveryGoal");if(goalHost){const goal=Math.max(data.monthlyFee,data.monthPaid,1);const pct=Math.min(100,Math.round(data.monthPaid/goal*100));goalHost.innerHTML=`<div><span>Meta mensual: <b>${money(goal)}</b></span><strong>${pct}% alcanzado</strong></div><i><b style="width:${pct}%"></b></i>`;}
+  const goalHost=qs("homeRecoveryGoal");if(goalHost){const pct=Math.min(100,Math.round(data.monthPaid/goal*100));goalHost.innerHTML=`<div><span>Meta mensual: <b>${money(goal)}</b></span><strong>${pct}% alcanzado</strong></div><i><b style="width:${pct}%"></b></i>`;}
 }
 function renderMonthly(data){
   const host=qs("homeMonthlySummary");if(!host)return;
@@ -221,17 +226,22 @@ function renderPriority(data){
   const rows=data.overdueAccounts.slice(0,4);
   host.innerHTML=rows.length?rows.map(a=>`<button type="button" class="ll-priority-row" data-home-client="${esc(a.borrower_id)}"><i>${esc(initials(a.full_name))}</i><strong>${esc(a.full_name||"Cliente")}</strong><em>ATRASADO</em><span>${Number(a.overdue_count||0)} cuotas&nbsp;&nbsp;·&nbsp;&nbsp;${Number(a.max_days_late||0)} días tarde</span><b>${money(a.overdue_amount)}</b>${svg("chevron",14)}</button>`).join(""):`<div class="ll-home-empty">No hay cuentas atrasadas.</div>`;
 }
+function snapshotLimit(){
+  const priorityCount=dataCache?.overdueAccounts?.length||0;
+  return Math.max(3,Math.min(4,priorityCount||4));
+}
 function renderOperations(){
   if(!dataCache)return;
   document.querySelectorAll("[data-operation-tab]").forEach(btn=>btn.classList.toggle("active",btn.dataset.operationTab===operationTab));
   const host=qs("homeOperationsBody");if(!host)return;
+  const limit=snapshotLimit();
   if(operationTab==="payments"){
-    const rows=dataCache.activePayments.slice(0,5);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Detalle",""])+rows.map(p=>`<button class="ll-operation-row payment" type="button" data-home-payment="${esc(p.id)}"><strong>${esc(p.borrower_name||"Cliente")}</strong><b>${money(p.amount)}</b><span>${fmtDate(p.paid_on)}</span><small>Cuota ${money(p.applied_interest)} · Capital ${money(p.applied_principal)}</small>${svg("chevron",13)}</button>`).join("");return;
+    const rows=dataCache.activePayments.slice(0,limit);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Detalle",""])+rows.map(p=>`<button class="ll-operation-row payment" type="button" data-home-payment="${esc(p.id)}"><strong>${esc(p.borrower_name||"Cliente")}</strong><b>${money(p.amount)}</b><span>${fmtDate(p.paid_on)}</span><small>Cuota ${money(p.applied_interest)} · Capital ${money(p.applied_principal)}</small>${svg("chevron",13)}</button>`).join("");return;
   }
   if(operationTab==="activity"){
-    const rows=meaningfulActivity(dataCache.activity).slice(0,5);host.innerHTML=rows.length?rows.map(activityCompact).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`;return;
+    const rows=meaningfulActivity(dataCache.activity).slice(0,limit);host.innerHTML=rows.length?rows.map(activityCompact).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`;return;
   }
-  const rows=dataCache.upcomingDue.slice(0,5);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Estado",""])+rows.map(d=>`<button class="ll-operation-row" type="button" data-home-client="${esc(d.borrower_id)}"><strong>${esc(d.borrower_name||d.full_name||"Cliente")}</strong><b>${money(d.amount_due)}</b><span>${fmtDate(d.due_date)}</span><em class="${d.is_virtual?"virtual":"registered"}">${d.is_virtual?"Virtual":"Registrada"}</em>${svg("chevron",13)}</button>`).join("");
+  const rows=dataCache.upcomingDue.slice(0,limit);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Estado",""])+rows.map(d=>`<button class="ll-operation-row" type="button" data-home-client="${esc(d.borrower_id)}"><strong>${esc(d.borrower_name||d.full_name||"Cliente")}</strong><b>${money(d.amount_due)}</b><span>${fmtDate(d.due_date)}</span><em class="${d.is_virtual?"virtual":"registered"}">${d.is_virtual?"Virtual":"Registrada"}</em>${svg("chevron",13)}</button>`).join("");
 }
 function tableHeader(labels){return `<div class="ll-operation-head">${labels.map(x=>`<span>${x}</span>`).join("")}</div>`;}
 
@@ -243,7 +253,21 @@ const ACTION_LABELS={
 };
 function meaningfulActivity(rows){return (rows||[]).filter(row=>ACTION_LABELS[row.action_type]||["borrowers","payments","loans","loan_funding","payment_allocations","borrower_followups","borrower_contact_log"].includes(row.entity_table));}
 function activityTitle(row){return ACTION_LABELS[row.action_type]||String(row.action_type||"Actividad").replaceAll("_"," ").toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());}
-function activitySub(row){if(row.summary)return row.summary;const name=row.borrower_name||row.entity_text||"";if(row.payment_amount!=null)return `${name}${name?" · ":""}${money(row.payment_amount)}`;return name||"Actualización del sistema";}
+function cleanActivityText(value){
+  return String(value||"")
+    .replace(/\b(PARTNER_DISTRIBUTION|PAYMENT_ALLOCATION|BORROWER_DUE_EVENTS|BORROWER_DUE_EVENTS_CHANGED|BORROWER_CONTACT_LOG|BORROWER_FOLLOWUPS|LOAN_FUNDING)\b/gi,"")
+    .replace(/\$(\d[\d,]*)\.00\b/g,"$$$1")
+    .replace(/\s{2,}/g," ")
+    .replace(/\s+([|·,])/g,"$1")
+    .trim();
+}
+function activitySub(row){
+  const summary=cleanActivityText(row.summary);
+  if(summary)return summary;
+  const name=row.borrower_name||row.entity_text||"";
+  if(row.payment_amount!=null)return `${name}${name?" · ":""}${money(row.payment_amount)}`;
+  return cleanActivityText(name)||"Actualización del sistema";
+}
 function activityIcon(row){const key=String(row.action_type||"");if(key.includes("PAYMENT"))return ["purple","edit"];if(key.includes("PARTNER"))return ["lime","users"];if(key.includes("CLIENT"))return ["blue","users"];return ["purple","edit"];}
 function activityCompact(row){const [tone,icon]=activityIcon(row);return `<div class="ll-operation-activity"><span class="${tone}">${svg(icon,16)}</span><div><strong>${esc(activityTitle(row))}</strong><small>${esc(activitySub(row))}</small></div><time>${esc(relativeDate(row.created_at))}</time></div>`;}
 function renderActivity(data){
