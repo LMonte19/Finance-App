@@ -23,7 +23,7 @@ const paymentManagementCss=document.getElementById('paymentManagementCss');
 if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=2';
 
 const homeDashboardCss=document.getElementById('homeDashboardCss');
-if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=3';
+if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=4';
 
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
