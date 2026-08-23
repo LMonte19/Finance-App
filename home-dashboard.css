@@ -108,15 +108,15 @@
 #dashboardPage .ll-home-kpi.purple .ll-home-kpi-icon{background:#f1edff;color:#704de8;}
 #dashboardPage .ll-home-kpi small{
   display:block;
-  font-size:13px;
+  font-size:11.5px;
   line-height:1.25;
   font-weight:600;
   color:#606873;
 }
 #dashboardPage .ll-home-kpi strong{
   display:block;
-  margin-top:7px;
-  font-size:28px;
+  margin-top:6px;
+  font-size:25px;
   line-height:1.02;
   letter-spacing:-.04em;
   color:#181b20;
@@ -128,7 +128,7 @@
 #dashboardPage .ll-home-kpi.purple .ll-home-kpi-copy>strong{color:#704de8;}
 #dashboardPage .ll-home-kpi.lime:nth-child(4) .ll-home-kpi-copy>strong{color:#6da91d;}
 #dashboardPage .ll-home-kpi p{
-  margin:9px 0 0;
+  margin:8px 0 0;
   color:#8a9099;
   font-size:11.5px;
   line-height:1.3;
@@ -140,7 +140,11 @@
   min-height:23px;
   display:flex;
   align-items:center;
+  justify-content:center;
   gap:7px;
+  width:100%;
+  box-sizing:border-box;
+  text-align:center;
   color:#858b95;
   font-size:11.5px;
   line-height:1.2;
@@ -680,7 +684,7 @@
 @media(max-width:1320px){
   #dashboardPage.ll-home-page{padding:24px!important;}
   #dashboardPage .ll-home-dashboard{max-width:1180px;}
-  #dashboardPage .ll-home-kpi strong{font-size:25px;}
+  #dashboardPage .ll-home-kpi strong{font-size:22px;}
   #dashboardPage .ll-home-analytics{grid-template-columns:minmax(250px,.9fr) minmax(390px,1.45fr) minmax(225px,.82fr);}
   #dashboardPage .ll-donut{width:158px;}
   #dashboardPage .ll-donut:after{inset:35px;}
@@ -719,10 +723,10 @@
   #dashboardPage .ll-home-kpi-main{grid-template-columns:38px minmax(0,1fr);gap:9px;}
   #dashboardPage .ll-home-kpi-icon{width:36px;height:36px;}
   #dashboardPage .ll-home-kpi-icon svg{width:18px;height:18px;}
-  #dashboardPage .ll-home-kpi small{font-size:10px;}
-  #dashboardPage .ll-home-kpi strong{font-size:17px;margin-top:5px;}
+  #dashboardPage .ll-home-kpi small{font-size:9px;}
+  #dashboardPage .ll-home-kpi strong{font-size:15px;margin-top:5px;}
   #dashboardPage .ll-home-kpi p{font-size:9px;margin-top:6px;}
-  #dashboardPage .ll-home-kpi-change{margin-top:11px;padding-top:9px;gap:4px;font-size:8.5px;}
+  #dashboardPage .ll-home-kpi-change{margin-top:11px;padding-top:9px;gap:4px;font-size:8.5px;justify-content:center;text-align:center;}
   #dashboardPage .ll-home-kpi-change span{width:9px;font-size:11px;}
   #dashboardPage .ll-home-kpi-change b{font-size:9px;}
   #dashboardPage .ll-home-kpi-change em{font-size:8.5px;}
