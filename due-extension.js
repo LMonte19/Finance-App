@@ -41,7 +41,7 @@ if(!homeDashboardAnalyticsCss){
   homeDashboardAnalyticsCss.rel='stylesheet';
   document.head.appendChild(homeDashboardAnalyticsCss);
 }
-homeDashboardAnalyticsCss.href='./home-dashboard-analytics.css?v=2';
+homeDashboardAnalyticsCss.href='./home-dashboard-analytics.css?v=3';
 
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
