@@ -1,4 +1,20 @@
 /* Home dashboard analytics: portfolio distribution */
+
+/* Let analytics live directly on the page surface; retain only vertical section dividers. */
+#dashboardPage .ll-home-analytics{
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+#dashboardPage .ll-home-analytics>article{
+  background:transparent!important;
+}
+#dashboardPage .ll-home-analytics>article+article{
+  border-left:1px solid #dfe3e8!important;
+}
+
 #dashboardPage .ll-home-portfolio{
   display:flex;
   flex-direction:column;
@@ -106,6 +122,7 @@
 }
 
 @media(max-width:820px){
+  #dashboardPage .ll-home-analytics>article+article{border-left:0!important;}
   #dashboardPage .ll-home-portfolio{padding-bottom:16px!important;}
   #dashboardPage .ll-portfolio-layout{flex:none;margin-top:12px;gap:16px;transform:none;}
   #dashboardPage .ll-donut-legend{width:min(100%,300px);}
