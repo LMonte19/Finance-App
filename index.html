@@ -77,6 +77,9 @@
   <div class="wrap">
     <div class="card" id="authCard">
       <div style="font-weight:800;margin-bottom:8px;">Iniciar sesión</div>
+      <input id="email" placeholder="Correo electrónico" />
+      <input id="password" type="password" placeholder="Contraseña" />
+      <button id="btnSignIn">Iniciar sesión con contraseña</button>
 
       <button id="btnGoogleSignIn" type="button" style="background:#fff;color:#202124;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px;">
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -88,13 +91,9 @@
         Continuar con Google
       </button>
 
-      <div class="muted" style="text-align:center;margin:8px 0 4px;">o</div>
-      <input id="email" placeholder="Correo electrónico" />
-      <input id="password" type="password" placeholder="Contraseña" />
-      <button id="btnSignIn">Iniciar sesión con contraseña</button>
-      <button id="btnMagicLink" type="button" style="background:#333;border:1px solid #444;">Enviar enlace de acceso por correo</button>
+      <button id="btnMagicLink" type="button" style="display:none;background:#333;border:1px solid #444;" aria-hidden="true" tabindex="-1">Enviar enlace de acceso por correo</button>
       <div class="muted" id="debug" style="margin-top:8px;"></div>
-      <div class="muted">Puedes entrar con Google, contraseña o enlace por correo. Google y el enlace no cambian tu contraseña.</div>
+      <div class="muted">Puedes entrar con tu contraseña o con Google.</div>
     </div>
 
     <div id="app" style="display:none;">
