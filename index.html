@@ -79,9 +79,11 @@
       <div style="font-weight:800;margin-bottom:8px;">Iniciar sesión</div>
       <input id="email" placeholder="Correo electrónico" />
       <input id="password" type="password" placeholder="Contraseña" />
-      <button id="btnSignIn">Iniciar sesión</button>
+      <button id="btnSignIn">Iniciar sesión con contraseña</button>
+      <div class="muted" style="text-align:center;margin:8px 0 4px;">o</div>
+      <button id="btnMagicLink" type="button" style="background:#333;border:1px solid #444;">Enviar enlace de acceso por correo</button>
       <div class="muted" id="debug" style="margin-top:8px;"></div>
-      <div class="muted">El administrador crea los usuarios en Supabase.</div>
+      <div class="muted">Puedes entrar con tu contraseña o recibir un enlace de acceso. El enlace no cambia tu contraseña.</div>
     </div>
 
     <div id="app" style="display:none;">
@@ -183,7 +185,7 @@
   </div>
 
   <script src="theme-simple.js?v=1"></script>
-  <script type="module" src="app.js?v=3"></script>
+  <script type="module" src="app.js?v=4"></script>
   <script type="module" src="due-extension.js?v=77"></script>
 </body>
 </html>
