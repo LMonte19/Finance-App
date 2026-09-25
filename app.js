@@ -211,6 +211,23 @@ function initHandlers() {
       await bootFromSession(session, "signInHandler");
     } finally { btn.disabled = false; }
   });
+  if (qs("btnGoogleSignIn")) qs("btnGoogleSignIn").onclick = safe(async () => {
+    const btn = qs("btnGoogleSignIn");
+    btn.disabled = true;
+    try {
+      setDebug("Abriendo Google...");
+      const redirectUrl = new URL(window.location.href);
+      redirectUrl.hash = "";
+      redirectUrl.search = "";
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl.toString(),
+        },
+      });
+      if (error) throw error;
+    } finally { btn.disabled = false; }
+  });
   if (qs("btnMagicLink")) qs("btnMagicLink").onclick = safe(async () => {
     const btn = qs("btnMagicLink");
     const email = qs("email")?.value.trim();
