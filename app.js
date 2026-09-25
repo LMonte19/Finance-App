@@ -211,6 +211,27 @@ function initHandlers() {
       await bootFromSession(session, "signInHandler");
     } finally { btn.disabled = false; }
   });
+  if (qs("btnMagicLink")) qs("btnMagicLink").onclick = safe(async () => {
+    const btn = qs("btnMagicLink");
+    const email = qs("email")?.value.trim();
+    if (!email) return alert("Ingresa tu correo electrónico.");
+    btn.disabled = true;
+    try {
+      setDebug("Enviando enlace de acceso...");
+      const redirectUrl = new URL(window.location.href);
+      redirectUrl.hash = "";
+      redirectUrl.search = "";
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: redirectUrl.toString(),
+        },
+      });
+      if (error) throw error;
+      setDebug("Enlace enviado. Ábrelo desde tu correo para iniciar sesión en este dispositivo.");
+    } finally { btn.disabled = false; }
+  });
   if (qs("btnSignOut")) qs("btnSignOut").onclick = safe(async () => { await supabase.auth.signOut(); });
   if (qs("btnToggleNewBorrower")) qs("btnToggleNewBorrower").onclick = () => {
     creatingNewBorrower = !creatingNewBorrower;
