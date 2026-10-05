@@ -8,7 +8,7 @@ import './payment-management.js?v=4';
 import './activity-log.js?v=2';
 import './followups.js?v=1';
 import './loan-health.js?v=1';
-import './home-dashboard.js?v=5';
+import './home-dashboard.js?v=6';
 import './role-security.js?v=1';
 import './system-check.js?v=1';
 import './language-toggle.js?v=3';
@@ -23,7 +23,7 @@ const paymentManagementCss=document.getElementById('paymentManagementCss');
 if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=2';
 
 const homeDashboardCss=document.getElementById('homeDashboardCss');
-if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=5';
+if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=6';
 
 let homeDashboardKpiCss=document.getElementById('homeDashboardKpiCss');
 if(!homeDashboardKpiCss){
@@ -41,7 +41,7 @@ if(!homeDashboardAnalyticsCss){
   homeDashboardAnalyticsCss.rel='stylesheet';
   document.head.appendChild(homeDashboardAnalyticsCss);
 }
-homeDashboardAnalyticsCss.href='./home-dashboard-analytics.css?v=4';
+homeDashboardAnalyticsCss.href='./home-dashboard-analytics.css?v=5';
 
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
