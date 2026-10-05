@@ -8,7 +8,7 @@
 #dashboardPage .ll-home-dashboard{
   width:100%;
   min-width:0;
-  max-width:1280px;
+  max-width:1440px;
   margin:0 auto;
 }
 #dashboardPage .ll-home-header{
@@ -16,7 +16,7 @@
   align-items:flex-start;
   justify-content:space-between;
   gap:28px;
-  margin:0 0 24px;
+  margin:0 0 22px;
   padding:0!important;
   border:0!important;
   background:transparent!important;
@@ -54,13 +54,13 @@
   box-shadow:0 0 0 4px rgba(120,185,31,.08);
 }
 
-#dashboardPage .ll-home-summary{margin-bottom:20px;}
-#dashboardPage .ll-home-actions + .ll-home-summary{margin-top:2px;}
+#dashboardPage .ll-home-summary{margin-bottom:28px;}
+#dashboardPage .ll-home-actions + .ll-home-summary{margin-top:0;}
 #dashboardPage .ll-home-section-title{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  margin:0 0 12px;
+  margin:0 0 14px;
 }
 #dashboardPage .ll-home-section-title h2{
   margin:0;
@@ -72,7 +72,7 @@
 #dashboardPage .ll-home-kpis{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:16px;
+  gap:18px;
   align-items:stretch;
 }
 #dashboardPage .ll-home-kpi{
@@ -181,10 +181,10 @@
 
 #dashboardPage .ll-home-analytics{
   display:grid;
-  grid-template-columns:minmax(285px,.95fr) minmax(455px,1.55fr) minmax(255px,.82fr);
+  grid-template-columns:minmax(305px,.95fr) minmax(500px,1.55fr) minmax(270px,.82fr);
   gap:0;
-  min-height:304px;
-  margin-bottom:20px;
+  min-height:326px;
+  margin-bottom:30px;
   background:#fff;
   border:1px solid #e1e4e8;
   border-radius:17px;
@@ -193,7 +193,7 @@
 }
 #dashboardPage .ll-home-analytics>article{
   min-width:0;
-  padding:19px 25px 17px;
+  padding:22px 28px 20px;
   box-sizing:border-box;
 }
 #dashboardPage .ll-home-analytics>article+article{border-left:1px solid #e8ebef;}
@@ -201,15 +201,15 @@
 #dashboardPage .ll-home-actions h3,
 #dashboardPage .ll-home-card-head h3{
   margin:0;
-  font-size:16px;
+  font-size:17px;
   line-height:1.2;
   letter-spacing:-.015em;
   color:#262a30;
 }
 #dashboardPage .ll-analytics-title p{
-  margin:5px 0 0;
+  margin:6px 0 0;
   color:#858b95;
-  font-size:11.5px;
+  font-size:12px;
   line-height:1.35;
 }
 #dashboardPage .ll-portfolio-layout{
@@ -220,7 +220,7 @@
   margin-top:18px;
 }
 #dashboardPage .ll-donut{
-  width:176px;
+  width:184px;
   aspect-ratio:1;
   border-radius:50%;
   display:grid;
@@ -230,7 +230,7 @@
 #dashboardPage .ll-donut:after{
   content:"";
   position:absolute;
-  inset:39px;
+  inset:41px;
   border-radius:50%;
   background:#fff;
 }
@@ -242,10 +242,10 @@
   flex-direction:column;
   align-items:center;
 }
-#dashboardPage .ll-donut small{font-size:11px;color:#787e88;}
+#dashboardPage .ll-donut small{font-size:11.5px;color:#787e88;}
 #dashboardPage .ll-donut strong{
   margin-top:3px;
-  font-size:20px;
+  font-size:20.5px;
   letter-spacing:-.025em;
   color:#1e2228;
 }
@@ -267,13 +267,13 @@
 #dashboardPage .ll-home-recovery{display:flex;flex-direction:column;}
 #dashboardPage #homeRecoveryChart{
   flex:1;
-  min-height:174px;
-  margin-top:6px;
+  min-height:192px;
+  margin-top:8px;
 }
 #dashboardPage #homeRecoveryChart svg{
   display:block;
   width:100%;
-  height:172px;
+  height:190px;
   overflow:visible;
 }
 #dashboardPage #homeRecoveryChart .bars rect{fill:#bca9fa;opacity:.72;}
@@ -289,12 +289,12 @@
   justify-content:space-between;
   padding:0 18px;
   color:#8b9098;
-  font-size:10.5px;
+  font-size:10.75px;
   margin-top:-4px;
 }
 #dashboardPage #homeRecoveryGoal{
-  margin-top:8px;
-  padding:10px 15px;
+  margin-top:10px;
+  padding:11px 16px;
   border:1px solid #e8ebef;
   border-radius:12px;
   background:#fff;
@@ -323,19 +323,19 @@
 #dashboardPage #homeRecoveryGoal>i>b{display:block;height:100%;border-radius:inherit;background:#744fe9;}
 
 #dashboardPage .ll-home-monthly{display:flex;flex-direction:column;}
-#dashboardPage #homeMonthlySummary{margin-top:10px;}
+#dashboardPage #homeMonthlySummary{margin-top:12px;}
 #dashboardPage .ll-monthly-row{
   display:grid;
-  grid-template-columns:44px minmax(0,1fr);
-  gap:13px;
+  grid-template-columns:46px minmax(0,1fr);
+  gap:14px;
   align-items:center;
   padding:16px 0;
   border-bottom:1px solid #e8ebef;
 }
 #dashboardPage .ll-monthly-row:last-child{border-bottom:0;}
 #dashboardPage .ll-monthly-row>span{
-  width:42px;
-  height:42px;
+  width:44px;
+  height:44px;
   border-radius:50%;
   display:grid;
   place-items:center;
@@ -344,34 +344,34 @@
 #dashboardPage .ll-monthly-row>span.purple{background:#f1edff;color:#704de8;}
 #dashboardPage .ll-monthly-row>span.lime{background:#eef8df;color:#69a91e;}
 #dashboardPage .ll-monthly-row>span.blue{background:#eaf3ff;color:#397bd3;}
-#dashboardPage .ll-monthly-row small{display:block;color:#767d87;font-size:11px;}
+#dashboardPage .ll-monthly-row small{display:block;color:#767d87;font-size:11.5px;}
 #dashboardPage .ll-monthly-row strong{
   display:block;
   margin-top:3px;
-  font-size:19px;
+  font-size:20px;
   letter-spacing:-.02em;
   color:#202329;
 }
-#dashboardPage .ll-monthly-row p{margin:3px 0 0;color:#8a9099;font-size:10.5px;}
+#dashboardPage .ll-monthly-row p{margin:4px 0 0;color:#8a9099;font-size:11px;}
 
 #dashboardPage .ll-home-actions{
-  margin:0 0 20px;
+  margin:0 0 28px;
   padding:0;
   background:transparent;
   border:0;
   border-radius:0;
   box-shadow:none;
 }
-#dashboardPage .ll-home-actions h3{margin:0 0 11px;}
+#dashboardPage .ll-home-actions h3{margin:0 0 12px;}
 #dashboardPage .ll-home-action-grid{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:14px;
+  gap:16px;
 }
 #dashboardPage .ll-home-action-grid button{
-  height:52px!important;
+  height:56px!important;
   margin:0!important;
-  padding:0 18px!important;
+  padding:0 20px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:flex-start!important;
@@ -380,7 +380,7 @@
   border:1px solid #dde1e6!important;
   border-radius:11px!important;
   color:#30353c!important;
-  font-size:13px!important;
+  font-size:13.5px!important;
   font-weight:650!important;
   box-shadow:0 3px 10px rgba(28,31,36,.018)!important;
   transition:border-color .16s ease,background-color .16s ease,transform .12s ease!important;
@@ -405,22 +405,22 @@
 
 #dashboardPage .ll-home-middle{
   display:grid;
-  grid-template-columns:minmax(350px,38fr) minmax(590px,62fr);
-  gap:16px;
+  grid-template-columns:minmax(390px,38fr) minmax(640px,62fr);
+  gap:20px;
   align-items:stretch;
-  margin-bottom:20px;
+  margin-bottom:28px;
 }
 #dashboardPage .ll-home-priority,
 #dashboardPage .ll-home-operations{
   height:100%;
-  min-height:258px;
+  min-height:276px;
   border-radius:15px;
   overflow:hidden;
   box-shadow:0 5px 17px rgba(28,31,36,.026);
   box-sizing:border-box;
 }
 #dashboardPage .ll-home-priority{
-  padding:15px 16px 10px;
+  padding:18px 18px 12px;
   background:#fffbea;
   border:1px solid #eee2a8;
 }
@@ -434,7 +434,7 @@
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  margin-bottom:10px;
+  margin-bottom:12px;
 }
 #dashboardPage .ll-home-operations-heading{
   min-width:0;
@@ -456,9 +456,9 @@
 
 #dashboardPage .ll-priority-row{
   width:100%!important;
-  min-height:59px!important;
+  min-height:64px!important;
   margin:0!important;
-  padding:6px 3px!important;
+  padding:7px 4px!important;
   display:grid!important;
   grid-template-columns:34px minmax(0,1fr) auto 14px;
   gap:10px;
@@ -473,8 +473,8 @@
 #dashboardPage .ll-priority-row:last-child{border-bottom:0!important;}
 #dashboardPage .ll-priority-row:hover{filter:none!important;background:rgba(255,255,255,.52)!important;transform:none!important;}
 #dashboardPage .ll-priority-row>i{
-  width:30px;
-  height:30px;
+  width:32px;
+  height:32px;
   border-radius:50%;
   display:grid;
   place-items:center;
@@ -499,7 +499,7 @@
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  font-size:12.5px;
+  font-size:13px;
   color:#30343a;
 }
 #dashboardPage .ll-priority-top>em{
@@ -518,7 +518,7 @@
   display:block;
   margin-top:4px;
   color:#89898a;
-  font-size:9.5px;
+  font-size:10px;
   line-height:1.25;
   font-weight:500;
   white-space:nowrap;
@@ -527,7 +527,7 @@
 }
 #dashboardPage .ll-priority-row>b{
   color:#ec4f4f;
-  font-size:12.5px;
+  font-size:13px;
   white-space:nowrap;
   text-align:right;
 }
@@ -581,7 +581,7 @@
 }
 #dashboardPage .ll-operation-row{
   width:100%!important;
-  min-height:49px!important;
+  min-height:52px!important;
   margin:0!important;
   padding:0 3px!important;
   text-align:left;
@@ -595,7 +595,7 @@
 #dashboardPage .ll-operation-row:hover{filter:none!important;background:#fafafa!important;transform:none!important;}
 #dashboardPage .ll-operation-row strong,
 #dashboardPage .ll-operation-row b{
-  font-size:11.75px;
+  font-size:12.25px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -626,7 +626,7 @@
 }
 
 #dashboardPage .ll-home-activity{
-  margin:0;
+  margin:0 0 4px;
   padding:0;
   background:transparent;
   border:0;
@@ -643,15 +643,15 @@
   grid-template-columns:repeat(3,minmax(0,380px));
   justify-content:start;
   gap:0;
-  min-height:72px;
+  min-height:78px;
 }
 #dashboardPage .ll-activity-item{
-  min-height:72px;
+  min-height:78px;
   display:grid;
   grid-template-columns:38px minmax(0,1fr) auto;
   gap:11px;
   align-items:center;
-  padding:7px 18px;
+  padding:9px 20px;
   border-right:1px solid #dedfe2;
   box-sizing:border-box;
 }
@@ -670,7 +670,7 @@
 #dashboardPage .ll-activity-item>span.blue{background:#eaf3ff;color:#397bd3;}
 #dashboardPage .ll-activity-item strong{
   display:block;
-  font-size:11.75px;
+  font-size:12px;
   color:#30353c;
   white-space:nowrap;
   overflow:hidden;
@@ -679,7 +679,7 @@
 #dashboardPage .ll-activity-item small{
   display:block;
   margin-top:3px;
-  font-size:10px;
+  font-size:10.25px;
   color:#878d95;
   white-space:nowrap;
   overflow:hidden;
@@ -713,7 +713,7 @@
 @media(max-width:1320px){
   #dashboardPage.ll-home-page{padding:24px!important;}
   #dashboardPage #homeActivityFeed{grid-template-columns:repeat(3,minmax(0,1fr));}
-  #dashboardPage .ll-home-dashboard{max-width:1180px;}
+  #dashboardPage .ll-home-dashboard{max-width:1320px;}
   #dashboardPage .ll-home-kpi strong{font-size:22px;}
   #dashboardPage .ll-home-analytics{grid-template-columns:minmax(250px,.9fr) minmax(390px,1.45fr) minmax(225px,.82fr);}
   #dashboardPage .ll-donut{width:158px;}
