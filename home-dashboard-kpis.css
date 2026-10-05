@@ -37,7 +37,7 @@
 }
 #dashboardPage .ll-home-kpi strong{
   margin-top:5px;
-  font-size:19.55px;
+  font-size:23px;
 }
 #dashboardPage .ll-home-kpi p{
   margin-top:7px;
@@ -54,7 +54,7 @@
 }
 
 @media(max-width:1320px){
-  #dashboardPage .ll-home-kpi strong{font-size:17.85px;}
+  #dashboardPage .ll-home-kpi strong{font-size:22px;}
 }
 
 @media(max-width:640px){
