@@ -19,11 +19,11 @@
     overflow-x:hidden;
   }
   #dashboardPage .ll-home-dashboard{
-    width:90.9091%;
+    width:66.5%;
     max-width:1440px;
     margin-left:auto;
     margin-right:auto;
-    transform:scale(1.1);
+    transform:scale(1.22);
     transform-origin:top center;
   }
 }
