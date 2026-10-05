@@ -7,7 +7,7 @@ const supabase=createClient(
 );
 
 function ensureStyle(){
-  const href="./home-dashboard.css?v=6";
+  const href="./home-dashboard.css?v=7";
   let link=document.getElementById("homeDashboardCss");
   if(!link){link=document.createElement("link");link.id="homeDashboardCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;
@@ -71,6 +71,13 @@ function ensureDom(){
       <div class="ll-home-updated"><span>Actualizado ahora</span><i></i></div>
     </header>
 
+    <section class="ll-home-actions"><h3>Acciones rápidas</h3><div class="ll-home-action-grid">
+      <button type="button" data-home-action="loan" class="lime">${svg("plus",20)}<span>Nuevo desembolso</span></button>
+      <button type="button" data-home-action="payment" class="purple">${svg("card",20)}<span>Registrar pago</span></button>
+      <button type="button" data-home-action="followup" class="blue">${svg("chart",20)}<span>Seguimiento</span></button>
+      <button type="button" data-home-action="contact" class="blue">${svg("message",20)}<span>Nota de contacto</span></button>
+    </div></section>
+
     <section class="ll-home-summary" aria-label="Resumen general">
       <div class="ll-home-section-title"><h2>Resumen general</h2></div>
       <div id="homeKpis" class="ll-home-kpis">${kpiSkeleton().repeat(4)}</div>
@@ -82,16 +89,9 @@ function ensureDom(){
       <article class="ll-home-monthly"><div class="ll-analytics-title"><h3>Resumen mensual</h3></div><div id="homeMonthlySummary"></div></article>
     </section>
 
-    <section class="ll-home-actions"><h3>Acciones rápidas</h3><div class="ll-home-action-grid">
-      <button type="button" data-home-action="loan" class="lime">${svg("plus",20)}<span>Nuevo desembolso</span></button>
-      <button type="button" data-home-action="payment" class="purple">${svg("card",20)}<span>Registrar pago</span></button>
-      <button type="button" data-home-action="followup" class="blue">${svg("chart",20)}<span>Seguimiento</span></button>
-      <button type="button" data-home-action="contact" class="blue">${svg("message",20)}<span>Nota de contacto</span></button>
-    </div></section>
-
     <section class="ll-home-middle">
       <article class="ll-home-priority"><div class="ll-home-card-head"><h3>Prioridad de hoy</h3><button type="button" data-home-view="priority">Ver todo</button></div><div id="homePriorityList"></div></article>
-      <article class="ll-home-operations"><div class="ll-home-card-head"><h3>Operaciones</h3><button type="button" data-home-view="operations">Ver todo</button></div><nav class="ll-home-operation-tabs"><button type="button" data-operation-tab="dues" class="active">Próximas cuotas</button><button type="button" data-operation-tab="payments">Pagos recientes</button></nav><div id="homeOperationsBody"></div></article>
+      <article class="ll-home-operations"><div class="ll-home-card-head"><div class="ll-home-operations-heading"><h3>Operaciones</h3><nav class="ll-home-operation-tabs"><button type="button" data-operation-tab="dues" class="active">Próximas cuotas</button><button type="button" data-operation-tab="payments">Pagos recientes</button></nav></div><button type="button" data-home-view="operations">Ver todo</button></div><div id="homeOperationsBody"></div></article>
     </section>
 
     <section class="ll-home-activity"><div class="ll-home-card-head"><h3>Actividad reciente</h3><button type="button" data-home-view="activity">Ver todo</button></div><div id="homeActivityFeed"></div></section>
