@@ -264,8 +264,8 @@
 #dashboardPage .ll-donut small{font-size:13px;color:#787e88;}
 #dashboardPage .ll-donut strong{
   margin-top:3px;
-  font-size:20px;
-  letter-spacing:-.025em;
+  font-size:17px;
+  letter-spacing:-.02em;
   color:#1e2228;
 }
 #dashboardPage .ll-donut-legend{display:flex;flex-direction:column;gap:12px;}
@@ -440,8 +440,8 @@
 }
 #dashboardPage .ll-home-priority{
   padding:18px 18px 12px;
-  background:#fffbea;
-  border:1px solid #eee2a8;
+  background:#fffdf8;
+  border:1px solid #e8dfcf;
 }
 #dashboardPage .ll-home-operations{
   padding:18px 18px 12px;
@@ -485,20 +485,20 @@
   text-align:left;
   background:transparent!important;
   border:0!important;
-  border-bottom:1px solid #eee5bd!important;
+  border-bottom:1px solid #eee8de!important;
   border-radius:0!important;
   color:#353a42!important;
 }
 #dashboardPage .ll-priority-row:last-child{border-bottom:0!important;}
-#dashboardPage .ll-priority-row:hover{filter:none!important;background:rgba(255,255,255,.52)!important;transform:none!important;}
+#dashboardPage .ll-priority-row:hover{filter:none!important;background:#fffaf2!important;transform:none!important;}
 #dashboardPage .ll-priority-row>i{
   width:32px;
   height:32px;
   border-radius:50%;
   display:grid;
   place-items:center;
-  background:#f0efef;
-  color:#59616b;
+  background:#f3f0ea;
+  color:#5f6268;
   font-size:11px;
   font-style:normal;
   font-weight:800;
@@ -525,8 +525,8 @@
   flex:0 0 auto;
   padding:3px 7px;
   border-radius:999px;
-  background:#ffe9e6;
-  color:#e95652;
+  background:#fff0e7;
+  color:#d96a4a;
   font-size:10.5px;
   line-height:1.15;
   font-style:normal;
@@ -536,7 +536,7 @@
 #dashboardPage .ll-priority-copy>small{
   display:block;
   margin-top:4px;
-  color:#89898a;
+  color:#85878c;
   font-size:12.5px;
   line-height:1.35;
   font-weight:500;
@@ -545,12 +545,12 @@
   text-overflow:ellipsis;
 }
 #dashboardPage .ll-priority-row>b{
-  color:#ec4f4f;
+  color:#e55b4f;
   font-size:14.5px;
   white-space:nowrap;
   text-align:right;
 }
-#dashboardPage .ll-priority-row>svg{color:#9a9090;}
+#dashboardPage .ll-priority-row>svg{color:#aaa49b;}
 
 #dashboardPage .ll-home-operation-tabs{
   width:max-content;
