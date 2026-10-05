@@ -1,7 +1,7 @@
 /* Home dashboard KPI proportions */
 #dashboardPage .ll-home-kpi{
-  min-height:150px;
-  padding:18px 20px 14px;
+  min-height:158px;
+  padding:20px 22px 15px;
   justify-content:flex-start;
 }
 #dashboardPage .ll-home-kpi-main{
@@ -12,7 +12,7 @@
   justify-content:center;
   width:100%;
   max-width:100%;
-  min-height:66px;
+  min-height:72px;
 }
 #dashboardPage .ll-home-kpi-main::after{
   content:"";
@@ -44,7 +44,7 @@
 }
 #dashboardPage .ll-home-kpi-change{
   flex:1 1 auto;
-  min-height:34px;
+  min-height:36px;
   margin-top:14px;
   padding-top:0;
   display:flex;
