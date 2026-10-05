@@ -1,22 +1,22 @@
 /* Home dashboard KPI proportions */
 #dashboardPage .ll-home-kpi{
-  min-height:158px;
-  padding:20px 22px 15px;
+  min-height:174px;
+  padding:22px 24px 17px;
   justify-content:flex-start;
 }
 #dashboardPage .ll-home-kpi-main{
   display:grid;
-  grid-template-columns:50px max-content 50px;
-  column-gap:10px;
+  grid-template-columns:54px max-content 54px;
+  column-gap:11px;
   align-items:center;
   justify-content:center;
   width:100%;
   max-width:100%;
-  min-height:72px;
+  min-height:78px;
 }
 #dashboardPage .ll-home-kpi-main::after{
   content:"";
-  width:50px;
+  width:54px;
   height:1px;
   grid-column:3;
 }
@@ -37,15 +37,15 @@
 }
 #dashboardPage .ll-home-kpi strong{
   margin-top:5px;
-  font-size:23px;
+  font-size:25px;
 }
 #dashboardPage .ll-home-kpi p{
   margin-top:7px;
 }
 #dashboardPage .ll-home-kpi-change{
   flex:1 1 auto;
-  min-height:36px;
-  margin-top:14px;
+  min-height:40px;
+  margin-top:15px;
   padding-top:0;
   display:flex;
   align-items:center;
@@ -54,7 +54,7 @@
 }
 
 @media(max-width:1320px){
-  #dashboardPage .ll-home-kpi strong{font-size:22px;}
+  #dashboardPage .ll-home-kpi strong{font-size:24px;}
 }
 
 @media(max-width:640px){
