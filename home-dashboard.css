@@ -20,7 +20,7 @@
     overflow-x:hidden;
   }
   #dashboardPage .ll-home-dashboard{
-    width:90.9091%;
+    width:100%;
     max-width:none;
     transform:scale(1.1);
     transform-origin:top center;
