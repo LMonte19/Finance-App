@@ -11,6 +11,14 @@
   max-width:1440px;
   margin:0 auto;
 }
+
+/* Desktop visual scale: make normal 100% browser zoom match the preferred
+   ~110% dashboard density without changing mobile/tablet layouts. */
+@media (min-width:1180px){
+  #dashboardPage .ll-home-dashboard{
+    zoom:1.1;
+  }
+}
 #dashboardPage .ll-home-header{
   display:flex;
   align-items:flex-start;
