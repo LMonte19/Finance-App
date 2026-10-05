@@ -52,6 +52,15 @@ if(!homeDashboardThemeCss){
 }
 homeDashboardThemeCss.href='./home-dashboard-theme.css?v=1';
 
+let homeDashboardTypographyCss=document.getElementById('homeDashboardTypographyCss');
+if(!homeDashboardTypographyCss){
+  homeDashboardTypographyCss=document.createElement('link');
+  homeDashboardTypographyCss.id='homeDashboardTypographyCss';
+  homeDashboardTypographyCss.rel='stylesheet';
+  document.head.appendChild(homeDashboardTypographyCss);
+}
+homeDashboardTypographyCss.href='./home-dashboard-typography.css?v=1';
+
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
 if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
 
