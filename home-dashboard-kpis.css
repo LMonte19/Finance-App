@@ -37,7 +37,7 @@
 }
 #dashboardPage .ll-home-kpi strong{
   margin-top:5px;
-  font-size:23px;
+  font-size:19.55px;
 }
 #dashboardPage .ll-home-kpi p{
   margin-top:7px;
@@ -54,7 +54,7 @@
 }
 
 @media(max-width:1320px){
-  #dashboardPage .ll-home-kpi strong{font-size:21px;}
+  #dashboardPage .ll-home-kpi strong{font-size:17.85px;}
 }
 
 @media(max-width:640px){
@@ -68,7 +68,7 @@
     min-height:52px;
   }
   #dashboardPage .ll-home-kpi-main::after{width:36px;}
-  #dashboardPage .ll-home-kpi strong{font-size:14px;margin-top:4px;}
+  #dashboardPage .ll-home-kpi strong{font-size:11.9px;margin-top:4px;}
   #dashboardPage .ll-home-kpi p{margin-top:5px;}
   #dashboardPage .ll-home-kpi-change{
     min-height:28px;
