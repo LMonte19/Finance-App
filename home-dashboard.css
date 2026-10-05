@@ -1,3 +1,18 @@
+
+@media (min-width:900px){
+  body.ll-global-shell-active #dashboardPage.ll-home-page{
+    padding-left:22px!important;
+    padding-right:22px!important;
+  }
+  body.ll-global-shell-active #dashboardPage .ll-home-dashboard{
+    width:100%!important;
+    max-width:none!important;
+    margin-left:0!important;
+    margin-right:0!important;
+    transform:none!important;
+  }
+}
+
 #dashboardPage.ll-home-page{
   min-height:100vh;
   padding:30px 22px 46px!important;
@@ -8,26 +23,11 @@
 #dashboardPage .ll-home-dashboard{
   width:100%;
   min-width:0;
-  max-width:1440px;
-  margin:0 auto;
+  max-width:none;
+  margin:0;
+  transform:none;
 }
 
-/* Desktop presentation scale.
-   Lay the dashboard out at the smaller effective viewport width that Chrome
-   uses at 110%, then scale the entire result back up as one unit. */
-@media (min-width:1180px){
-  #dashboardPage.ll-home-page{
-    overflow-x:hidden;
-  }
-  #dashboardPage .ll-home-dashboard{
-    width:100%;
-    max-width:none;
-    transform:scale(1.1);
-    transform-origin:top center;
-    margin-left:auto;
-    margin-right:auto;
-  }
-}
 #dashboardPage .ll-home-header{
   display:flex;
   align-items:flex-start;
@@ -730,7 +730,6 @@
 @media(max-width:1320px){
   #dashboardPage.ll-home-page{padding:24px!important;}
   #dashboardPage #homeActivityFeed{grid-template-columns:repeat(3,minmax(0,1fr));}
-  #dashboardPage .ll-home-dashboard{max-width:none;}
   #dashboardPage .ll-home-kpi strong{font-size:22px;}
   #dashboardPage .ll-home-analytics{grid-template-columns:minmax(250px,.9fr) minmax(390px,1.45fr) minmax(225px,.82fr);}
   #dashboardPage .ll-donut{width:158px;}
