@@ -7,7 +7,7 @@ const supabase=createClient(
 );
 
 function ensureStyle(){
-  const href="./home-dashboard.css?v=5";
+  const href="./home-dashboard.css?v=6";
   let link=document.getElementById("homeDashboardCss");
   if(!link){link=document.createElement("link");link.id="homeDashboardCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;
@@ -50,7 +50,15 @@ const ICONS={
 function svg(name,size=17){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||ICONS.wallet}</svg>`;}
 
 function isHome(){return qs("dashboardPage")?.classList.contains("active-page");}
-function fmtDate(iso){if(!iso)return "—";const d=new Date(`${String(iso).slice(0,10)}T00:00:00`);if(Number.isNaN(d.getTime()))return iso;return d.toLocaleDateString("es",{day:"2-digit",month:"short",year:"numeric"}).replace(".","");}
+function fmtDate(iso){
+  if(!iso)return "—";
+  const raw=String(iso).slice(0,10);
+  const d=new Date(`${raw}T00:00:00`);
+  const year=Number(raw.slice(0,4));
+  const maxReasonableYear=new Date().getFullYear()+5;
+  if(Number.isNaN(d.getTime())||year<2000||year>maxReasonableYear)return "Revisar fecha";
+  return d.toLocaleDateString("es",{day:"2-digit",month:"short",year:"numeric"}).replace(".","");
+}
 function relativeDate(value){if(!value)return "—";const d=new Date(value),now=new Date(),diff=now-d;if(diff<60000)return "Ahora";if(diff<3600000)return `Hace ${Math.max(1,Math.floor(diff/60000))} min`;if(diff<86400000)return `Hace ${Math.max(1,Math.floor(diff/3600000))} h`;if(diff<172800000)return "Ayer";return d.toLocaleDateString("es",{day:"numeric",month:"short",year:"numeric"}).replace(".","");}
 
 function ensureDom(){
