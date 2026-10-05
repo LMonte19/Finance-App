@@ -7,7 +7,7 @@ const supabase=createClient(
 );
 
 function ensureStyle(){
-  const href="./home-dashboard.css?v=3";
+  const href="./home-dashboard.css?v=5";
   let link=document.getElementById("homeDashboardCss");
   if(!link){link=document.createElement("link");link.id="homeDashboardCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;
@@ -83,7 +83,7 @@ function ensureDom(){
 
     <section class="ll-home-middle">
       <article class="ll-home-priority"><div class="ll-home-card-head"><h3>Prioridad de hoy</h3><button type="button" data-home-view="priority">Ver todo</button></div><div id="homePriorityList"></div></article>
-      <article class="ll-home-operations"><div class="ll-home-card-head"><h3>Operaciones</h3><button type="button" data-home-view="operations">Ver todo</button></div><nav class="ll-home-operation-tabs"><button type="button" data-operation-tab="dues" class="active">Próximas cuotas</button><button type="button" data-operation-tab="payments">Pagos recientes</button><button type="button" data-operation-tab="activity">Actividad</button></nav><div id="homeOperationsBody"></div></article>
+      <article class="ll-home-operations"><div class="ll-home-card-head"><h3>Operaciones</h3><button type="button" data-home-view="operations">Ver todo</button></div><nav class="ll-home-operation-tabs"><button type="button" data-operation-tab="dues" class="active">Próximas cuotas</button><button type="button" data-operation-tab="payments">Pagos recientes</button></nav><div id="homeOperationsBody"></div></article>
     </section>
 
     <section class="ll-home-activity"><div class="ll-home-card-head"><h3>Actividad reciente</h3><button type="button" data-home-view="activity">Ver todo</button></div><div id="homeActivityFeed"></div></section>
@@ -124,7 +124,6 @@ function openRelatedView(view){
   if(view==="priority"){activatePage("loansPage");return;}
   if(view==="operations"){
     if(operationTab==="payments")goToPayments();
-    else if(operationTab==="activity")qs("menuActivity")?.click();
     else activatePage("loansPage");
   }
 }
@@ -242,7 +241,7 @@ function monthlyRow(tone,icon,label,value,sub){return `<div class="ll-monthly-ro
 function renderPriority(data){
   const host=qs("homePriorityList");if(!host)return;
   const rows=data.overdueAccounts.slice(0,4);
-  host.innerHTML=rows.length?rows.map(a=>`<button type="button" class="ll-priority-row" data-home-client="${esc(a.borrower_id)}"><i>${esc(initials(a.full_name))}</i><strong>${esc(a.full_name||"Cliente")}</strong><em>ATRASADO</em><span>${Number(a.overdue_count||0)} cuotas&nbsp;&nbsp;·&nbsp;&nbsp;${Number(a.max_days_late||0)} días tarde</span><b>${money(a.overdue_amount)}</b>${svg("chevron",14)}</button>`).join(""):`<div class="ll-home-empty">No hay cuentas atrasadas.</div>`;
+  host.innerHTML=rows.length?rows.map(a=>`<button type="button" class="ll-priority-row" data-home-client="${esc(a.borrower_id)}"><i>${esc(initials(a.full_name))}</i><span class="ll-priority-copy"><span class="ll-priority-top"><strong>${esc(a.full_name||"Cliente")}</strong><em>ATRASADO</em></span><small>${Number(a.overdue_count||0)} cuotas · ${Number(a.max_days_late||0)} días tarde</small></span><b>${money(a.overdue_amount)}</b>${svg("chevron",14)}</button>`).join(""):`<div class="ll-home-empty">No hay cuentas atrasadas.</div>`;
 }
 function snapshotLimit(){
   const priorityCount=dataCache?.overdueAccounts?.length||0;
@@ -255,9 +254,6 @@ function renderOperations(){
   const limit=snapshotLimit();
   if(operationTab==="payments"){
     const rows=dataCache.activePayments.slice(0,limit);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Detalle",""])+rows.map(p=>`<button class="ll-operation-row payment" type="button" data-home-payment="${esc(p.id)}"><strong>${esc(p.borrower_name||"Cliente")}</strong><b>${money(p.amount)}</b><span>${fmtDate(p.paid_on)}</span><small>Cuota ${money(p.applied_interest)} · Capital ${money(p.applied_principal)}</small>${svg("chevron",13)}</button>`).join("");return;
-  }
-  if(operationTab==="activity"){
-    const rows=meaningfulActivity(dataCache.activity).slice(0,limit);host.innerHTML=rows.length?rows.map(activityCompact).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`;return;
   }
   const rows=dataCache.upcomingDue.slice(0,limit);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Estado",""])+rows.map(d=>`<button class="ll-operation-row" type="button" data-home-client="${esc(d.borrower_id)}"><strong>${esc(d.borrower_name||d.full_name||"Cliente")}</strong><b>${money(d.amount_due)}</b><span>${fmtDate(d.due_date)}</span><em class="${d.is_virtual?"virtual":"registered"}">${d.is_virtual?"Virtual":"Registrada"}</em>${svg("chevron",13)}</button>`).join("");
 }
@@ -287,7 +283,6 @@ function activitySub(row){
   return cleanActivityText(name)||"Actualización del sistema";
 }
 function activityIcon(row){const key=String(row.action_type||"");if(key.includes("PAYMENT"))return ["purple","edit"];if(key.includes("PARTNER"))return ["lime","users"];if(key.includes("CLIENT"))return ["blue","users"];return ["purple","edit"];}
-function activityCompact(row){const [tone,icon]=activityIcon(row);return `<div class="ll-operation-activity"><span class="${tone}">${svg(icon,16)}</span><div><strong>${esc(activityTitle(row))}</strong><small>${esc(activitySub(row))}</small></div><time>${esc(relativeDate(row.created_at))}</time></div>`;}
 function renderActivity(data){
   const host=qs("homeActivityFeed");if(!host)return;const rows=meaningfulActivity(data.activity).slice(0,3);
   host.innerHTML=rows.length?rows.map(row=>{const [tone,icon]=activityIcon(row);return `<div class="ll-activity-item"><span class="${tone}">${svg(icon,18)}</span><div><strong>${esc(activityTitle(row))}</strong><small>${esc(activitySub(row))}</small></div><time>${esc(relativeDate(row.created_at))}</time></div>`;}).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`;
