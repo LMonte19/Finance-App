@@ -1,21 +1,7 @@
 
-@media (min-width:900px){
-  body.ll-global-shell-active #dashboardPage.ll-home-page{
-    padding-left:22px!important;
-    padding-right:22px!important;
-  }
-  body.ll-global-shell-active #dashboardPage .ll-home-dashboard{
-    width:100%!important;
-    max-width:none!important;
-    margin-left:0!important;
-    margin-right:0!important;
-    transform:none!important;
-  }
-}
-
 #dashboardPage.ll-home-page{
   min-height:100vh;
-  padding:30px 22px 46px!important;
+  padding:33px 37px 51px!important;
   box-sizing:border-box;
   background:#f7f7f5!important;
   color:#171a20!important;
@@ -23,9 +9,23 @@
 #dashboardPage .ll-home-dashboard{
   width:100%;
   min-width:0;
-  max-width:none;
-  margin:0;
+  max-width:1440px;
+  margin:0 auto;
   transform:none;
+}
+
+@media (min-width:1180px){
+  #dashboardPage.ll-home-page{
+    overflow-x:hidden;
+  }
+  #dashboardPage .ll-home-dashboard{
+    width:90.9091%;
+    max-width:1440px;
+    margin-left:auto;
+    margin-right:auto;
+    transform:scale(1.1);
+    transform-origin:top center;
+  }
 }
 
 #dashboardPage .ll-home-header{
