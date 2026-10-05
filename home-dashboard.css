@@ -182,7 +182,7 @@
   display:grid;
   grid-template-columns:minmax(285px,.95fr) minmax(455px,1.55fr) minmax(255px,.82fr);
   gap:0;
-  min-height:338px;
+  min-height:304px;
   margin-bottom:20px;
   background:#fff;
   border:1px solid #e1e4e8;
@@ -192,7 +192,7 @@
 }
 #dashboardPage .ll-home-analytics>article{
   min-width:0;
-  padding:23px 25px 21px;
+  padding:19px 25px 17px;
   box-sizing:border-box;
 }
 #dashboardPage .ll-home-analytics>article+article{border-left:1px solid #e8ebef;}
@@ -266,13 +266,13 @@
 #dashboardPage .ll-home-recovery{display:flex;flex-direction:column;}
 #dashboardPage #homeRecoveryChart{
   flex:1;
-  min-height:215px;
-  margin-top:8px;
+  min-height:174px;
+  margin-top:6px;
 }
 #dashboardPage #homeRecoveryChart svg{
   display:block;
   width:100%;
-  height:212px;
+  height:172px;
   overflow:visible;
 }
 #dashboardPage #homeRecoveryChart .bars rect{fill:#bca9fa;opacity:.72;}
@@ -292,8 +292,8 @@
   margin-top:-4px;
 }
 #dashboardPage #homeRecoveryGoal{
-  margin-top:11px;
-  padding:12px 15px;
+  margin-top:8px;
+  padding:10px 15px;
   border:1px solid #e8ebef;
   border-radius:12px;
   background:#fff;
@@ -417,8 +417,8 @@
 }
 #dashboardPage .ll-home-priority{
   padding:15px 16px 10px;
-  background:#fffaf8;
-  border:1px solid #f0e1dc;
+  background:#fffdfb;
+  border:1px solid #ebe6e3;
 }
 #dashboardPage .ll-home-operations{
   padding:15px 16px 10px;
@@ -456,7 +456,7 @@
   text-align:left;
   background:transparent!important;
   border:0!important;
-  border-bottom:1px solid #efe4e0!important;
+  border-bottom:1px solid #ece8e5!important;
   border-radius:0!important;
   color:#353a42!important;
 }
@@ -507,7 +507,7 @@
 #dashboardPage .ll-priority-copy>small{
   display:block;
   margin-top:4px;
-  color:#8a8585;
+  color:#89898a;
   font-size:9.5px;
   line-height:1.25;
   font-weight:500;
@@ -566,12 +566,12 @@
   min-height:31px;
   padding:0 3px;
   color:#858b94;
-  font-size:9.5px;
+  font-size:10px;
   border-bottom:1px solid #e9ecef;
 }
 #dashboardPage .ll-operation-row{
   width:100%!important;
-  min-height:43px!important;
+  min-height:49px!important;
   margin:0!important;
   padding:0 3px!important;
   text-align:left;
@@ -585,7 +585,7 @@
 #dashboardPage .ll-operation-row:hover{filter:none!important;background:#fafafa!important;transform:none!important;}
 #dashboardPage .ll-operation-row strong,
 #dashboardPage .ll-operation-row b{
-  font-size:11px;
+  font-size:11.75px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -593,7 +593,7 @@
 #dashboardPage .ll-operation-row b{font-weight:700;color:#31353c;}
 #dashboardPage .ll-operation-row span,
 #dashboardPage .ll-operation-row small{
-  font-size:10px;
+  font-size:10.5px;
   color:#6f7680;
   white-space:nowrap;
   overflow:hidden;
@@ -630,25 +630,26 @@
 }
 #dashboardPage #homeActivityFeed{
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(3,minmax(0,380px));
+  justify-content:start;
   gap:0;
-  min-height:60px;
+  min-height:72px;
 }
 #dashboardPage .ll-activity-item{
-  min-height:60px;
+  min-height:72px;
   display:grid;
-  grid-template-columns:36px minmax(0,1fr) auto;
-  gap:10px;
+  grid-template-columns:38px minmax(0,1fr) auto;
+  gap:11px;
   align-items:center;
-  padding:2px 18px;
+  padding:7px 18px;
   border-right:1px solid #dedfe2;
   box-sizing:border-box;
 }
 #dashboardPage .ll-activity-item:first-child{padding-left:0;}
 #dashboardPage .ll-activity-item:last-child{border-right:0;padding-right:0;}
 #dashboardPage .ll-activity-item>span{
-  width:32px;
-  height:32px;
+  width:34px;
+  height:34px;
   border-radius:50%;
   display:grid;
   place-items:center;
@@ -659,7 +660,7 @@
 #dashboardPage .ll-activity-item>span.blue{background:#eaf3ff;color:#397bd3;}
 #dashboardPage .ll-activity-item strong{
   display:block;
-  font-size:11px;
+  font-size:11.75px;
   color:#30353c;
   white-space:nowrap;
   overflow:hidden;
@@ -668,14 +669,14 @@
 #dashboardPage .ll-activity-item small{
   display:block;
   margin-top:3px;
-  font-size:9.25px;
+  font-size:10px;
   color:#878d95;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 #dashboardPage .ll-activity-item time{
-  font-size:9.25px;
+  font-size:9.75px;
   color:#7d838c;
   white-space:nowrap;
 }
@@ -701,6 +702,7 @@
 
 @media(max-width:1320px){
   #dashboardPage.ll-home-page{padding:24px!important;}
+  #dashboardPage #homeActivityFeed{grid-template-columns:repeat(3,minmax(0,1fr));}
   #dashboardPage .ll-home-dashboard{max-width:1180px;}
   #dashboardPage .ll-home-kpi strong{font-size:22px;}
   #dashboardPage .ll-home-analytics{grid-template-columns:minmax(250px,.9fr) minmax(390px,1.45fr) minmax(225px,.82fr);}
