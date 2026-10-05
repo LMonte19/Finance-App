@@ -15,18 +15,20 @@
 }
 
 @media (min-width:1180px){
-  #dashboardPage.ll-home-page{
-    overflow-x:hidden;
+  body.ll-global-shell-active #dashboardPage.ll-home-page{
+    overflow-x:hidden!important;
   }
-  #dashboardPage .ll-home-dashboard{
-    width:73.15%;
-    max-width:1440px;
-    margin-left:auto;
-    margin-right:auto;
-    transform:scale(1.22);
-    transform-origin:top center;
+  body.ll-global-shell-active #dashboardPage.ll-home-page .ll-home-dashboard{
+    width:73.15%!important;
+    max-width:none!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+    transform:scale(1.22)!important;
+    transform-origin:top center!important;
   }
 }
+
+
 
 #dashboardPage .ll-home-header{
   display:flex;
