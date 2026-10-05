@@ -1,6 +1,6 @@
 #dashboardPage.ll-home-page{
   min-height:100vh;
-  padding:30px 34px 46px!important;
+  padding:30px 22px 46px!important;
   box-sizing:border-box;
   background:#f7f7f5!important;
   color:#171a20!important;
@@ -21,7 +21,7 @@
   }
   #dashboardPage .ll-home-dashboard{
     width:90.9091%;
-    max-width:1309px;
+    max-width:none;
     transform:scale(1.1);
     transform-origin:top center;
     margin-left:auto;
@@ -730,7 +730,7 @@
 @media(max-width:1320px){
   #dashboardPage.ll-home-page{padding:24px!important;}
   #dashboardPage #homeActivityFeed{grid-template-columns:repeat(3,minmax(0,1fr));}
-  #dashboardPage .ll-home-dashboard{max-width:1320px;}
+  #dashboardPage .ll-home-dashboard{max-width:none;}
   #dashboardPage .ll-home-kpi strong{font-size:22px;}
   #dashboardPage .ll-home-analytics{grid-template-columns:minmax(250px,.9fr) minmax(390px,1.45fr) minmax(225px,.82fr);}
   #dashboardPage .ll-donut{width:158px;}
