@@ -12,7 +12,7 @@ const money = value => `$${moneyFormatter.format(Number(value || 0))}`;
 const dateLabel = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'}).replace('.','') : '—';
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
-const state = { filter:'ALL', search:'', sortKey:'NEXT_DUE', sortDir:'asc', data:null, loading:false, lastLoaded:0, opening:false };
+const state = { filter:'ALL', search:'', sortKey:'NEXT_DUE', sortDir:'asc', view:'list', data:null, loading:false, lastLoaded:0, opening:false };
 
 const ICONS = {
   wallet:'<path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
@@ -164,8 +164,10 @@ function recoveryCard(data,metrics){
   const pct=n=>`${Math.round(n)}%`;
   return `<article class="ld-recovery-card ld-recovery-advanced">
     <div class="ld-recovery-top"><div><div class="ld-recovery-title">Panorama de cartera</div><div class="ld-recovery-subtle">Desembolsado vs Recuperado</div></div><span class="ld-recovery-chip">Este mes⌄</span></div>
-    <div class="ld-recovery-legend-row"><span><i class="ld-dot purple"></i>Desembolsado</span><span><i class="ld-dot lime"></i>Recuperado</span></div>
-    <div class="ld-recovery-values"><strong>${money(metrics.totalDisbursed)}</strong><strong>${money(metrics.recovered)}</strong></div>
+    <div class="ld-recovery-values">
+      <div class="ld-recovery-stat"><span class="ld-recovery-stat-label"><i class="ld-dot purple"></i>Desembolsado</span><strong>${money(metrics.totalDisbursed)}</strong></div>
+      <div class="ld-recovery-stat"><span class="ld-recovery-stat-label"><i class="ld-dot lime"></i>Recuperado</span><strong>${money(metrics.recovered)}</strong></div>
+    </div>
     <div class="ld-split-bar"><span class="ld-split-disbursed" style="width:${disbursedPct}%"></span><span class="ld-split-recovered" style="width:${recoveredPct}%"></span></div>
     <div class="ld-black-section-title">Distribución de estados</div>
     <div class="ld-donut-grid"><svg class="ld-donut" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" class="ld-donut-track"></circle><circle cx="50" cy="50" r="34" class="ld-donut-segment current" stroke-dasharray="${c1} ${circumference-c1}" stroke-dashoffset="0"></circle><circle cx="50" cy="50" r="34" class="ld-donut-segment overdue" stroke-dasharray="${c2} ${circumference-c2}" stroke-dashoffset="-${c1}"></circle><circle cx="50" cy="50" r="34" class="ld-donut-segment paid" stroke-dasharray="${c3} ${circumference-c3}" stroke-dashoffset="-${c1+c2}"></circle></svg><div class="ld-status-legend"><div><span><i class="dot current"></i>Al día</span><strong>${current} (${pct(currentPct)})</strong></div><div><span><i class="dot overdue"></i>Atrasados</span><strong>${overdue} (${pct(overduePct)})</strong></div><div><span><i class="dot paid"></i>Pagados</span><strong>${paid} (${pct(paidPct)})</strong></div></div></div>
@@ -202,10 +204,11 @@ function clientRows(data){
     const status=statusInfo(row.account_status);
     const activity=data.latestByBorrower.get(row.borrower_id);
     return `<button type="button" class="ld-client-row" data-ld-borrower="${esc(row.borrower_id)}">
-      <div class="ld-client-ident"><span class="ld-avatar ${avatarClass(index)}">${esc(initials(row.full_name))}</span><span class="ld-client-identity"><span class="ld-client-name-line"><span class="ld-client-name">${esc(row.full_name)}</span><span class="ld-status ${status.className}">${status.label}</span></span></span></div>
-      <div class="ld-cell"><strong>${money(row.principal_balance)}</strong></div>
-      <div class="ld-cell"><strong>${money(row.current_cycle_fee)}</strong><small>15 y fin de mes</small></div>
-      <div class="ld-cell"><strong>${row.next_due_date?dateLabel(row.next_due_date):'—'}</strong>${row.next_due_date?`<small>${daysLabel(row.next_due_date)}</small>`:''}</div>
+      <div class="ld-client-ident"><span class="ld-avatar ${avatarClass(index)}">${esc(initials(row.full_name))}</span><span class="ld-client-identity"><span class="ld-client-name">${esc(row.full_name)}</span></span></div>
+      <div class="ld-cell ld-cell-balance"><strong>${money(row.principal_balance)}</strong></div>
+      <div class="ld-cell ld-cell-cycle"><strong>${money(row.current_cycle_fee)}</strong></div>
+      <div class="ld-cell ld-cell-due"><strong>${row.next_due_date?dateLabel(row.next_due_date):'—'}</strong>${row.next_due_date?`<small>${daysLabel(row.next_due_date)}</small>`:''}</div>
+      <div class="ld-cell-status"><span class="ld-status ${status.className}">${status.label}</span></div>
       <div class="ld-cell ld-cell-activity"><strong>${activity?activity.type==='PAYMENT'?'Pago recibido':'Desembolso':'Sin actividad'}</strong><small>${activity?dateLabel(activity.date):'—'}</small></div>
       <span class="ld-arrow">${icon('chevron')}</span>
     </button>`;
@@ -227,7 +230,7 @@ function activityHtml(data,limit=4){
 const sortLabels={NAME:'Cliente',BALANCE:'Balance',CYCLE:'Cuota',NEXT_DUE:'Próxima cuota',STATUS:'Estado',ACTIVITY:'Última actividad'};
 function sortHeader(key){
   const active=state.sortKey===key;const glyph=active?(state.sortDir==='asc'?'↑':'↓'):'↕';
-  return `<button type="button" class="ld-th ${active?'active':''}" data-sort-col="${key}" aria-label="Ordenar por ${sortLabels[key]}"><span>${sortLabels[key]}</span><span class="ld-sort-glyph">${glyph}</span></button>`;
+  return `<button type="button" class="ld-th ${active?'active':''}" data-sort-col="${key}" aria-label="Ordenar por ${sortLabels[key]}"><span class="ld-th-content"><span>${sortLabels[key]}</span>${key==='CYCLE'?'<small>15 y fin de mes</small>':''}</span><span class="ld-sort-glyph">${glyph}</span></button>`;
 }
 
 function dashboardHtml(data){
@@ -240,14 +243,20 @@ function dashboardHtml(data){
     ${metricCard('calendar','lime', 'Próximas cuotas',money(metrics.upcomingAmount),metrics.upcomingCount+' vencen en 14 días')}
     ${metricCard('users','blue', 'Clientes activos',String(metrics.active),'De '+metrics.total+' clientes')}
   </section>
-  <section class="ld-client-panel" id="ldClientPanel">
-    <div class="ld-panel-title">Clientes</div>
+  <section class="ld-client-panel ${state.view==='grid'?'grid-mode':''}" id="ldClientPanel">
+    <div class="ld-panel-heading">
+      <div class="ld-panel-title">Clientes</div>
+      <div class="ld-view-toggle" role="group" aria-label="Vista de clientes">
+        <button type="button" data-view="list" aria-label="Vista de lista" aria-pressed="${state.view==='list'}" class="${state.view==='list'?'active':''}">${icon('list')}</button>
+        <button type="button" data-view="grid" aria-label="Vista de cuadrícula" aria-pressed="${state.view==='grid'}" class="${state.view==='grid'?'active':''}">${icon('grid')}</button>
+      </div>
+    </div>
     <div class="ld-controls">
       <label class="ld-search">${icon('search')}<input id="ldSearch" placeholder="Buscar cliente..." value="${esc(state.search)}" aria-label="Buscar cliente"></label>
       <div class="ld-filter-pills" role="group" aria-label="Filtrar clientes"><button data-filter="ALL" class="${state.filter==='ALL'?'active':''}">Todos</button><button data-filter="CURRENT" class="${state.filter==='CURRENT'?'active':''}">Al día</button><button data-filter="OVERDUE" class="${state.filter==='OVERDUE'?'active':''}">Atrasados</button><button data-filter="PAID_OFF" class="${state.filter==='PAID_OFF'?'active':''}">Pagados</button></div>
       <select id="ldSort" class="ld-sort" aria-label="Ordenar clientes"><option value="NEXT_DUE" ${state.sortKey==='NEXT_DUE'?'selected':''}>Ordenar: Próxima cuota</option><option value="BALANCE" ${state.sortKey==='BALANCE'?'selected':''}>Ordenar: Balance</option><option value="CYCLE" ${state.sortKey==='CYCLE'?'selected':''}>Ordenar: Cuota</option><option value="STATUS" ${state.sortKey==='STATUS'?'selected':''}>Ordenar: Estado</option><option value="ACTIVITY" ${state.sortKey==='ACTIVITY'?'selected':''}>Ordenar: Actividad</option><option value="NAME" ${state.sortKey==='NAME'?'selected':''}>Ordenar: Nombre</option></select>
     </div>
-    <div class="ld-table-head">${sortHeader('NAME')}${sortHeader('BALANCE')}${sortHeader('CYCLE')}${sortHeader('NEXT_DUE')}${sortHeader('ACTIVITY')}<span></span></div>
+    <div class="ld-table-head">${sortHeader('NAME')}${sortHeader('BALANCE')}${sortHeader('CYCLE')}${sortHeader('NEXT_DUE')}${sortHeader('STATUS')}${sortHeader('ACTIVITY')}<span></span></div>
     <div class="ld-client-list" id="ldClientList">${clientRows(data)}</div>
   </section></main>
   <aside class="ld-dashboard-side">${recoveryCard(data,metrics)}<section class="ld-side-card"><div class="ld-side-head"><strong>Próximos vencimientos</strong><button type="button" data-go-page="paymentsPage">Ver calendario</button></div>${upcomingHtml(data)}</section></aside></div>`;
@@ -264,7 +273,7 @@ async function renderDashboard(force=false){
   finally{state.loading=false;}
 }
 
-function rerenderRows(){if(!state.data)return;const list=$('ldClientList');if(list)list.innerHTML=clientRows(state.data);wireRowClicks();updateSortUi();}
+function rerenderRows(){if(!state.data)return;const panel=$('ldClientPanel');if(panel)panel.classList.toggle('grid-mode',state.view==='grid');const list=$('ldClientList');if(list)list.innerHTML=clientRows(state.data);wireRowClicks();updateSortUi();}
 function updateSortUi(){
   document.querySelectorAll('#loansDashboardHost [data-sort-col]').forEach(button=>{const active=button.dataset.sortCol===state.sortKey;button.classList.toggle('active',active);const glyph=button.querySelector('.ld-sort-glyph');if(glyph)glyph.textContent=active?(state.sortDir==='asc'?'↑':'↓'):'↕';});
   if($('ldSort'))$('ldSort').value=state.sortKey;
@@ -279,6 +288,15 @@ function wireDashboard(){
   $('ldSort')?.addEventListener('change',event=>{state.sortKey=event.target.value;state.sortDir=defaultDirection(state.sortKey);rerenderRows();});
   document.querySelectorAll('#loansDashboardHost [data-sort-col]').forEach(button=>button.addEventListener('click',()=>{const key=button.dataset.sortCol;if(state.sortKey===key)state.sortDir=state.sortDir==='asc'?'desc':'asc';else{state.sortKey=key;state.sortDir=defaultDirection(key);}rerenderRows();}));
   document.querySelectorAll('#loansDashboardHost [data-filter]').forEach(button=>button.addEventListener('click',()=>{state.filter=button.dataset.filter;document.querySelectorAll('#loansDashboardHost [data-filter]').forEach(item=>item.classList.toggle('active',item===button));rerenderRows();}));
+  document.querySelectorAll('#loansDashboardHost [data-view]').forEach(button=>button.addEventListener('click',()=>{
+    state.view=button.dataset.view;
+    document.querySelectorAll('#loansDashboardHost [data-view]').forEach(item=>{
+      const active=item.dataset.view===state.view;
+      item.classList.toggle('active',active);
+      item.setAttribute('aria-pressed',String(active));
+    });
+    rerenderRows();
+  }));
   document.querySelectorAll('#loansDashboardHost [data-go-page]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.goPage)));
   wireRowClicks();
 }
