@@ -89,7 +89,7 @@ body[data-theme="night"] #loansPage.ld-ready{background:#f5f5f3!important;color:
 
 /* Sortable table headers. */
 .ld-table-head{padding:0 12px 12px!important;border-bottom:1px solid #e9ebef!important}
-.ld-table-head,.ld-client-row{grid-template-columns:minmax(185px,1.5fr) minmax(105px,1fr) minmax(105px,.9fr) minmax(120px,1fr) minmax(135px,1.1fr) 18px!important;gap:12px!important}
+.ld-table-head,.ld-client-row{grid-template-columns:minmax(155px,1.35fr) minmax(90px,.85fr) minmax(92px,.85fr) minmax(108px,.95fr) minmax(89px,.75fr) minmax(125px,1.1fr) 18px!important;gap:11px!important}
 .ld-th{
   width:max-content!important;
   max-width:100%!important;
@@ -164,7 +164,7 @@ body[data-theme="night"] #loansPage.ld-ready{background:#f5f5f3!important;color:
   .ld-dashboard-grid{grid-template-columns:minmax(0,1fr) 290px}
   .ld-dashboard-main .ld-metric-grid{grid-template-columns:repeat(4,minmax(130px,1fr));overflow-x:auto;padding-bottom:3px}
   .ld-controls{grid-template-columns:minmax(230px,1fr) auto minmax(185px,.65fr)!important}
-  .ld-view-toggle{display:none!important}
+  .ld-view-toggle{display:grid!important}
   .ld-filter-pills{gap:7px!important}.ld-filter-pills button{padding:10px 14px!important}
 }
 @media(max-width:1120px){
