@@ -6,13 +6,13 @@ function addStyle(id,href){
   document.head.appendChild(link);
 }
 
-addStyle('loansDashboardCss','./loans-dashboard.css?v=3');
-addStyle('loansDashboardOverridesCss','./loans-dashboard-overrides.css?v=3');
+addStyle('loansDashboardCss','./loans-dashboard.css?v=4');
+addStyle('loansDashboardOverridesCss','./loans-dashboard-overrides.css?v=4');
 addStyle('loansDashboardPolishCss','./loans-dashboard-polish.css?v=2');
 addStyle('loansDashboardFinalCss','./loans-dashboard-final.css?v=3');
 addStyle('loansDashboardCorrectionsCss','./loans-dashboard-corrections.css?v=3');
 
-import('./loans-dashboard.js?v=3')
+import('./loans-dashboard.js?v=4')
   .then(()=>import('./loans-dashboard-polish.js?v=4'))
   .then(()=>import('./loans-dashboard-period.js?v=1'))
   .then(()=>import('./loans-dashboard-corrections.js?v=3'))
