@@ -517,3 +517,102 @@
   }
 
 }
+
+
+/* Responsive loan controls and client cards, using the same data as desktop. */
+@media (max-width:899px){
+  #loansDashboardHost .ld-panel-heading{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  #loansDashboardHost .ld-panel-heading .ld-panel-title{margin-bottom:0}
+  #loansDashboardHost .ld-panel-heading .ld-view-toggle{
+    display:grid!important;
+    flex:0 0 96px;
+    margin-left:auto;
+  }
+  #loansDashboardHost .ld-controls{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:10px!important;
+    align-items:center;
+  }
+  #loansDashboardHost .ld-search{
+    flex:0 1 280px;
+    min-width:min(210px,100%);
+    max-width:100%;
+  }
+  #loansDashboardHost .ld-filter-pills{
+    flex:0 1 auto;
+  }
+  #loansDashboardHost .ld-sort{
+    flex:0 1 218px;
+    max-width:218px!important;
+    min-width:0!important;
+  }
+  #loansDashboardHost .ld-th-content{
+    display:flex;
+    align-items:flex-start;
+    flex-direction:column;
+    gap:2px;
+  }
+  #loansDashboardHost .ld-th-content small{
+    font-size:10px;
+    color:#8e96a2;
+    font-weight:500;
+  }
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-table-head{display:none!important}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-client-list{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:12px!important;
+  }
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-client-row{
+    position:relative!important;
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-template-areas:"identity identity" "balance cycle" "due status" "activity activity";
+    gap:12px!important;
+    align-items:start!important;
+    padding:17px!important;
+    border:1px solid #e6e9ee!important;
+    border-radius:16px!important;
+    min-height:210px!important;
+    margin-bottom:0!important;
+  }
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-client-ident{grid-area:identity!important;}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-balance{grid-area:balance!important;}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-cycle{grid-area:cycle!important;}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-due{grid-area:due!important;}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-status{grid-area:status!important;}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-activity{grid-area:activity!important;}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-arrow{
+    position:absolute!important;
+    right:14px!important;
+    top:15px!important;
+  }
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-balance::before,
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-cycle::before,
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-due::before,
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-status::before,
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-activity::before{
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    color:#8b929e;
+    margin-bottom:4px;
+  }
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-balance::before{content:"Balance"}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-cycle::before{content:"Cuota"}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-due::before{content:"Próxima cuota"}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-status::before{content:"Estado"}
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-activity::before{content:"Última actividad"}
+}
+@media (max-width:650px){
+  #loansDashboardHost #ldClientPanel.grid-mode .ld-client-list{
+    grid-template-columns:1fr!important;
+  }
+}
