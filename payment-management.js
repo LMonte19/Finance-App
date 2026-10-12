@@ -5,7 +5,7 @@ const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_pu
 });
 
 function ensurePaymentsStyle() {
-  const href = "./payment-management.css?v=1";
+  const href = "./payment-management.css?v=3";
   let link = document.getElementById("paymentManagementCss");
   if (!link) {
     link = document.createElement("link");

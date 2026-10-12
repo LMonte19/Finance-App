@@ -16,7 +16,7 @@
   transition:margin-right .28s cubic-bezier(.22,.72,.22,1);
 }
 #paymentsPage .ll-payments-shell.ll-drawer-open .ll-payments-main{
-  margin-right:410px;
+  margin-right:462px;
 }
 
 #paymentsPage .ll-payments-header{
@@ -34,7 +34,7 @@
 }
 #paymentsPage .ll-payments-header h1{
   margin:0;
-  font-size:30px;
+  font-size:32px;
   line-height:1.05;
   letter-spacing:-.04em;
   font-weight:800;
@@ -43,19 +43,19 @@
 #paymentsPage .ll-payments-header p{
   margin:7px 0 0;
   color:#7b818c;
-  font-size:12.5px;
+  font-size:14px;
 }
 #paymentsPage .ll-payments-primary{
   width:auto!important;
   min-width:150px;
-  min-height:40px;
+  min-height:44px;
   margin:0!important;
   padding:0 17px!important;
   border:1px solid #c7ed18!important;
   border-radius:999px!important;
   background:linear-gradient(180deg,#d9fb28,#c5ed0f)!important;
   color:#171b0d!important;
-  font-size:11.5px!important;
+  font-size:13px!important;
   font-weight:800!important;
   display:inline-flex!important;
   align-items:center!important;
@@ -73,11 +73,11 @@
 }
 #paymentsPage .ll-payment-kpi{
   min-width:0;
-  min-height:118px;
+  min-height:155px;
   box-sizing:border-box;
   padding:18px;
   display:grid;
-  grid-template-columns:40px minmax(0,1fr);
+  grid-template-columns:44px minmax(0,1fr);
   gap:12px;
   align-items:start;
   background:#fff;
@@ -86,8 +86,8 @@
   box-shadow:0 5px 18px rgba(25,27,31,.025);
 }
 #paymentsPage .ll-payment-kpi-icon{
-  width:38px;
-  height:38px;
+  width:44px;
+  height:44px;
   display:grid;
   place-items:center;
   border-radius:50%;
@@ -97,15 +97,15 @@
 #paymentsPage .ll-payment-kpi.blue .ll-payment-kpi-icon{background:#e8f5ff;color:#3c8fd7}
 #paymentsPage .ll-payment-kpi.coral .ll-payment-kpi-icon{background:#fff0ef;color:#ef5e5e}
 #paymentsPage .ll-payment-kpi>div:last-child{min-width:0;display:flex;flex-direction:column}
-#paymentsPage .ll-payment-kpi span:first-child{font-size:10.5px;color:#747b87;font-weight:550}
-#paymentsPage .ll-payment-kpi strong{font-size:20px;line-height:1.1;letter-spacing:-.035em;color:#17191e;margin-top:5px}
-#paymentsPage .ll-payment-kpi small{font-size:9.5px;color:#8c929c;margin-top:7px;padding-bottom:8px;border-bottom:1px solid #eff0f2}
+#paymentsPage .ll-payment-kpi span:first-child{font-size:13px;color:#747b87;font-weight:550}
+#paymentsPage .ll-payment-kpi strong{font-size:clamp(20px,1.55vw,24px);line-height:1.1;letter-spacing:-.035em;color:#17191e;margin-top:5px}
+#paymentsPage .ll-payment-kpi small{font-size:12px;color:#8c929c;margin-top:7px;padding-bottom:8px;border-bottom:1px solid #eff0f2}
 #paymentsPage .ll-kpi-trend{
   margin-top:8px;
   display:inline-flex;
   align-items:center;
   gap:4px;
-  font-size:8.8px!important;
+  font-size:11.5px!important;
   font-weight:650!important;
 }
 #paymentsPage .ll-kpi-trend.up{color:#55a94b}
@@ -118,7 +118,7 @@
   background:#fff;
   border:1px solid #e5e6e9;
   border-radius:18px;
-  padding:18px;
+  padding:22px;
   box-shadow:0 6px 20px rgba(25,27,31,.026);
 }
 #paymentsPage .ll-payment-history-head{
@@ -130,7 +130,7 @@
 #paymentsPage .ll-payment-history-head h2{
   margin:0;
   color:#1b1d22;
-  font-size:17px;
+  font-size:20px;
   letter-spacing:-.025em;
 }
 #paymentsPage .ll-payment-controls{
@@ -152,14 +152,14 @@
 #paymentsPage .ll-payment-status-tabs button{
   width:auto!important;
   min-width:64px;
-  height:32px;
+  height:38px;
   margin:0!important;
-  padding:0 12px!important;
+  padding:0 14px!important;
   border:0!important;
   border-radius:999px!important;
   background:transparent!important;
   color:#606672!important;
-  font-size:10.5px!important;
+  font-size:12px!important;
   font-weight:700!important;
 }
 #paymentsPage .ll-payment-status-tabs button.active{
@@ -169,14 +169,14 @@
 }
 #paymentsPage .ll-payment-controls select,
 #paymentsPage .ll-payment-search{
-  height:40px;
+  height:46px;
   margin:0!important;
   border:1px solid #e3e5e8!important;
   border-radius:999px!important;
   background:#fff!important;
   box-sizing:border-box;
   color:#424852!important;
-  font-size:10.5px!important;
+  font-size:13px!important;
 }
 #paymentsPage .ll-payment-controls select{
   padding:0 35px 0 13px!important;
@@ -185,19 +185,19 @@
   display:flex;
   align-items:center;
   gap:8px;
-  padding:0 13px;
+  padding:0 16px;
   color:#949aa4!important;
 }
 #paymentsPage .ll-payment-search input{
   flex:1;
   min-width:0;
-  height:38px;
+  height:44px;
   margin:0!important;
   padding:0!important;
   border:0!important;
   background:transparent!important;
   color:#3f454f!important;
-  font-size:10.5px!important;
+  font-size:13px!important;
   outline:0!important;
 }
 #paymentsPage .ll-payment-search input::placeholder{color:#a2a7b0}
@@ -205,22 +205,23 @@
 #paymentsPage .ll-payment-table-head,
 #paymentsPage .ll-payment-row{
   display:grid;
-  grid-template-columns:112px minmax(150px,1.2fr) 100px minmax(130px,1fr) 100px 100px 92px 24px;
+  grid-template-columns:120px minmax(160px,1.2fr) 112px minmax(140px,1fr) 112px 112px 100px 24px;
   gap:10px;
   align-items:center;
 }
 #paymentsPage .ll-payment-table-head{
-  min-height:36px;
-  padding:0 7px;
+  min-height:44px;
+  padding:0 9px;
   color:#727986;
-  font-size:9.5px;
+  font-size:12px;
   font-weight:700;
   border-bottom:1px solid #e8eaed;
 }
 #paymentsPage .ll-payment-row{
-  min-height:57px;
-  padding:0 7px;
+  min-height:75px;
+  padding:13px 9px;
   border-bottom:1px solid #eceef1;
+  box-sizing:border-box;
   cursor:pointer;
   color:#30343a;
   transition:background-color .16s ease;
@@ -229,15 +230,15 @@
 #paymentsPage .ll-payment-row:hover{background:#fafafb}
 #paymentsPage .ll-payment-row:focus-visible{outline:2px solid rgba(110,74,226,.28);outline-offset:-2px;border-radius:8px}
 #paymentsPage .ll-payment-row.is-voided{opacity:.68}
-#paymentsPage .ll-payment-date{font-size:10px;color:#505762}
-#paymentsPage .ll-payment-client{display:flex;align-items:center;gap:9px;min-width:0}
+#paymentsPage .ll-payment-date{font-size:13px;color:#505762}
+#paymentsPage .ll-payment-client{display:flex;align-items:center;gap:11px;min-width:0}
 #paymentsPage .ll-payment-client i{
-  width:26px;height:26px;min-width:26px;display:grid;place-items:center;border-radius:50%;
-  background:#f0ecff;color:#7657de;font-style:normal;font-size:9px;font-weight:800;
+  width:40px;height:40px;min-width:40px;display:grid;place-items:center;border-radius:50%;
+  background:#f0ecff;color:#7657de;font-style:normal;font-size:13px;font-weight:800;
 }
-#paymentsPage .ll-payment-client b{font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#paymentsPage .ll-payment-amount{font-size:10.5px;color:#292d33}
-#paymentsPage .ll-payment-money{font-size:10px;color:#4b515b}
+#paymentsPage .ll-payment-client b{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#paymentsPage .ll-payment-amount{font-size:13.5px;color:#292d33}
+#paymentsPage .ll-payment-money{font-size:13.5px;color:#4b515b}
 #paymentsPage .ll-payment-type,
 #paymentsPage .ll-payment-state{
   display:inline-flex;
@@ -245,11 +246,12 @@
   max-width:100%;
   align-items:center;
   justify-content:center;
-  padding:4px 7px;
+  padding:5px 9px;
   border-radius:999px;
   font-style:normal;
-  font-size:8.5px;
+  font-size:11px;
   font-weight:750;
+  line-height:1.25;
   white-space:nowrap;
 }
 #paymentsPage .ll-payment-type.installment{background:#f1edff;color:#7351df}
@@ -265,7 +267,7 @@
   display:grid;
   place-items:center;
   color:#9298a2;
-  font-size:11px;
+  font-size:14px;
 }
 #paymentsPage .ll-payment-pagination{
   display:flex;
@@ -274,17 +276,17 @@
   min-height:46px;
   padding-top:8px;
   color:#858c97;
-  font-size:9.5px;
+  font-size:12px;
   border-top:1px solid #eef0f2;
 }
 #paymentsPage .ll-payment-pagination>div{display:flex;align-items:center;gap:5px}
 #paymentsPage .ll-payment-pagination button{
-  width:28px!important;height:28px!important;margin:0!important;padding:0!important;border-radius:8px!important;
+  width:34px!important;height:34px!important;margin:0!important;padding:0!important;border-radius:8px!important;
   border:1px solid #e2e4e8!important;background:#fff!important;color:#59606a!important;font-size:16px!important;
 }
 #paymentsPage .ll-payment-pagination button:disabled{opacity:.35;cursor:default}
 #paymentsPage #llPayPage{
-  min-width:27px;height:27px;display:grid;place-items:center;border:1px solid #8164ee;border-radius:7px;color:#6e4ee2;font-size:10px;font-weight:700;
+  min-width:34px;height:34px;display:grid;place-items:center;border:1px solid #8164ee;border-radius:7px;color:#6e4ee2;font-size:13px;font-weight:700;
 }
 
 #paymentsPage .ll-payment-drawer-backdrop{
@@ -303,7 +305,7 @@
   right:14px;
   bottom:12px;
   z-index:220;
-  width:388px;
+  width:440px;
   max-width:calc(100vw - 100px);
   overflow:hidden;
   background:#fff;
@@ -333,8 +335,8 @@
   border:0!important;
   border-bottom:1px solid #1d2025!important;
 }
-#paymentsPage .ll-payment-drawer-head h2{margin:0;font-size:18px;letter-spacing:-.03em;color:#fff!important}
-#paymentsPage .ll-payment-drawer-head p{margin:5px 0 0;font-size:9.5px;color:#aeb4bd!important}
+#paymentsPage .ll-payment-drawer-head h2{margin:0;font-size:20px;letter-spacing:-.03em;color:#fff!important}
+#paymentsPage .ll-payment-drawer-head p{margin:5px 0 0;font-size:13px;line-height:1.4;color:#aeb4bd!important}
 #paymentsPage .ll-payment-drawer-head button{
   width:32px!important;height:32px!important;margin:0!important;padding:0!important;display:grid!important;place-items:center!important;
   border:0!important;border-radius:9px!important;background:transparent!important;color:#b8bec7!important;
@@ -343,15 +345,15 @@
 #paymentsPage .ll-payment-drawer-scroll{flex:1 1 auto;min-height:0;overflow:auto;padding:17px 20px 20px;scrollbar-width:thin;scrollbar-color:#d8dbe0 transparent}
 #paymentsPage .ll-payment-field{display:block;margin-bottom:15px}
 #paymentsPage .ll-payment-field>span,
-#paymentsPage .ll-payment-quick-block>span{display:block;margin:0 0 7px;font-size:9.5px;font-weight:700;color:#666e7a}
+#paymentsPage .ll-payment-quick-block>span{display:block;margin:0 0 7px;font-size:12px;font-weight:700;color:#666e7a}
 #paymentsPage .ll-payment-field>span small{font-weight:500;color:#9a9fa7}
 #paymentsPage .ll-payment-field input,
 #paymentsPage .ll-payment-field select,
 #paymentsPage .ll-payment-field textarea{
-  width:100%!important;box-sizing:border-box!important;margin:0!important;border:1px solid #e2e4e8!important;border-radius:11px!important;background:#fff!important;color:#30353c!important;font-size:10.5px!important;outline:0!important;
+  width:100%!important;box-sizing:border-box!important;margin:0!important;border:1px solid #e2e4e8!important;border-radius:11px!important;background:#fff!important;color:#30353c!important;font-size:13px!important;outline:0!important;
 }
 #paymentsPage .ll-payment-field input,
-#paymentsPage .ll-payment-field select{height:40px!important;padding:0 12px!important}
+#paymentsPage .ll-payment-field select{height:46px!important;padding:0 12px!important}
 #paymentsPage .ll-payment-field textarea{padding:11px 12px!important;resize:vertical;min-height:85px}
 #paymentsPage .ll-payment-field input:focus,
 #paymentsPage .ll-payment-field select:focus,
@@ -359,7 +361,7 @@
 #paymentsPage .ll-payment-form-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 #paymentsPage .ll-payment-money-input{position:relative}
 #paymentsPage .ll-payment-money-input input{padding-right:30px!important}
-#paymentsPage .ll-payment-money-input b{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:10px;color:#9298a1}
+#paymentsPage .ll-payment-money-input b{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;color:#9298a1}
 
 #paymentsPage .ll-payment-borrower-context{
   margin:-2px 0 16px;
@@ -369,63 +371,63 @@
   background:#fbfaff;
 }
 #paymentsPage .ll-payment-borrower-context.is-empty{border-style:dashed;background:#fafafa}
-#paymentsPage .ll-context-placeholder{min-height:58px;display:grid;place-items:center;text-align:center;color:#999fa8;font-size:9.5px}
+#paymentsPage .ll-context-placeholder{min-height:58px;display:grid;place-items:center;text-align:center;color:#999fa8;font-size:12px}
 #paymentsPage .ll-context-client{display:flex;align-items:center;gap:9px;padding-bottom:11px;border-bottom:1px solid #eeeaf9}
-#paymentsPage .ll-context-client>span{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#ede8ff;color:#7556df;font-size:9px;font-weight:800}
-#paymentsPage .ll-context-client strong{display:block;font-size:10.5px;color:#30343a}
-#paymentsPage .ll-context-client small{display:block;margin-top:2px;font-size:8.5px;color:#9399a3}
-#paymentsPage .ll-context-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding-top:11px}
-#paymentsPage .ll-context-stats>div{min-width:0;padding:0 8px;border-right:1px solid #ece8f7}
+#paymentsPage .ll-context-client>span{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#ede8ff;color:#7556df;font-size:12px;font-weight:800}
+#paymentsPage .ll-context-client strong{display:block;font-size:14px;color:#30343a}
+#paymentsPage .ll-context-client small{display:block;margin-top:2px;font-size:11px;color:#9399a3}
+#paymentsPage .ll-context-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px;padding-top:11px}
+#paymentsPage .ll-context-stats>div{min-width:0;padding:0;border-right:0}
 #paymentsPage .ll-context-stats>div:first-child{padding-left:0}
 #paymentsPage .ll-context-stats>div:last-child{border-right:0;padding-right:0}
-#paymentsPage .ll-context-stats strong{display:block;font-size:9.5px;color:#282c33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#paymentsPage .ll-context-stats small{display:block;margin-top:4px;font-size:7.5px;line-height:1.25;color:#8d939d}
+#paymentsPage .ll-context-stats strong{display:block;font-size:13.5px;color:#282c33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#paymentsPage .ll-context-stats small{display:block;margin-top:4px;font-size:11px;line-height:1.25;color:#8d939d}
 #paymentsPage .ll-context-stats .danger strong{color:#ea5555}
 
 #paymentsPage .ll-payment-quick-block{margin-bottom:16px}
 #paymentsPage .ll-payment-quick-buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
 #paymentsPage .ll-payment-quick-buttons button{
-  height:37px!important;margin:0!important;padding:0 5px!important;border:1px solid #e1e3e7!important;border-radius:10px!important;background:#fff!important;color:#454b55!important;font-size:9.5px!important;font-weight:700!important;
+  height:42px!important;margin:0!important;padding:0 5px!important;border:1px solid #e1e3e7!important;border-radius:10px!important;background:#fff!important;color:#454b55!important;font-size:12px!important;font-weight:700!important;
 }
 #paymentsPage .ll-payment-quick-buttons button.active{border-color:#cbbefa!important;background:#f7f4ff!important;color:#7252df!important}
 #paymentsPage .ll-payment-quick-buttons button:disabled{opacity:.38;cursor:default}
-#paymentsPage .ll-payment-form-status{min-height:18px;margin-top:3px;color:#777e89;font-size:9.5px}
+#paymentsPage .ll-payment-form-status{min-height:18px;margin-top:3px;color:#777e89;font-size:12px}
 #paymentsPage .ll-payment-form-status.success{color:#4f9d42}
 #paymentsPage .ll-payment-form-status.error{color:#dc5555}
 #paymentsPage .ll-payment-drawer-foot{flex:none;padding:14px 20px 18px;border-top:1px solid #eef0f2;background:#fff}
-#paymentsPage .ll-payment-submit{width:100%!important;min-height:42px!important;border-radius:10px!important}
-#paymentsPage .ll-payment-drawer-foot p{margin:12px 3px 0;display:flex;align-items:flex-start;gap:7px;color:#858b96;font-size:8.5px;line-height:1.45}
+#paymentsPage .ll-payment-submit{width:100%!important;min-height:46px!important;border-radius:10px!important}
+#paymentsPage .ll-payment-drawer-foot p{margin:12px 3px 0;display:flex;align-items:flex-start;gap:7px;color:#858b96;font-size:11px;line-height:1.45}
 
-#paymentsPage .ll-payment-detail-loading{flex:1;display:grid;place-items:center;color:#8f959f;font-size:10px}
+#paymentsPage .ll-payment-detail-loading{flex:1;display:grid;place-items:center;color:#8f959f;font-size:13px}
 #paymentsPage .ll-payment-detail-loading.error{color:#d65757;padding:20px;text-align:center}
 #paymentsPage .ll-payment-detail-scroll{padding-top:15px}
 #paymentsPage .ll-payment-detail-hero{
   padding:15px;border:1px solid #e6e3ef;border-radius:14px;background:#fbfaff;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin-bottom:13px;
 }
 #paymentsPage .ll-payment-detail-person{display:flex;align-items:center;gap:9px;min-width:0}
-#paymentsPage .ll-payment-detail-person>span{width:32px;height:32px;min-width:32px;display:grid;place-items:center;border-radius:50%;background:#ede7ff;color:#7150df;font-size:9px;font-weight:800}
-#paymentsPage .ll-payment-detail-person strong{display:block;font-size:11px;color:#292d34}
-#paymentsPage .ll-payment-detail-person small{display:block;margin-top:2px;font-size:8.5px;color:#8c929b}
-#paymentsPage .ll-payment-detail-total{font-size:18px;letter-spacing:-.035em;color:#1d2025}
+#paymentsPage .ll-payment-detail-person>span{width:32px;height:32px;min-width:32px;display:grid;place-items:center;border-radius:50%;background:#ede7ff;color:#7150df;font-size:12px;font-weight:800}
+#paymentsPage .ll-payment-detail-person strong{display:block;font-size:14px;color:#292d34}
+#paymentsPage .ll-payment-detail-person small{display:block;margin-top:2px;font-size:11px;color:#8c929b}
+#paymentsPage .ll-payment-detail-total{font-size:24px;letter-spacing:-.035em;color:#1d2025}
 #paymentsPage .ll-payment-detail-hero .ll-payment-state{grid-column:2;justify-self:end}
 #paymentsPage .ll-payment-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px}
 #paymentsPage .ll-payment-detail-grid>div{padding:12px;border:1px solid #eaebee;border-radius:11px;background:#fff}
-#paymentsPage .ll-payment-detail-grid small{display:block;font-size:8.5px;color:#8d939d}
-#paymentsPage .ll-payment-detail-grid strong{display:block;margin-top:4px;font-size:12px;color:#2a2e35}
+#paymentsPage .ll-payment-detail-grid small{display:block;font-size:11px;color:#8d939d}
+#paymentsPage .ll-payment-detail-grid strong{display:block;margin-top:4px;font-size:16px;color:#2a2e35}
 #paymentsPage .ll-payment-detail-section{padding:13px 0;border-top:1px solid #eceef1}
-#paymentsPage .ll-payment-detail-section h3{margin:0 0 9px;font-size:10.5px;color:#343941}
-#paymentsPage .ll-payment-detail-section p{margin:0;color:#717985;font-size:9.5px;line-height:1.45}
+#paymentsPage .ll-payment-detail-section h3{margin:0 0 9px;font-size:14px;color:#343941}
+#paymentsPage .ll-payment-detail-section p{margin:0;color:#717985;font-size:12px;line-height:1.45}
 #paymentsPage .ll-payment-detail-section.danger p{color:#dc5555}
 #paymentsPage .ll-detail-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f0f1f3}
 #paymentsPage .ll-detail-line:last-child{border-bottom:0}
 #paymentsPage .ll-detail-line span{min-width:0}
-#paymentsPage .ll-detail-line strong{display:block;font-size:9.5px;color:#3a3f47}
-#paymentsPage .ll-detail-line small{display:block;margin-top:2px;font-size:8px;color:#9298a2}
-#paymentsPage .ll-detail-line b{font-size:10px;color:#343940;white-space:nowrap}
+#paymentsPage .ll-detail-line strong{display:block;font-size:13px;color:#3a3f47}
+#paymentsPage .ll-detail-line small{display:block;margin-top:2px;font-size:11px;color:#9298a2}
+#paymentsPage .ll-detail-line b{font-size:13.5px;color:#343940;white-space:nowrap}
 #paymentsPage .ll-detail-empty{color:#9aa0aa!important}
 #paymentsPage .ll-detail-foot{padding-top:12px}
 #paymentsPage .ll-payment-danger-btn{
-  width:100%!important;height:40px!important;margin:0!important;padding:0!important;border:1px solid #f0c9c9!important;border-radius:10px!important;background:#fff5f4!important;color:#d84d4d!important;font-size:10.5px!important;font-weight:750!important;
+  width:100%!important;height:44px!important;margin:0!important;padding:0!important;border:1px solid #f0c9c9!important;border-radius:10px!important;background:#fff5f4!important;color:#d84d4d!important;font-size:13px!important;font-weight:750!important;
 }
 #paymentsPage .ll-payment-danger-btn:disabled{opacity:.45;cursor:default}
 
@@ -433,20 +435,20 @@
   #paymentsPage .ll-payment-controls{grid-template-columns:auto 1fr 140px 150px;}
   #paymentsPage .ll-payment-search{grid-column:2 / -1}
   #paymentsPage .ll-payment-table-head,
-  #paymentsPage .ll-payment-row{grid-template-columns:100px minmax(130px,1.2fr) 90px minmax(115px,1fr) 90px 90px 80px 22px}
+  #paymentsPage .ll-payment-row{grid-template-columns:114px minmax(150px,1.2fr) 100px minmax(132px,1fr) 100px 100px 96px 22px}
 }
 @media(max-width:1220px){
   #paymentsPage{padding:22px!important}
   #paymentsPage .ll-payment-kpis{grid-template-columns:1fr 1fr}
   #paymentsPage .ll-payments-shell.ll-drawer-open .ll-payments-main{margin-right:0}
   #paymentsPage .ll-payments-shell.ll-drawer-open .ll-payment-drawer-backdrop{opacity:1;visibility:visible;pointer-events:auto}
-  #paymentsPage .ll-payment-drawer{width:390px;max-width:calc(100vw - 28px)}
+  #paymentsPage .ll-payment-drawer{width:440px;max-width:calc(100vw - 28px)}
   #paymentsPage .ll-payment-table-head span:nth-child(5),
   #paymentsPage .ll-payment-table-head span:nth-child(6),
   #paymentsPage .ll-payment-row>:nth-child(5),
   #paymentsPage .ll-payment-row>:nth-child(6){display:none}
   #paymentsPage .ll-payment-table-head,
-  #paymentsPage .ll-payment-row{grid-template-columns:100px minmax(130px,1.2fr) 95px minmax(120px,1fr) 85px 22px}
+  #paymentsPage .ll-payment-row{grid-template-columns:104px minmax(110px,1.2fr) 96px minmax(125px,1fr) 84px 22px}
 }
 @media(max-width:780px){
   #paymentsPage{padding:16px!important}
@@ -461,7 +463,7 @@
   #paymentsPage .ll-payment-row{grid-template-columns:1fr auto;gap:5px 10px;padding:12px 4px;min-height:0}
   #paymentsPage .ll-payment-row>*{display:block!important}
   #paymentsPage .ll-payment-row .ll-payment-date{grid-column:1;color:#8a9099}
-  #paymentsPage .ll-payment-row .ll-payment-client{grid-column:1;grid-row:2}
+  #paymentsPage .ll-payment-row .ll-payment-client{display:flex!important;grid-column:1;grid-row:2}
   #paymentsPage .ll-payment-row .ll-payment-amount{grid-column:2;grid-row:2;text-align:right}
   #paymentsPage .ll-payment-row>:nth-child(4){grid-column:1;grid-row:3}
   #paymentsPage .ll-payment-row>:nth-child(5),#paymentsPage .ll-payment-row>:nth-child(6){display:none!important}
@@ -478,3 +480,10 @@
   #paymentsPage .ll-payment-drawer-backdrop,
   #paymentsPage .ll-payment-row{transition:none!important}
 }
+
+/* Keep the history readable when the larger detail panel is open. */
+@media(min-width:1221px) and (max-width:1560px){
+  #paymentsPage .ll-payments-shell.ll-drawer-open .ll-payments-main{margin-right:0}
+  #paymentsPage .ll-payments-shell.ll-drawer-open .ll-payment-drawer-backdrop{opacity:1;visibility:visible;pointer-events:auto}
+}
+

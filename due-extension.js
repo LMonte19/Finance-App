@@ -4,7 +4,7 @@ import './menu-page-fix.js?v=1';
 import './loan-view-fix.js?v=5';
 import './partners-page-fix.js?v=4';
 import './settings-validation-fix.js?v=1';
-import './payment-management.js?v=4';
+import './payment-management.js?v=5';
 import './activity-log.js?v=2';
 import './followups.js?v=1';
 import './loan-health.js?v=1';
@@ -20,7 +20,7 @@ import './clients-management.js?v=1';
 import './client-profile-controller.js?v=2';
 
 const paymentManagementCss=document.getElementById('paymentManagementCss');
-if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=2';
+if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=3';
 
 const homeDashboardCss=document.getElementById('homeDashboardCss');
 if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=20';
