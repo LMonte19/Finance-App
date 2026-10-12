@@ -282,6 +282,17 @@
   body.ll-global-shell-active #loansDashboardHost .ld-side-head button{
     font-size:11.5px!important;
   }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-legend-row,
+  body.ll-global-shell-active #loansDashboardHost .ld-status-legend,
+  body.ll-global-shell-active #loansDashboardHost .ld-status-legend strong{
+    font-size:11.5px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-values{
+    font-size:16px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-bottom small{
+    font-size:11px!important;
+  }
   body.ll-global-shell-active #loansDashboardHost .ld-due-item{
     padding:13px 0!important;
   }
@@ -299,16 +310,6 @@
   }
 
   /* Mid-width desktops: avoid squeezing filter pills or the five table columns. */
-  @media(max-width:1460px){
-    body.ll-global-shell-active #loansDashboardHost .ld-controls{
-      grid-template-columns:minmax(230px,1fr) minmax(220px,auto)!important;
-    }
-    body.ll-global-shell-active #loansDashboardHost .ld-sort{
-      grid-column:1/-1!important;
-      justify-self:end!important;
-      width:205px!important;
-    }
-  }
   @media(max-width:1120px){
     body.ll-global-shell-active #loansDashboardHost .ld-controls{
       grid-template-columns:1fr!important;
