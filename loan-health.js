@@ -1,3 +1,4 @@
+import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
@@ -90,7 +91,7 @@ function ensureLoanHealthPage() {
   const menuBtn = qs("menuLoanHealth");
   if (menuBtn && menuBtn.dataset.bound !== "true") {
     menuBtn.dataset.bound = "true";
-    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureLoanHealthPage(); openPage("loanHealthPage"); renderHealth(true); };
+    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureLoanHealthPage(); openPage("loanHealthPage"); renderHealth(false); };
   }
   bindControls();
   return page;
@@ -100,11 +101,11 @@ function bindControls() {
     const btn = qs(id);
     if (btn && btn.dataset.bound !== "true") {
       btn.dataset.bound = "true";
-      btn.onclick = () => { localStorage.setItem("loanLedger.healthFilter", value); lastHealthHtml = ""; renderHealth(true); };
+      btn.onclick = () => { localStorage.setItem("loanLedger.healthFilter", value); lastHealthHtml = ""; renderHealth(false); };
     }
   });
   if (qs("btnRefreshHealth") && qs("btnRefreshHealth").dataset.bound !== "true") { qs("btnRefreshHealth").dataset.bound = "true"; qs("btnRefreshHealth").onclick = () => renderHealth(true); }
-  if (qs("healthSearch") && qs("healthSearch").dataset.bound !== "true") { qs("healthSearch").dataset.bound = "true"; qs("healthSearch").oninput = () => renderHealth(true); }
+  if (qs("healthSearch") && qs("healthSearch").dataset.bound !== "true") { qs("healthSearch").dataset.bound = "true"; qs("healthSearch").oninput = () => renderHealth(false); }
 }
 function setFilterButtons() {
   const filter = localStorage.getItem("loanLedger.healthFilter") || "ALL";
@@ -142,7 +143,7 @@ async function renderHealth(force = false) {
   healthBusy = true;
   try {
     setFilterButtons();
-    const { data, error } = await supabase.from("loan_health_issues").select("*").order("severity", { ascending: true }).order("borrower_name", { ascending: true });
+    const { data, error } = await readPageQuery("health", () => supabase.from("loan_health_issues").select("*").order("severity", { ascending: true }).order("borrower_name", { ascending: true }), {force: force});
     if (error) throw error;
     const allRows = data || [];
     const rows = filterIssues(allRows);
@@ -153,10 +154,9 @@ async function renderHealth(force = false) {
     qs("healthCountPill").textContent = String(rows.length);
     const html = rows.length ? rows.map(renderIssue).join("") : "No hay alertas para esta vista.";
     if (force || html !== lastHealthHtml) { qs("loanHealthList").innerHTML = html; lastHealthHtml = html; }
-  } catch (error) { console.error(error); qs("loanHealthList").innerHTML = error.message || String(error); } finally { healthBusy = false; }
+  } catch (error) { if(isStalePageSession(error))return;console.error(error); qs("loanHealthList").innerHTML = error.message || String(error); } finally { healthBusy = false; finishPageLoading("loanHealthPage"); }
 }
 async function tick() { ensureLoanHealthPage(); if (isPage("loanHealthPage")) await renderHealth(); }
-const observer = new MutationObserver(() => { clearTimeout(healthTimer); healthTimer = setTimeout(tick, 200); });
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(tick, 2500);
 tick();
+fillInitialLoading("loanHealthList");
+watchPage("loanHealthPage", tick, {prefetch: () => readPageQuery("health", () => supabase.from("loan_health_issues").select("*").order("severity", { ascending: true }).order("borrower_name", { ascending: true })), reset: () => {lastHealthHtml="";const n=qs("loanHealthList");if(n)n.innerHTML=loadingRows();document.querySelectorAll("#loanHealthPage .stat-value").forEach(n=>n.textContent="—");}});

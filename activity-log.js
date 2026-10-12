@@ -1,3 +1,4 @@
+import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
@@ -159,14 +160,14 @@ function ensureActivityPage() {
   const menuBtn = qs("menuActivity");
   if (menuBtn && menuBtn.dataset.activityBound !== "true") {
     menuBtn.dataset.activityBound = "true";
-    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureActivityPage(); openPage("activityPage"); renderActivity(true); };
+    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureActivityPage(); openPage("activityPage"); renderActivity(false); };
   }
   if (qs("btnRefreshActivity") && qs("btnRefreshActivity").dataset.bound !== "true") {
     qs("btnRefreshActivity").dataset.bound = "true";
     qs("btnRefreshActivity").onclick = () => renderActivity(true);
     qs("activitySearch").oninput = () => renderActivity(false, true);
-    qs("activityFilterAction").onchange = () => renderActivity(true);
-    qs("activityFilterTable").onchange = () => renderActivity(true);
+    qs("activityFilterAction").onchange = () => renderActivity(false);
+    qs("activityFilterTable").onchange = () => renderActivity(false);
   }
   return page;
 }
@@ -228,7 +229,7 @@ async function renderActivity(force = false, localOnly = false) {
   if (!force && qs("activityList").dataset.stamp === stamp && lastActivityHtml) return;
   activityBusy = true;
   try {
-    const { data, error } = await supabase.from("activity_log_view").select("*").order("created_at", { ascending: false }).limit(200);
+    const { data, error } = await readPageQuery("activity", () => supabase.from("activity_log_view").select("*").order("created_at", { ascending: false }).limit(200), {force: force});
     if (error) throw error;
     await populateActionFilter(data || []);
     const rows = (data || []).filter(rowMatchesFilters);
@@ -236,10 +237,9 @@ async function renderActivity(force = false, localOnly = false) {
     qs("activityList").dataset.stamp = stamp;
     qs("activityCountPill").textContent = String(rows.length);
     if (force || html !== lastActivityHtml) { qs("activityList").innerHTML = html; lastActivityHtml = html; }
-  } catch (error) { console.error(error); qs("activityList").innerHTML = error.message || String(error); } finally { activityBusy = false; }
+  } catch (error) { if(isStalePageSession(error))return;console.error(error); qs("activityList").innerHTML = error.message || String(error); } finally { activityBusy = false; finishPageLoading("activityPage"); }
 }
 async function tick() { ensureStyles(); ensureActivityPage(); if (isActivityPage()) await renderActivity(); }
-const observer = new MutationObserver(() => { clearTimeout(activityTimer); activityTimer = setTimeout(tick, 200); });
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(tick, 2500);
 tick();
+fillInitialLoading("activityList");
+watchPage("activityPage", tick, {prefetch: () => readPageQuery("activity", () => supabase.from("activity_log_view").select("*").order("created_at", { ascending: false }).limit(200)), reset: () => {lastActivityHtml="";const n=qs("activityList");if(n){delete n.dataset.stamp;n.innerHTML=loadingRows();}}});

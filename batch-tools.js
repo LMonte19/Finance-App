@@ -1,3 +1,4 @@
+import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
@@ -131,11 +132,11 @@ async function refreshDueOverduePage() {
   const content = qs("dueOverduePageContent");
   if (!content) return;
 
-  const { data, error } = await supabase
+  const { data, error } = await readPageQuery("due-overdue", () => supabase
     .from("loan_due_events")
     .select("id, due_date, expected_total, paid_total, status, loans(id,status,borrowers(full_name))")
     .in("status", ["DUE", "PARTIAL"])
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true }));
 
   if (error) throw error;
 
@@ -152,7 +153,7 @@ async function refreshDueOverduePage() {
   const overdueTotal = overdue.reduce((sum, d) => sum + d.remaining, 0);
   const upcomingTotal = upcoming.reduce((sum, d) => sum + d.remaining, 0);
 
-  content.innerHTML = `
+  const html = `
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-label">Overdue Items</div><div class="stat-value">${overdue.length}</div></div>
       <div class="stat-card"><div class="stat-label">Overdue Amount</div><div class="stat-value">${money(overdueTotal)}</div></div>
@@ -170,6 +171,8 @@ async function refreshDueOverduePage() {
       ${upcoming.length ? upcoming.map((d) => compactCard(`<strong>${d.borrower}</strong> — ${money(d.remaining)}<br><span class="muted">Due ${d.due_date} | ${d.status} | Loan ${String(d.loans?.id || "").slice(0, 6)}…</span>`)).join("") : "No upcoming due dates."}
     </div>
   `;
+  if(content.dataset.lastMarkup!==html){content.innerHTML=html;content.dataset.lastMarkup=html;}
+  finishPageLoading("dueOverduePage");
 }
 
 async function injectBorrowerEdit() {
@@ -246,14 +249,15 @@ async function refreshVisibleEnhancements() {
     if (activePage("dueOverduePage")) await refreshDueOverduePage();
     if (activePage("borrowerDetailsPage")) await injectBorrowerEdit();
   } catch (error) {
-    console.error(error);
+    if(!isStalePageSession(error))console.error(error);
   }
 }
 
-const observer = new MutationObserver(() => {
-  clearTimeout(enhancementTimer);
-  enhancementTimer = setTimeout(refreshVisibleEnhancements, 150);
-});
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(refreshVisibleEnhancements, 2500);
 refreshVisibleEnhancements();
+fillInitialLoading("dueOverduePageContent");
+watchPage("dueOverduePage", refreshVisibleEnhancements, {prefetch: () => readPageQuery("due-overdue", () => supabase
+    .from("loan_due_events")
+    .select("id, due_date, expected_total, paid_total, status, loans(id,status,borrowers(full_name))")
+    .in("status", ["DUE", "PARTIAL"])
+    .order("due_date", { ascending: true })), reset: () => {const n=qs("dueOverduePageContent");if(n){delete n.dataset.lastMarkup;n.innerHTML=loadingRows();}}});
+watchPage("borrowerDetailsPage", refreshVisibleEnhancements);

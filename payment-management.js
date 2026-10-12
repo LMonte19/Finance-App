@@ -1,3 +1,4 @@
+import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
@@ -370,6 +371,7 @@ async function applyAccountPayment() {
     const { error } = await supabase.rpc("apply_borrower_payment", { p_borrower_id: borrowerId, p_paid_on: paidOn, p_amount: amount, p_payment_type: paymentType, p_notes: notes });
     if (error) throw error;
     if (status) { status.textContent = "Pago registrado correctamente."; status.classList.add("success"); }
+    invalidatePageReads();
     accountsCache = [];
     paymentsCache = [];
     await refreshData(true);
@@ -426,6 +428,7 @@ async function voidActivePayment() {
   if (status) status.textContent = "Anulando pago...";
   const { error } = await supabase.rpc("void_payment", { p_payment_id: activeDetailId, p_reason: reason });
   if (error) { if (status) { status.textContent = error.message; status.classList.add("error"); } return; }
+  invalidatePageReads();
   accountsCache = [];
   paymentsCache = [];
   await refreshData(true);

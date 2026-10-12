@@ -1,0 +1,206 @@
+/* Complete dark palette. Day-theme rules remain in the existing stylesheets. */
+body[data-theme="night"]{
+  --ui-bg:#0e1318;--ui-surface:#171d23;--ui-ink:#edf1f5;--ui-muted:#a0a9b6;--ui-line:#2d3641;
+  --ui-purple:#b19aff;--ui-purple-soft:#30263f;--ui-shadow:0 8px 24px rgba(0,0,0,.16);
+  --night-raised:#202831;--night-hover:#242c37;--night-soft:#13191f;
+  --night-green-bg:#253b26;--night-green:#a5dd94;
+  --night-red-bg:#402528;--night-red:#ffa4a0;
+  --night-amber-bg:#3a3021;--night-amber:#edca88;
+  --night-blue-bg:#203347;--night-blue:#9dcaff;
+  background:var(--ui-bg)!important;color:var(--ui-ink)!important;color-scheme:dark;
+}
+body[data-theme="day"]{color-scheme:light}
+body[data-theme="night"] #app :is(#loansPage,#borrowersPage,#paymentsPage,#borrowerAccountPage),
+body[data-theme="night"] #app .ll-ui-page{
+  background:var(--ui-bg)!important;color:var(--ui-ink)!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-metric-card,.ld-client-panel,.ld-side-card,.ll-payment-kpi,.ll-payment-history-card,
+  .ll-clients-list-card,.ll-client-add-card,.ll-client-activity-card,.ll-client-grid-card){
+  background:var(--ui-surface)!important;border-color:var(--ui-line)!important;box-shadow:var(--ui-shadow)!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-page-title,.ld-panel-title,.ld-metric-value,.ld-client-name,.ld-cell strong,.ld-item-title,
+  .ld-item-amount,.ld-side-head strong,.ll-clients-header h1,.ll-clients-card-head h2,
+  .ll-client-person strong,.ll-client-grid-card>strong,.ll-payments-header h1,.ll-payment-history-head h2,
+  .ll-payment-kpi strong,.ll-payment-client b,.ll-payment-amount,.ll-client-recent-activity strong){
+  color:var(--ui-ink)!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-page-subtitle,.ld-metric-label,.ld-metric-note,.ld-metric-change,.ld-cell small,.ld-th,
+  .ld-item-meta,.ld-item-badge,.ll-clients-header p,.ll-payments-header p,.ll-client-phone,.ll-client-notes,
+  .ll-client-last,.ll-client-grid-card>small,.ll-client-grid-card>p,.ll-client-grid-card>footer,
+  .ll-clients-table-head,.ll-clients-pagination,.ll-client-add-form label>span,
+  .ll-client-recent-activity small,.ll-client-recent-activity time,.ll-payment-date,.ll-payment-money,
+  .ll-payment-table-head,.ll-payment-pagination,.ll-payment-kpi span:first-child,.ll-payment-kpi small,
+  .ll-kpi-trend.neutral,.ll-clients-loading,.ll-clients-empty,.ll-payment-empty,.ll-payment-loading){
+  color:var(--ui-muted)!important;border-color:var(--ui-line)!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-client-row,.ld-table-head,.ld-due-item,.ld-metric-change,.ll-client-row,.ll-payment-row,
+  .ll-clients-list,.ll-payment-pagination,.ll-client-recent-activity button){
+  border-color:var(--ui-line)!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-client-row,.ll-client-row,.ll-client-recent-activity button){background:transparent!important;color:var(--ui-ink)!important}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-client-row,.ll-client-row,.ll-payment-row,.ll-client-grid-card,.ll-client-recent-activity button):hover{
+  background:var(--night-hover)!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-search input,.ld-sort,.ll-clients-search,.ll-clients-search input,#clientsSort,
+  .ll-client-add-form input,.ll-client-add-form textarea,.ll-payment-controls select,
+  .ll-payment-search,.ll-payment-search input){
+  background-color:var(--ui-surface)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) input::placeholder,
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) textarea::placeholder{color:#8c98a8!important;opacity:1}
+body[data-theme="night"] #app #loansDashboardHost .ld-sort{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23c2cad5' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-filter-pills button,.ld-action:not(.primary),.ld-view-toggle,.ld-view-toggle button,
+  .ll-clients-filters button,.ll-clients-view-toggle,.ll-clients-view-toggle button,
+  .ll-payment-status-tabs,.ll-payment-status-tabs button,.ll-clients-pagination button,
+  .ll-payment-pagination button,.ll-client-add-submit){
+  background:var(--night-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;box-shadow:none!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-view-toggle button.active,.ll-clients-view-toggle button.active,.ll-clients-filters button.active,
+  .ll-payment-status-tabs button.active){background:var(--ui-purple-soft)!important;color:#c7b6ff!important;border-color:#675282!important}
+body[data-theme="night"] #app #loansDashboardHost .ld-filter-pills button.active[data-filter="ALL"]{
+  background:var(--ui-purple-soft)!important;color:#d6c9ff!important;border-color:#675282!important;
+}
+body[data-theme="night"] #app #loansDashboardHost .ld-filter-pills button.active[data-filter="CURRENT"]{
+  background:var(--night-green-bg)!important;color:var(--night-green)!important;border-color:#405e3d!important;
+}
+body[data-theme="night"] #app #loansDashboardHost .ld-filter-pills button.active[data-filter="OVERDUE"]{
+  background:var(--night-amber-bg)!important;color:var(--night-amber)!important;border-color:#675333!important;
+}
+body[data-theme="night"] #app #loansDashboardHost .ld-filter-pills button.active[data-filter="PAID_OFF"]{
+  background:var(--night-raised)!important;color:#cad3de!important;border-color:#566271!important;
+}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-status.current,.ll-payment-state.applied,.ll-payment-type.payoff){background:var(--night-green-bg)!important;color:var(--night-green)!important}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-status.overdue,.ll-payment-state.voided){background:var(--night-red-bg)!important;color:var(--night-red)!important}
+body[data-theme="night"] #app :is(#loansDashboardHost,#borrowersPage,#paymentsPage) :is(
+  .ld-status.closed,.ld-item-badge){background:var(--night-raised)!important;color:#cad3de!important}
+body[data-theme="night"] #app #paymentsPage .ll-payment-type.installment{background:var(--ui-purple-soft)!important;color:#c7b6ff!important}
+body[data-theme="night"] #app #paymentsPage .ll-payment-type.principal{background:var(--night-blue-bg)!important;color:var(--night-blue)!important}
+body[data-theme="night"] #app #paymentsPage .ll-payment-type.mixed{background:var(--night-amber-bg)!important;color:var(--night-amber)!important}
+body[data-theme="night"] #app #borrowersPage .ll-clients-table-head{background:var(--night-soft)!important}
+body[data-theme="night"] #app #borrowersPage :is(.tone-0,.ll-client-add-icon,.ll-client-activity-icon){background:#303a1d!important;color:#cfe395!important}
+body[data-theme="night"] #app #borrowersPage .tone-1,
+body[data-theme="night"] #app #loansDashboardHost .ld-avatar{background:var(--ui-purple-soft)!important;color:#c7b6ff!important}
+body[data-theme="night"] #app #borrowersPage .tone-2{background:var(--night-red-bg)!important;color:var(--night-red)!important}
+body[data-theme="night"] #app #borrowersPage .tone-3{background:var(--night-blue-bg)!important;color:var(--night-blue)!important}
+body[data-theme="night"] #app #borrowersPage .tone-4{background:var(--night-amber-bg)!important;color:var(--night-amber)!important}
+body[data-theme="night"] #app #borrowersPage :is(.tone-5,.ll-activity-bubble){background:#213b34!important;color:#9dd8c8!important}
+body[data-theme="night"] #app #borrowersPage .ll-client-person i b,
+body[data-theme="night"] #app #borrowersPage .ll-client-grid-top i b{border-color:var(--ui-surface)!important}
+body[data-theme="night"] #app #paymentsPage .ll-payment-client i{background:var(--ui-purple-soft)!important;color:#c7b6ff!important}
+body[data-theme="night"] #app :is(#loansDashboardHost,#paymentsPage) :is(.ld-metric-icon,.ll-payment-kpi-icon){background:var(--ui-purple-soft)!important;color:#bdaaff!important}
+body[data-theme="night"] #app :is(#loansDashboardHost,#paymentsPage) :is(.coral .ld-metric-icon,.coral .ll-payment-kpi-icon){background:var(--night-red-bg)!important;color:var(--night-red)!important}
+body[data-theme="night"] #app :is(#loansDashboardHost,#paymentsPage) :is(.lime .ld-metric-icon,.lime .ll-payment-kpi-icon){background:#303a1d!important;color:#cfe395!important}
+body[data-theme="night"] #app :is(#loansDashboardHost,#paymentsPage) :is(.blue .ld-metric-icon,.blue .ll-payment-kpi-icon){background:var(--night-blue-bg)!important;color:var(--night-blue)!important}
+
+/* Panels and drawers must be dark as well as the outer page. */
+body[data-theme="night"] #app :is(#loansDrawer,#paymentDrawer){
+  background:var(--ui-surface)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;box-shadow:0 24px 60px rgba(0,0,0,.45)!important;
+}
+body[data-theme="night"] #app #loansDrawer .ld-drawer-head{background:var(--ui-surface)!important;color:var(--ui-ink)!important}
+body[data-theme="night"] #app :is(#loansDrawer,#paymentDrawer) :is(
+  .card,.compact-card,.ll-payment-borrower-context,.ll-payment-detail-hero,.ll-payment-detail-grid>div,
+  .ll-payment-drawer-foot,.ll-payment-field input,.ll-payment-field select,.ll-payment-field textarea,
+  .ll-payment-quick-buttons button,.ld-drawer-close,.ll-payment-danger-btn){
+  background:var(--night-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;
+}
+body[data-theme="night"] #app :is(#loansDrawer,#paymentDrawer) :is(input,select,textarea){background:var(--night-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important}
+body[data-theme="night"] #app :is(#loansDrawer,#paymentDrawer) :is(
+  .ll-context-client strong,.ll-context-stats strong,.ll-payment-detail-total,.ll-payment-detail-person strong,
+  .ll-payment-detail-grid strong,.ll-payment-detail-section h3,.ll-detail-line strong,.ll-detail-line b){color:var(--ui-ink)!important}
+body[data-theme="night"] #app :is(#loansDrawer,#paymentDrawer) :is(
+  .ll-payment-field>span,.ll-payment-field>span small,.ll-payment-quick-block>span,.ll-payment-drawer-foot p,
+  .ll-context-placeholder,.ll-context-client small,.ll-context-stats small,.ll-payment-detail-person small,
+  .ll-payment-detail-grid small,.ll-payment-detail-section p,.ll-detail-line small,.ll-payment-form-status){color:var(--ui-muted)!important}
+body[data-theme="night"] #app #paymentDrawer :is(.ll-payment-detail-section,.ll-detail-line,.ll-context-client,.ll-context-stats>div){border-color:var(--ui-line)!important}
+body[data-theme="night"] #app #paymentDrawer :is(.ll-context-client>span,.ll-payment-detail-person>span){background:var(--ui-purple-soft)!important;color:#c7b6ff!important}
+body[data-theme="night"] #app #paymentDrawer .ll-payment-danger-btn{background:var(--night-red-bg)!important;color:var(--night-red)!important;border-color:#604044!important}
+body[data-theme="night"] #app #paymentDrawer .ll-payment-quick-buttons button.active{background:var(--ui-purple-soft)!important;color:#c7b6ff!important;border-color:#675282!important}
+
+/* Persistent client workspace and all of its tabs. */
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-account-shell,.ll-workspace,.ll-controller-first-load){background:var(--ui-bg)!important;color:var(--ui-ink)!important}
+body[data-theme="night"] #app #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed{background:linear-gradient(90deg,#080b0e 0 54px,var(--ui-bg) 54px)!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(
+  .ll-profile-card,.ll-card,.ll-record-row,.ll-summary-stat-grid>div,.ll-cycle-date,.ll-account-facts,
+  .ll-controller-first-load>main,.ll-controller-loading-badge,.ll-controller-first-load-badge,.ll-controller-load-error){
+  background:var(--ui-surface)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;box-shadow:none!important;
+}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-client-title,.ll-card-title,.ll-record-title,
+  .ll-record-date strong,.ll-activity-list strong,.ll-account-facts strong,.ll-next-action>strong,
+  .ll-summary-stat-grid strong,.ll-cycle-calendar-head strong,.ll-cycle-detail strong){color:var(--ui-ink)!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-client-meta,.ll-client-meta b,.ll-record-meta,
+  .ll-record-note,.ll-record-date small,.ll-activity-list small,.ll-activity-list p,.ll-next-action p,
+  .ll-card-note,.ll-form-status,.ll-summary-quick-pay p,.ll-profile-form label,.ll-account-facts>div,
+  .ll-summary-stat-grid span,.ll-summary-stat-grid small,.ll-cycle-calendar-head small,.ll-cycle-calendar-nav,
+  .ll-cycle-detail small,.ll-cycle-date span,.ll-cycle-date small){color:var(--ui-muted)!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-card-head,.ll-account-facts>div,.ll-record-date,
+  .ll-tabs,.ll-tab,.ll-activity-list button,.ll-funding-row,.ll-summary-stat-grid>div){border-color:var(--ui-line)!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-card-head,.ll-activity-list button){background:transparent!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-profile-form input,.ll-profile-form select,
+  .ll-profile-form textarea,.ll-summary-quick-pay input,.ll-soft-btn,.ll-inline-action,
+  .ll-summary-quick-amounts button,.ll-quick-profile-amounts button,.ll-movement-filter,.ll-cycle-calendar-nav button){
+  background:var(--night-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important;
+}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-tab.active,.ll-card-link){color:#c7b6ff!important;border-color:#b19aff!important}
+body[data-theme="night"] #app #borrowerAccountContent .ll-tab:not(.active){color:var(--ui-muted)!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-cycle-date.selected,.ll-purple-btn,.ll-movement-filter.active,
+  .ll-summary-quick-amounts button.active,.ll-cycle-detail,.ll-next-action){background:var(--ui-purple-soft)!important;color:#dacfff!important;border-color:#675282!important}
+body[data-theme="night"] #app #borrowerAccountContent .ll-cycle-date.selected :is(span,strong,small){color:#e5ddff!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-elegant-metric-icon,.ll-activity-dot){background:var(--ui-purple-soft)!important;color:#bdaaff!important}
+body[data-theme="night"] #app #borrowerAccountContent .ll-summary-stat-grid>div::before{background:var(--ui-purple-soft)!important;color:#bdaaff!important}
+body[data-theme="night"] #app #borrowerAccountContent .ll-status-pill{background:var(--night-raised)!important;color:#cad3de!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-status-pill.current,.ll-status-pill.done){background:var(--night-green-bg)!important;color:var(--night-green)!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-status-pill.overdue,.ll-record-danger,.ll-danger-action){background:var(--night-red-bg)!important;color:var(--night-red)!important}
+body[data-theme="night"] #app #borrowerAccountContent :is(.ll-mini-pill,.ll-status-pill.closed){background:var(--night-raised)!important;color:#cad3de!important}
+body[data-theme="night"] #app #borrowerAccountContent .ll-record-row:hover,
+body[data-theme="night"] #app #borrowerAccountContent .ll-activity-list button:hover{background:var(--night-hover)!important}
+
+/* Older tools use shared tokens, with proper state colors on the dark surface. */
+body[data-theme="night"] #app .ll-ui-page button:hover{background:var(--night-hover)!important;border-color:#6b5689!important}
+body[data-theme="night"] #app .ll-ui-page .ll-ui-filter-button[aria-pressed=true]{background:var(--ui-purple-soft)!important;color:#dacfff!important;border-color:#675282!important}
+body[data-theme="night"] #app .ll-ui-page :is(.pill,.activity-chip){background:var(--ui-purple-soft)!important;color:#c7b6ff!important}
+body[data-theme="night"] #app .ll-ui-page [data-ui-tone=danger],
+body[data-theme="night"] #app .ll-ui-page :is(.admin-danger,.batch-danger-button,[data-remove-default-split],#btnResetTestData){background:var(--night-red-bg)!important;color:var(--night-red)!important;border-color:#604044!important}
+body[data-theme="night"] #app .ll-ui-page [data-ui-tone=warning]{background:var(--night-amber-bg)!important;color:var(--night-amber)!important}
+body[data-theme="night"] #app .ll-ui-page [data-ui-tone=success]{background:var(--night-green-bg)!important;color:var(--night-green)!important}
+body[data-theme="night"] #app .ll-ui-page [data-ui-tone=info]{background:var(--night-blue-bg)!important;color:var(--night-blue)!important}
+body[data-theme="night"] #app .ll-ui-page [style*="color:#ffd27a"]{color:var(--night-amber)!important}
+body[data-theme="night"] #app .ll-ui-page [style*="color:#ff8b8b"]{color:var(--night-red)!important}
+body[data-theme="night"] #app .ll-ui-page [style*="color:#87e39a"]{color:var(--night-green)!important}
+body[data-theme="night"] #app .ll-ui-page a{color:#c7b6ff}
+body[data-theme="night"] #app #loansDashboardHost .ld-th:not(.active) .ld-sort-glyph::before,
+body[data-theme="night"] #app #loansDashboardHost .ld-th:not(.active) .ld-sort-glyph::after{border-color:#9ba7b9!important}
+
+/* Brand primary actions keep their dark text over the lime fill. */
+body[data-theme="night"] #app #borrowerAccountContent .ll-primary-btn,
+body[data-theme="night"] #app #loansDrawer :is(#btnCreateLoan,.ld-client-save),
+body[data-theme="night"] #app #paymentsPage .ll-payments-primary,
+body[data-theme="night"] #app #borrowersPage .ll-clients-primary,
+body[data-theme="night"] #app #loansDashboardHost .ld-action.primary{background:var(--ui-lime)!important;color:#171b0d!important;border-color:var(--ui-lime)!important}
+body[data-theme="night"] #app #loansDashboardHost .ld-kpi-trend.good,
+body[data-theme="night"] #app #borrowerAccountContent .ll-form-status.success{color:var(--night-green)!important}
+body[data-theme="night"] #app #borrowerAccountContent .ll-form-status.error,
+body[data-theme="night"] #app #paymentsPage .ll-payment-form-status.error,
+body[data-theme="night"] #app #borrowersPage .ll-client-add-status.error{color:var(--night-red)!important}
+body[data-theme="night"] #authCard #btnGoogleSignIn{background:var(--night-raised)!important;color:var(--ui-ink)!important;border-color:var(--ui-line)!important}
+
+.ll-page-skeleton{padding:4px 0;min-width:0}
+.ll-page-skeleton>div{display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid var(--ui-line)}
+.ll-page-skeleton>div:last-child{border-bottom:0}
+.ll-page-skeleton i{width:38px;height:38px;border-radius:12px;flex:none;background:var(--ui-line)}
+.ll-page-skeleton span{flex:1;display:flex;flex-direction:column;gap:9px}
+.ll-page-skeleton b,.ll-page-skeleton em{display:block;height:10px;border-radius:999px;background:var(--ui-line);width:58%}
+.ll-page-skeleton em{height:8px;width:78%;opacity:.6}
+

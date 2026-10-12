@@ -1,3 +1,4 @@
+import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, invalidatePageReads, loadingRows } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
@@ -178,7 +179,7 @@ function ensureFollowupsPage() {
       event.stopPropagation();
       ensureFollowupsPage();
       openPage("followupsPage");
-      renderFollowups(true);
+      renderFollowups(false);
     };
   }
 
@@ -201,7 +202,7 @@ function bindFollowupControls() {
       btn.onclick = () => {
         localStorage.setItem("loanLedger.followupFilter", value);
         lastFollowupHtml = "";
-        renderFollowups(true);
+        renderFollowups(false);
       };
     }
   });
@@ -216,7 +217,7 @@ function bindFollowupControls() {
 
   if (qs("followupSearch") && qs("followupSearch").dataset.bound !== "true") {
     qs("followupSearch").dataset.bound = "true";
-    qs("followupSearch").oninput = () => renderFollowups(true);
+    qs("followupSearch").oninput = () => renderFollowups(false);
   }
 
   if (qs("btnAddFollowup") && qs("btnAddFollowup").dataset.bound !== "true") {
@@ -235,10 +236,10 @@ async function populateBorrowerDropdowns() {
   if (!selects.length) return;
   if (qs("followupBorrower")?.dataset.loaded === "true") return;
 
-  const { data, error } = await supabase
+  const { data, error } = await readPageQuery("followup-borrowers", () => supabase
     .from("borrowers")
     .select("id, full_name, phone")
-    .order("full_name", { ascending: true });
+    .order("full_name", { ascending: true }));
 
   if (error) throw error;
 
@@ -341,15 +342,16 @@ async function renderFollowups(force = false) {
 
   followupBusy = true;
   try {
-    await populateBorrowerDropdowns();
+    const dropdowns = populateBorrowerDropdowns();
     setFollowupFilterButtons();
 
     if (qs("followupDueDate") && !qs("followupDueDate").value) qs("followupDueDate").value = todayIso();
     if (qs("contactDate") && !qs("contactDate").value) qs("contactDate").value = todayIso();
 
     const [followupsRes, contactsRes] = await Promise.all([
-      supabase.from("borrower_followups_view").select("*").order("due_date", { ascending: true }).limit(250),
-      supabase.from("borrower_contact_log_view").select("*").order("created_at", { ascending: false }).limit(25),
+      readPageQuery("followups", () => supabase.from("borrower_followups_view").select("*").order("due_date", { ascending: true }).limit(250), {force: force}),
+      readPageQuery("contacts", () => supabase.from("borrower_contact_log_view").select("*").order("created_at", { ascending: false }).limit(25), {force: force}),
+      dropdowns
     ]);
 
     if (followupsRes.error) throw followupsRes.error;
@@ -389,10 +391,12 @@ async function renderFollowups(force = false) {
         `)).join("")
       : "No contact notes yet.";
   } catch (error) {
+    if (isStalePageSession(error)) return;
     console.error(error);
     qs("followupList").innerHTML = error.message || String(error);
   } finally {
     followupBusy = false;
+    finishPageLoading("followupsPage");
   }
 }
 
@@ -417,6 +421,7 @@ async function addFollowup() {
 
   qs("followupReason").value = "";
   lastFollowupHtml = "";
+  invalidatePageReads();
   await renderFollowups(true);
   alert("Follow-up added.");
 }
@@ -437,6 +442,7 @@ async function addContactLogFromPage() {
 
   qs("contactOutcome").value = "";
   qs("contactNotes").value = "";
+  invalidatePageReads();
   await renderFollowups(true);
   alert("Contact note saved.");
 }
@@ -452,6 +458,7 @@ async function completeFollowup(followupId) {
 
   if (error) return alert(error.message);
   lastFollowupHtml = "";
+  invalidatePageReads();
   await renderFollowups(true);
   alert("Follow-up marked done.");
 }
@@ -624,11 +631,15 @@ async function tick() {
   if (isPage("borrowerDetailsPage")) await ensureBorrowerContactSection();
 }
 
-const observer = new MutationObserver(() => {
-  clearTimeout(followupTimer);
-  followupTimer = setTimeout(tick, 200);
-});
-
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(tick, 2000);
 tick();
+fillInitialLoading("followupList");
+fillInitialLoading("recentContactList");
+watchPage("followupsPage", tick, {
+  prefetch: () => Promise.all([
+    readPageQuery("followups", () => supabase.from("borrower_followups_view").select("*").order("due_date", { ascending: true }).limit(250)),
+    readPageQuery("contacts", () => supabase.from("borrower_contact_log_view").select("*").order("created_at", { ascending: false }).limit(25)),
+    readPageQuery("followup-borrowers", () => supabase.from("borrowers").select("id, full_name, phone").order("full_name", {ascending:true}))
+  ]),
+  reset: () => {lastFollowupHtml="";const node=qs("followupList");if(node)node.innerHTML=loadingRows();const contacts=qs("recentContactList");if(contacts)contacts.innerHTML=loadingRows();document.querySelectorAll("#followupsPage .stat-value").forEach(n=>n.textContent="—");const select=qs("followupBorrower");if(select)delete select.dataset.loaded;}
+});
+watchPage("borrowerDetailsPage", tick);

@@ -1,3 +1,4 @@
+import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, invalidatePageReads, loadingRows, getPageSessionId } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
@@ -34,10 +35,10 @@ function ensureStyles() {
 
 async function getMyProfile(force = false) {
   if (currentProfile && !force) return currentProfile;
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData?.user;
-  if (!user) return null;
-  const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+  const userId = getPageSessionId();
+  if (!userId) return null;
+  const { data, error } = await readPageQuery("my-profile:"+userId, () => supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(), {force});
+  if (error) throw error;
   currentProfile = data;
   return data;
 }
@@ -80,9 +81,9 @@ function ensureAdminMenuItems() {
   ensurePage("profilesPage", "Profiles / Users");
   ensurePage("reportsPage", "Reports / Export");
   ensurePage("maintenancePage", "Maintenance");
-  insertMenuButton({ id: "menuProfiles", page: "profilesPage", label: "Profiles / Users", onOpen: () => refreshProfilesPage({ force: true }) });
-  insertMenuButton({ id: "menuReports", page: "reportsPage", label: "Reports / Export", onOpen: () => refreshReportsPage({ force: true }) });
-  insertMenuButton({ id: "menuMaintenance", page: "maintenancePage", label: "Maintenance", beforeDefaults: false, onOpen: () => refreshMaintenancePage({ force: true }) });
+  insertMenuButton({ id: "menuProfiles", page: "profilesPage", label: "Profiles / Users", onOpen: () => refreshProfilesPage() });
+  insertMenuButton({ id: "menuReports", page: "reportsPage", label: "Reports / Export", onOpen: () => refreshReportsPage() });
+  insertMenuButton({ id: "menuMaintenance", page: "maintenancePage", label: "Maintenance", beforeDefaults: false, onOpen: () => refreshMaintenancePage() });
 }
 
 async function refreshProfilesPage({ force = false } = {}) {
@@ -93,8 +94,7 @@ async function refreshProfilesPage({ force = false } = {}) {
   if (!force && active && active.closest?.("#profilesPage")) return;
   profilesRefreshInFlight = true;
   try {
-    const profile = await getMyProfile();
-    const { data, error } = await supabase.from("profiles").select("user_id, full_name, role, created_at").order("created_at", { ascending: true });
+    const [profile, {data,error}] = await Promise.all([getMyProfile(force), readPageQuery("profiles", () => supabase.from("profiles").select("user_id, full_name, role, created_at").order("created_at", { ascending: true }), {force: force})]);
     if (error) throw error;
     content.dataset.loaded = "true";
     content.innerHTML = `${profile?.role !== "ADMIN" ? `<div style="color:#ffd27a;">Only Admin can edit profile roles.</div>` : ""}${(data ?? []).map((p) => card(`<div class="admin-profile-card" data-profile-card="${p.user_id}"><div style="font-weight:800;">${p.full_name || "Unnamed"}</div><div class="muted">${p.user_id}</div><div class="admin-mini-grid" style="margin-top:8px;"><input data-profile-name="${p.user_id}" value="${p.full_name || ""}" placeholder="Display name" ${profile?.role === "ADMIN" ? "" : "disabled"} /><select data-profile-role="${p.user_id}" ${profile?.role === "ADMIN" ? "" : "disabled"}>${["ADMIN", "AGENT", "PARTNER"].map((role) => `<option value="${role}" ${p.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></div>${profile?.role === "ADMIN" ? `<button class="admin-tools-button" data-save-profile="${p.user_id}" type="button">Save Profile</button>` : ""}</div>`)).join("") || "No profiles found."}`;
@@ -105,13 +105,14 @@ async function refreshProfilesPage({ force = false } = {}) {
         const role = document.querySelector(`[data-profile-role="${userId}"]`)?.value || "PARTNER";
         const { error } = await supabase.rpc("update_profile_admin", { p_user_id: userId, p_full_name: fullName, p_role: role });
         if (error) return alert(error.message);
+        invalidatePageReads();
         currentProfile = null;
         content.dataset.loaded = "";
         await refreshProfilesPage({ force: true });
         alert("Profile updated.");
       };
     });
-  } finally { profilesRefreshInFlight = false; }
+  } finally { profilesRefreshInFlight = false; finishPageLoading("profilesPage"); }
 }
 
 function toCsv(rows) {
@@ -311,10 +312,13 @@ async function refreshVisibleAdminTools() {
     if (activePage("profilesPage") && qs("profilesPageContent")?.dataset.loaded !== "true") await refreshProfilesPage();
     if (activePage("reportsPage") && qs("reportsPageContent")?.dataset.loaded !== "true") await refreshReportsPage();
     if (activePage("maintenancePage") && qs("maintenancePageContent")?.dataset.loaded !== "true") await refreshMaintenancePage();
-  } catch (error) { console.error(error); }
+  } catch (error) { if(!isStalePageSession(error))console.error(error); }
 }
 
-const observer = new MutationObserver(() => { clearTimeout(adminRefreshTimer); adminRefreshTimer = setTimeout(refreshVisibleAdminTools, 200); });
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(refreshVisibleAdminTools, 3000);
 refreshVisibleAdminTools();
+refreshReportsPage();
+fillInitialLoading("profilesPageContent");
+fillInitialLoading("maintenancePageContent");
+watchPage("profilesPage", refreshVisibleAdminTools, {prefetch: () => Promise.all([getMyProfile(), readPageQuery("profiles", () => supabase.from("profiles").select("user_id, full_name, role, created_at").order("created_at", { ascending: true }))]), reset: () => {currentProfile=null;const n=qs("profilesPageContent");if(n){delete n.dataset.loaded;n.innerHTML=loadingRows();}}});
+watchPage("reportsPage", refreshVisibleAdminTools);
+watchPage("maintenancePage", refreshVisibleAdminTools, {prefetch: () => getMyProfile(), reset: () => {const n=qs("maintenancePageContent");if(n){delete n.dataset.loaded;n.innerHTML=loadingRows();}}});

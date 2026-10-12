@@ -1,3 +1,4 @@
+import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase=createClient(
@@ -269,6 +270,7 @@ async function addClient(event){
     if(!["ADMIN","AGENT"].includes(profile?.role))throw new Error("Solo Admin/Agente puede agregar clientes.");
     const {error}=await supabase.from("borrowers").insert({full_name:name,phone,notes,created_by:userId});
     if(error)throw error;
+    invalidatePageReads();
     qs("clientsAddForm").reset();
     status.textContent="Cliente agregado correctamente.";status.className="ll-client-add-status success";
     borrowers=[];lastLoadAt=0;

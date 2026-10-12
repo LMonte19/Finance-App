@@ -1,3 +1,4 @@
+import { setPageSession, invalidatePageReads, readPageQuery, getPageSessionId, isStalePageSession } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
@@ -66,13 +67,14 @@ async function loadProfileByUserId(userId) {
   return data;
 }
 async function loadAppSetting(key) {
-  const { data, error } = await supabase.from("app_settings").select("setting_value").eq("setting_key", key).maybeSingle();
+  const { data, error } = await readPageQuery("setting:"+key, () => supabase.from("app_settings").select("setting_value").eq("setting_key", key).maybeSingle());
   if (error) throw error;
   return data?.setting_value ?? null;
 }
 async function saveAppSetting(key, value) {
   const { error } = await supabase.rpc("set_app_setting", { p_key: key, p_value: value });
   if (error) throw error;
+  invalidatePageReads();
 }
 function renderDefaultFundingList(rows = []) {
   const el = qs("defaultFundingList");
@@ -111,15 +113,13 @@ function updateLoanFunderRatePreview() {
   if (qs("loanFunderRatePreview")) qs("loanFunderRatePreview").textContent = funders >= 0 ? `Socios: ${funders.toFixed(2)}%` : "Porcentaje inválido.";
 }
 async function loadDefaultsIntoSettingsUI() {
-  const rates = await loadAppSetting("loan_defaults");
-  const funding = await loadAppSetting("default_funding_split");
+  const [rates, funding] = await Promise.all([loadAppSetting("loan_defaults"), loadAppSetting("default_funding_split")]);
   if (qs("defaultInterestRate")) qs("defaultInterestRate").value = rates?.default_total_monthly_rate != null ? Number(rates.default_total_monthly_rate).toFixed(2) : "10.00";
   if (qs("defaultManagementRate")) qs("defaultManagementRate").value = rates?.default_management_rate != null ? Number(rates.default_management_rate).toFixed(2) : "3.00";
   renderDefaultFundingList(funding ?? []);
 }
 async function prefillLoanDefaults(force = false) {
-  const rates = await loadAppSetting("loan_defaults");
-  const funding = await loadAppSetting("default_funding_split");
+  const [rates, funding] = await Promise.all([loadAppSetting("loan_defaults"), loadAppSetting("default_funding_split")]);
   if (qs("loanTotalRate")) qs("loanTotalRate").value = rates?.default_total_monthly_rate != null ? Number(rates.default_total_monthly_rate).toFixed(2) : "10.00";
   if (qs("loanMgmtRate")) qs("loanMgmtRate").value = rates?.default_management_rate != null ? Number(rates.default_management_rate).toFixed(2) : "3.00";
   updateLoanFunderRatePreview();
@@ -129,13 +129,13 @@ async function prefillLoanDefaults(force = false) {
   }
 }
 async function refreshFundingPartnerSelects() {
-  const { data, error } = await supabase.from("profiles").select("user_id, full_name, role").in("role", ["ADMIN", "PARTNER"]).order("full_name", { ascending: true });
+  const { data, error } = await readPageQuery("funding-partners", () => supabase.from("profiles").select("user_id, full_name, role").in("role", ["ADMIN", "PARTNER"]).order("full_name", { ascending: true }));
   if (error) throw error;
   const options = (data ?? []).map((p) => `<option value="${p.user_id}">${p.full_name || "Sin nombre"} (${p.role})</option>`).join("");
   ["newLoanFundingPartner", "defaultFundingPartner"].forEach((id) => { if (qs(id)) qs(id).innerHTML = options; });
 }
 async function refreshBorrowers() {
-  const { data, error } = await supabase.from("borrowers").select("*").order("created_at", { ascending: false });
+  const { data, error } = await readPageQuery("base-borrowers", () => supabase.from("borrowers").select("*").order("created_at", { ascending: false }));
   if (error) throw error;
   if (qs("borrowerList")) {
     qs("borrowerList").innerHTML = (data ?? []).map((b) => `
@@ -168,6 +168,7 @@ async function addBorrower() {
   const { data: userData } = await supabase.auth.getUser();
   const { error } = await supabase.from("borrowers").insert({ full_name, phone: qs("bPhone")?.value.trim() || null, notes: qs("bNotes")?.value.trim() || null, created_by: userData.user.id });
   if (error) throw error;
+  invalidatePageReads();
   qs("bName").value = ""; qs("bPhone").value = ""; qs("bNotes").value = "";
   await refreshBorrowers();
 }
@@ -273,11 +274,11 @@ async function setSignedInUI(profile) {
   initHandlers();
   qs("loanTotalRate") && (qs("loanTotalRate").oninput = updateLoanFunderRatePreview);
   qs("loanMgmtRate") && (qs("loanMgmtRate").oninput = updateLoanFunderRatePreview);
-  setDebug("Cargando clientes..."); await refreshBorrowers();
-  setDebug("Cargando valores predeterminados..."); await refreshFundingPartnerSelects(); await loadDefaultsIntoSettingsUI(); await prefillLoanDefaults(true);
+  await Promise.all([refreshBorrowers(), refreshFundingPartnerSelects(), loadDefaultsIntoSettingsUI(), prefillLoanDefaults(true)]);
   setDebug("");
 }
 async function setSignedOutUI() {
+  setPageSession(null);
   currentProfile = null;
   if (qs("authCard")) qs("authCard").style.display = "block";
   if (qs("app")) qs("app").style.display = "none";
@@ -288,19 +289,25 @@ async function setSignedOutUI() {
   setDebug("");
 }
 async function bootFromSession(session, source = "unknown") {
+  setPageSession(session?.user?.id);
   if (isBooting) return;
   isBooting = true;
   try {
     if (!session?.user) { bootedOnce = true; await setSignedOutUI(); return; }
     const profile = await loadProfileByUserId(session.user.id);
+    if (getPageSessionId() !== session.user.id) return;
     await setSignedInUI(profile);
     bootedOnce = true;
     console.log("boot ok", source);
-  } finally { isBooting = false; }
+  } catch (error) { if (!isStalePageSession(error)) throw error; }
+  finally { isBooting = false; }
 }
 supabase.auth.onAuthStateChange((_event, session) => {
-  if (!bootedOnce && !_event.includes("TOKEN_REFRESHED")) bootFromSession(session, "authState");
-  if (_event === "SIGNED_OUT") setSignedOutUI();
+  setPageSession(session?.user?.id);
+  setTimeout(() => {
+    if (!bootedOnce && !_event.includes("TOKEN_REFRESHED")) bootFromSession(session, "authState");
+    if (_event === "SIGNED_OUT") setSignedOutUI();
+  }, 0);
 });
 (async function init() {
   initTabs();

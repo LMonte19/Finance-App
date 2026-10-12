@@ -1,3 +1,4 @@
+import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
@@ -69,7 +70,7 @@ function ensureSystemCheckPage() {
   const menuBtn = qs("menuSystemCheck");
   if (menuBtn && menuBtn.dataset.bound !== "true") {
     menuBtn.dataset.bound = "true";
-    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureSystemCheckPage(); openPage("systemCheckPage"); renderSystemCheck(true); };
+    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureSystemCheckPage(); openPage("systemCheckPage"); renderSystemCheck(false); };
   }
   const refreshBtn = qs("btnRefreshSystemCheck");
   if (refreshBtn && refreshBtn.dataset.bound !== "true") { refreshBtn.dataset.bound = "true"; refreshBtn.onclick = () => renderSystemCheck(true); }
@@ -119,8 +120,8 @@ async function renderSystemCheck(force = false) {
   busy = true;
   try {
     const [checksRes, permissionsRes] = await Promise.all([
-      supabase.from("system_check_results").select("*").order("sort_order", { ascending: true }),
-      supabase.from("role_permission_matrix").select("*").order("role", { ascending: true }).order("capability", { ascending: true }),
+      readPageQuery("system-checks", () => supabase.from("system_check_results").select("*").order("sort_order", { ascending: true }), {force: force}),
+      readPageQuery("role-permissions", () => supabase.from("role_permission_matrix").select("*").order("role", { ascending: true }).order("capability", { ascending: true }), {force: force}),
     ]);
     if (checksRes.error) throw checksRes.error;
     if (permissionsRes.error) throw permissionsRes.error;
@@ -132,13 +133,17 @@ async function renderSystemCheck(force = false) {
     if (force || html !== lastHtml) {
       qs("systemCheckList").innerHTML = checks.length ? checks.map(renderCheck).join("") : "No hay revisiones del sistema.";
       qs("rolePermissionList").innerHTML = permissions.length ? renderPermissions(permissions) : "No hay matriz de permisos.";
-      qs("manualChecklist").innerHTML = manualChecklistHtml();
+      if (!qs("manualChecklist").querySelector("[data-manual-check]")) qs("manualChecklist").innerHTML = manualChecklistHtml();
       lastHtml = html;
     }
-  } catch (error) { console.error(error); qs("systemCheckList").innerHTML = error.message || String(error); } finally { busy = false; }
+  } catch (error) { if(isStalePageSession(error))return;console.error(error); qs("systemCheckList").innerHTML = error.message || String(error); } finally { busy = false; finishPageLoading("systemCheckPage"); }
 }
 function tick() { ensureSystemCheckPage(); if (isPage("systemCheckPage")) renderSystemCheck(false); }
-const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(tick, 200); });
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-setInterval(tick, 3000);
 tick();
+fillInitialLoading("systemCheckList");
+fillInitialLoading("rolePermissionList");
+if(qs("manualChecklist"))qs("manualChecklist").innerHTML=manualChecklistHtml();
+watchPage("systemCheckPage", tick, {prefetch: () => Promise.all([
+  readPageQuery("system-checks", () => supabase.from("system_check_results").select("*").order("sort_order", { ascending: true })),
+  readPageQuery("role-permissions", () => supabase.from("role_permission_matrix").select("*").order("role", { ascending: true }).order("capability", { ascending: true }))
+]), reset: () => {lastHtml="";["systemCheckList","rolePermissionList"].forEach(id=>{const n=qs(id);if(n)n.innerHTML=loadingRows();});}});

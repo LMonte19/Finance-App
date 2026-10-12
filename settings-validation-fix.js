@@ -1,3 +1,4 @@
+import { readPageQuery, watchPage, isStalePageSession, invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
@@ -30,11 +31,11 @@ function roundPct(n) {
 }
 
 async function loadSetting(key) {
-  const { data, error } = await supabase
+  const { data, error } = await readPageQuery("setting:"+key, () => supabase
     .from("app_settings")
     .select("setting_value")
     .eq("setting_key", key)
-    .maybeSingle();
+    .maybeSingle());
   if (error) throw error;
   return data?.setting_value ?? null;
 }
@@ -42,6 +43,7 @@ async function loadSetting(key) {
 async function saveSetting(key, value) {
   const { error } = await supabase.rpc("set_app_setting", { p_key: key, p_value: value });
   if (error) throw error;
+  invalidatePageReads();
 }
 
 function fundingTotal(rows = []) {
@@ -183,7 +185,6 @@ async function tick() {
   }
 }
 
-const observer = new MutationObserver(() => setTimeout(tick, 150));
-observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
-setInterval(tick, 1000);
 tick();
+watchPage("defaultsPage", tick, {prefetch: () => Promise.all([loadSetting("loan_defaults"),loadSetting("default_funding_split")])});
+watchPage("loansPage", tick, {interval:1000});
