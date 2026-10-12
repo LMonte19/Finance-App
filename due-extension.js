@@ -15,7 +15,7 @@ import './language-toggle.js?v=3';
 import './account-router.js?v=1';
 import './loans-dashboard-boot.js?v=14';
 import './global-app-sidebar.js?v=2';
-import './loans-dashboard-global-shell.js?v=3';
+import './loans-dashboard-global-shell.js?v=4';
 import './clients-management.js?v=1';
 import './client-profile-controller.js?v=2';
 

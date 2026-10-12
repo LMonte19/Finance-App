@@ -1,5 +1,5 @@
 function ensureLoansGlobalShellStyle(){
-  const href='./loans-dashboard-global-shell.css?v=3';
+  const href='./loans-dashboard-global-shell.css?v=4';
   let link=document.getElementById('loansDashboardGlobalShellCss');
   if(link){ if(link.getAttribute('href')!==href) link.setAttribute('href',href); return; }
   link=document.createElement('link');
