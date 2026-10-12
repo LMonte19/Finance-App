@@ -7,12 +7,12 @@ const db = createClient(
 );
 
 const $ = id => document.getElementById(id);
-const moneyFormatter = new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const moneyFormatter = new Intl.NumberFormat('en-US',{maximumFractionDigits:0});
 const money = value => `$${moneyFormatter.format(Number(value || 0))}`;
 const dateLabel = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'}).replace('.','') : '—';
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
-const state = { filter:'ALL', search:'', sortKey:'NEXT_DUE', sortDir:'asc', view:'list', data:null, loading:false, lastLoaded:0, opening:false };
+const state = { filter:'ALL', search:'', sortKey:'NEXT_DUE', sortDir:'asc', data:null, loading:false, lastLoaded:0, opening:false };
 
 const ICONS = {
   wallet:'<path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
@@ -27,6 +27,7 @@ const ICONS = {
   grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   arrowDown:'<path d="M12 3v14M7 10l5 5 5-5"/>',
   dollar:'<circle cx="12" cy="12" r="9"/><path d="M16 8.5c-.8-1-2-1.5-4-1.5-2.2 0-3.5 1-3.5 2.5 0 3.8 7.5 1.5 7.5 5.2 0 1.5-1.4 2.6-3.8 2.6-1.9 0-3.4-.6-4.2-1.8M12 5v14"/>',
+  chevron:'<path d="m9 18 6-6-6-6"/>',
   alert:'<path d="M10.3 3.7 2.2 18a2 2 0 0 0 1.8 3h16a2 2 0 0 0 1.8-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>'
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||ICONS.wallet}</svg>`;
@@ -115,13 +116,26 @@ async function loadData(){
 }
 
 function metricData(data){
-  const sum=(field)=>data.accounts.reduce((total,row)=>total+Number(row[field]||0),0);
+  const sum=field=>data.accounts.reduce((total,row)=>total+Number(row[field]||0),0);
   const active=data.accounts.filter(row=>statusInfo(row.account_status).key!=='PAID_OFF');
   const overdue=data.accounts.filter(row=>statusInfo(row.account_status).key==='OVERDUE');
+  const today=new Date();today.setHours(0,0,0,0);
+  const horizon=new Date(today);horizon.setDate(horizon.getDate()+14);
+  const upcoming=data.accounts.filter(row=>{
+    if(!row.next_due_date||Number(row.principal_balance||0)<=0)return false;
+    const date=new Date(String(row.next_due_date).slice(0,10)+'T00:00:00');
+    return !Number.isNaN(date.getTime())&&date>=today&&date<=horizon;
+  });
   const totalDisbursed=sum('total_disbursed');
   const recovered=sum('total_principal_paid');
-  const pendingDues=sum('overdue_amount')+sum('due_today_amount');
-  return {balance:sum('principal_balance'),totalDisbursed,recovered,pendingDues,active:active.length,total:data.accounts.length,overdue:overdue.length,recoveryRate:totalDisbursed?Math.min(100,(recovered/totalDisbursed)*100):0};
+  return {
+    balance:sum('principal_balance'),totalDisbursed,recovered,
+    overdueAmount:sum('overdue_amount'),
+    upcomingAmount:upcoming.reduce((n,row)=>n+Number(row.current_cycle_fee||0),0),
+    upcomingCount:upcoming.length,
+    active:active.length,total:data.accounts.length,overdue:overdue.length,
+    recoveryRate:totalDisbursed?Math.min(100,(recovered/totalDisbursed)*100):0
+  };
 }
 
 function trendPoints(payments){
