@@ -68,10 +68,13 @@
 
   /* Controls are allowed to use the whole client-panel width but never spill under the sidebar. */
   body.ll-global-shell-active #loansDashboardHost .ld-controls{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    flex-wrap:wrap!important;
     width:100%!important;
     min-width:0!important;
-    grid-template-columns:minmax(230px,1fr) auto minmax(175px,205px)!important;
-    gap:10px!important;
+    gap:11px!important;
   }
   body.ll-global-shell-active #loansDashboardHost .ld-search,
   body.ll-global-shell-active #loansDashboardHost .ld-filter-pills,
@@ -84,13 +87,14 @@
   body.ll-global-shell-active #loansDashboardHost .ld-table-head,
   body.ll-global-shell-active #loansDashboardHost .ld-client-row{
     grid-template-columns:
-      minmax(192px,1.55fr)
-      minmax(112px,1fr)
-      minmax(115px,.9fr)
-      minmax(126px,1fr)
-      minmax(135px,1.07fr)
+      minmax(155px,1.35fr)
+      minmax(90px,.85fr)
+      minmax(92px,.85fr)
+      minmax(108px,.95fr)
+      minmax(89px,.75fr)
+      minmax(125px,1.1fr)
       18px!important;
-    gap:12px!important;
+    gap:11px!important;
   }
 
   /* Expanded global nav reduces usable content width even on a large monitor. */
@@ -205,8 +209,8 @@
     margin-bottom:14px!important;
   }
   body.ll-global-shell-active #loansDashboardHost .ld-controls{
-    margin-bottom:17px!important;
-    gap:9px!important;
+    margin-bottom:18px!important;
+    gap:11px!important;
   }
   body.ll-global-shell-active #loansDashboardHost .ld-search input,
   body.ll-global-shell-active #loansDashboardHost .ld-sort{
@@ -214,9 +218,10 @@
     font-size:13px!important;
   }
   body.ll-global-shell-active #loansDashboardHost .ld-sort{
-    width:100%!important;
+    flex:0 0 206px!important;
+    width:206px!important;
     min-width:0!important;
-    max-width:none!important;
+    max-width:206px!important;
   }
   body.ll-global-shell-active #loansDashboardHost .ld-filter-pills{
     gap:6px!important;
@@ -320,6 +325,194 @@
     body.ll-global-shell-active #loansDashboardHost .ld-sort{
       width:min(260px,100%)!important;
       grid-column:auto!important;
+    }
+  }
+
+
+  /* Compact search and restored list/grid selector (located beside the title). */
+  body.ll-global-shell-active #loansDashboardHost .ld-panel-heading{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:16px!important;
+    margin-bottom:17px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-panel-heading .ld-panel-title{
+    margin-bottom:0!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-panel-heading .ld-view-toggle{
+    display:grid!important;
+    flex:0 0 94px!important;
+    justify-self:auto!important;
+    margin-left:auto!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-search{
+    display:block!important;
+    flex:0 1 272px!important;
+    width:272px!important;
+    max-width:292px!important;
+    min-width:210px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-filter-pills{
+    flex:0 1 auto!important;
+    gap:6px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-sort{
+    flex:0 0 206px!important;
+    width:206px!important;
+    min-width:0!important;
+    max-width:206px!important;
+  }
+
+  /* The column headers, row cells, and their sorting keys stay aligned. */
+  body.ll-global-shell-active #loansDashboardHost .ld-th-content{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:3px;
+    min-width:0;
+    text-align:left;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-th-content small{
+    color:#8e96a2;
+    font-size:10.5px;
+    font-weight:550;
+    line-height:1.15;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-cell-status{
+    display:flex;
+    align-items:center;
+    min-width:0;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-cell-status .ld-status{
+    font-size:10px!important;
+    padding:5px 9px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-client-name-line .ld-status{
+    display:none!important;
+  }
+
+  /* Grid cards share the same filtered and sorted source as list rows. */
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-table-head{
+    display:none!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-client-list{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:14px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-client-row{
+    position:relative!important;
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-template-areas:"identity identity" "balance cycle" "due status" "activity activity";
+    column-gap:18px!important;
+    row-gap:14px!important;
+    align-items:start!important;
+    min-height:215px!important;
+    padding:20px!important;
+    border:1px solid #e6e9ee!important;
+    border-radius:16px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-client-ident{grid-area:identity!important;}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-balance{grid-area:balance!important;}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-cycle{grid-area:cycle!important;}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-due{grid-area:due!important;}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-status{grid-area:status!important;display:block!important;}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-activity{grid-area:activity!important;}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-arrow{
+    position:absolute!important;
+    right:17px!important;
+    top:19px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-balance::before,
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-cycle::before,
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-due::before,
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-status::before,
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-activity::before{
+    display:block;
+    margin-bottom:5px;
+    color:#8b929e;
+    font-size:11px;
+    font-weight:600;
+    line-height:1.2;
+  }
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-balance::before{content:"Balance";}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-cycle::before{content:"Cuota";}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-due::before{content:"Próxima cuota";}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-status::before{content:"Estado";}
+  body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-cell-activity::before{content:"Última actividad";}
+
+  /* Give the dark portfolio overview room to breathe vertically. */
+  body.ll-global-shell-active #loansDashboardHost .ld-dashboard-side{
+    row-gap:28px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-card.ld-recovery-advanced{
+    display:flex!important;
+    flex-direction:column!important;
+    min-height:476px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-values{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:12px!important;
+    align-items:start!important;
+    margin-top:22px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-stat{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+    align-items:flex-start;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-stat:last-child{
+    align-items:flex-end;
+    text-align:right;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-stat-label{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:#cbd0d7;
+    font-size:11.5px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-stat strong{
+    display:block;
+    font-size:16px;
+    line-height:1.25;
+    white-space:nowrap;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-split-bar{
+    margin-top:18px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-card > .ld-black-section-title{
+    margin-top:29px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-donut-grid{
+    margin-top:16px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-recovery-bottom{
+    margin-top:auto!important;
+    padding-top:15px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-dashboard-side .ld-side-card{
+    margin-top:5px!important;
+    padding:22px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-dashboard-side .ld-side-head{
+    margin-bottom:17px!important;
+  }
+  body.ll-global-shell-active #loansDashboardHost .ld-dashboard-side .ld-due-item{
+    gap:12px!important;
+    padding:17px 0!important;
+  }
+
+  @media(max-width:1160px){
+    body.ll-global-shell-active #loansDashboardHost #ldClientPanel.grid-mode .ld-client-list{
+      grid-template-columns:1fr!important;
     }
   }
 
