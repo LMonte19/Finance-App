@@ -199,8 +199,16 @@ function clientRows(data){
   const rows=filteredAccounts(data);
   if(!rows.length)return '<div class="ld-empty">No hay clientes que coincidan con estos filtros.</div>';
   return rows.map((row,index)=>{
-    const status=statusInfo(row.account_status);const activity=data.latestByBorrower.get(row.borrower_id);
-    return `<button type="button" class="ld-client-row" data-ld-borrower="${row.borrower_id}"><div class="ld-client-ident"><span class="ld-avatar ${avatarClass(index)}">${esc(initials(row.full_name))}</span><span><span class="ld-client-name">${esc(row.full_name)}</span><span class="ld-client-id">ID: ${borrowerCode(row.borrower_id)}</span></span></div><div class="ld-cell"><strong>${money(row.principal_balance)}</strong><small>Capital pendiente</small></div><div class="ld-cell"><strong>${money(row.current_cycle_fee)}</strong><small>15 y fin de mes</small></div><div class="ld-cell"><strong>${dateLabel(row.next_due_date)}</strong><small>${row.next_due_date?daysLabel(row.next_due_date):'Sin fecha'}</small></div><div><span class="ld-status ${status.className}">${status.label}</span></div><div class="ld-cell"><strong>${activity?activity.type==='PAYMENT'?'Pago recibido':'Desembolso':'Sin actividad'}</strong><small>${activity?dateLabel(activity.date):'—'}</small></div><div class="ld-arrow">›</div></button>`;
+    const status=statusInfo(row.account_status);
+    const activity=data.latestByBorrower.get(row.borrower_id);
+    return `<button type="button" class="ld-client-row" data-ld-borrower="${esc(row.borrower_id)}">
+      <div class="ld-client-ident"><span class="ld-avatar ${avatarClass(index)}">${esc(initials(row.full_name))}</span><span class="ld-client-identity"><span class="ld-client-name-line"><span class="ld-client-name">${esc(row.full_name)}</span><span class="ld-status ${status.className}">${status.label}</span></span></span></div>
+      <div class="ld-cell"><strong>${money(row.principal_balance)}</strong></div>
+      <div class="ld-cell"><strong>${money(row.current_cycle_fee)}</strong><small>15 y fin de mes</small></div>
+      <div class="ld-cell"><strong>${row.next_due_date?dateLabel(row.next_due_date):'—'}</strong>${row.next_due_date?`<small>${daysLabel(row.next_due_date)}</small>`:''}</div>
+      <div class="ld-cell ld-cell-activity"><strong>${activity?activity.type==='PAYMENT'?'Pago recibido':'Desembolso':'Sin actividad'}</strong><small>${activity?dateLabel(activity.date):'—'}</small></div>
+      <span class="ld-arrow">${icon('chevron')}</span>
+    </button>`;
   }).join('');
 }
 
@@ -216,7 +224,7 @@ function activityHtml(data,limit=4){
   return rows.map(row=>`<div class="ld-activity-item"><span class="ld-mini-icon ${row.type==='PAYMENT'?'green':''}">${icon(row.type==='PAYMENT'?'dollar':'arrowDown')}</span><span><div class="ld-item-title">${esc(row.title)}</div><div class="ld-item-meta">${money(row.amount)} · ${dateLabel(row.date)}</div></span></div>`).join('');
 }
 
-const sortLabels={NAME:'Cliente',BALANCE:'Balance pendiente',CYCLE:'Cuota por ciclo',NEXT_DUE:'Próxima cuota',STATUS:'Estado',ACTIVITY:'Última actividad'};
+const sortLabels={NAME:'Cliente',BALANCE:'Balance',CYCLE:'Cuota',NEXT_DUE:'Próxima cuota',STATUS:'Estado',ACTIVITY:'Última actividad'};
 function sortHeader(key){
   const active=state.sortKey===key;const glyph=active?(state.sortDir==='asc'?'↑':'↓'):'↕';
   return `<button type="button" class="ld-th ${active?'active':''}" data-sort-col="${key}" aria-label="Ordenar por ${sortLabels[key]}"><span>${sortLabels[key]}</span><span class="ld-sort-glyph">${glyph}</span></button>`;
@@ -241,7 +249,7 @@ async function renderDashboard(force=false){
   finally{state.loading=false;}
 }
 
-function rerenderRows(){if(!state.data)return;const panel=$('ldClientPanel');if(panel)panel.classList.toggle('grid-mode',state.view==='grid');const list=$('ldClientList');if(list)list.innerHTML=clientRows(state.data);wireRowClicks();updateSortUi();}
+function rerenderRows(){if(!state.data)return;const list=$('ldClientList');if(list)list.innerHTML=clientRows(state.data);wireRowClicks();updateSortUi();}
 function updateSortUi(){
   document.querySelectorAll('#loansDashboardHost [data-sort-col]').forEach(button=>{const active=button.dataset.sortCol===state.sortKey;button.classList.toggle('active',active);const glyph=button.querySelector('.ld-sort-glyph');if(glyph)glyph.textContent=active?(state.sortDir==='asc'?'↑':'↓'):'↕';});
   if($('ldSort'))$('ldSort').value=state.sortKey;
@@ -256,9 +264,7 @@ function wireDashboard(){
   $('ldSort')?.addEventListener('change',event=>{state.sortKey=event.target.value;state.sortDir=defaultDirection(state.sortKey);rerenderRows();});
   document.querySelectorAll('#loansDashboardHost [data-sort-col]').forEach(button=>button.addEventListener('click',()=>{const key=button.dataset.sortCol;if(state.sortKey===key)state.sortDir=state.sortDir==='asc'?'desc':'asc';else{state.sortKey=key;state.sortDir=defaultDirection(key);}rerenderRows();}));
   document.querySelectorAll('#loansDashboardHost [data-filter]').forEach(button=>button.addEventListener('click',()=>{state.filter=button.dataset.filter;document.querySelectorAll('#loansDashboardHost [data-filter]').forEach(item=>item.classList.toggle('active',item===button));rerenderRows();}));
-  document.querySelectorAll('#loansDashboardHost [data-view]').forEach(button=>button.addEventListener('click',()=>{state.view=button.dataset.view;document.querySelectorAll('#loansDashboardHost [data-view]').forEach(item=>item.classList.toggle('active',item===button));rerenderRows();}));
   document.querySelectorAll('#loansDashboardHost [data-go-page]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.goPage)));
-  $('ldGuide')?.addEventListener('click',()=>alert('Usa la búsqueda, filtros o encabezados para ordenar la cartera. Selecciona una fila para abrir el perfil completo.'));
   wireRowClicks();
 }
 function wireRowClicks(){document.querySelectorAll('#loansDashboardHost [data-ld-borrower]').forEach(row=>row.addEventListener('click',()=>openClient(row.dataset.ldBorrower,row)));}
