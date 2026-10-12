@@ -1,0 +1,244 @@
+/* Shared visual language: keep page-specific behavior and geometry in their owners. */
+:root{
+  --ui-bg:#f7f7f5; --ui-surface:#fff; --ui-ink:#171a20; --ui-muted:#7b838f;
+  --ui-line:#e4e7ec; --ui-purple:#7654e6; --ui-purple-soft:#efeaff; --ui-lime:#d1f516;
+  --ui-title:32px; --ui-section:20px; --ui-body:14px; --ui-control:13px;
+  --ui-caption:12px; --ui-badge:11px; --ui-value:clamp(20px,1.55vw,24px);
+  --ui-radius:20px; --ui-shadow:0 7px 22px rgba(28,31,36,.035);
+}
+#app .page{font-size:var(--ui-body);line-height:1.45}
+#app .page .muted{font-size:var(--ui-control)!important;line-height:1.45}
+#app .page button, #app .page input, #app .page select, #app .page textarea{font-family:inherit}
+#app .page button:focus-visible{outline:2px solid var(--ui-purple);outline-offset:3px}
+#app .page [hidden]{display:none!important}
+#llGlobalSidebar .ll-global-nav-item,
+#llGlobalSidebar .ll-global-action{font-size:var(--ui-control)!important}
+
+/* The sign-in screen uses the same surfaces and text sizes. */
+#authCard{max-width:440px;margin:56px auto!important;padding:26px!important;background:var(--ui-surface)!important;color:var(--ui-ink)!important;border:1px solid var(--ui-line)!important;border-radius:var(--ui-radius)!important;box-shadow:var(--ui-shadow)}
+#authCard>div:first-child{font-size:24px!important;letter-spacing:-.03em;margin-bottom:18px!important}
+#authCard .muted{font-size:var(--ui-caption)!important;color:var(--ui-muted)!important;line-height:1.45}
+#authCard input{font-size:var(--ui-body)!important;min-height:46px;border-color:var(--ui-line)!important;background:var(--ui-surface)!important;color:var(--ui-ink)!important}
+#authCard button{font-size:var(--ui-control)!important;min-height:44px;border-radius:12px!important}
+#authCard #btnSignIn{background:var(--ui-lime)!important;color:#171b0d!important}
+
+/* Existing modern pages use the same type hierarchy. */
+#app #borrowersPage .ll-clients-header h1,
+#app #paymentsPage .ll-payments-header h1,
+#app #loansDashboardHost .ld-page-title{font-size:var(--ui-title)!important}
+#app #borrowersPage .ll-clients-header p,
+#app #paymentsPage .ll-payments-header p,
+#app #loansDashboardHost .ld-page-subtitle{font-size:var(--ui-body)!important}
+#app #borrowersPage .ll-clients-card-head h2,
+#app #paymentsPage .ll-payment-history-head h2,
+#app #loansDashboardHost .ld-panel-title{font-size:var(--ui-section)!important}
+#app #borrowersPage :is(.ll-clients-primary,.ll-client-add-submit,.ll-client-activity-link),
+#app #paymentsPage .ll-payments-primary{font-size:var(--ui-control)!important;min-height:44px!important}
+#app #borrowersPage .ll-clients-primary{border-radius:999px!important}
+#app #borrowersPage :is(.ll-clients-list-card,.ll-client-add-card,.ll-client-activity-card){padding:22px!important}
+#app #borrowersPage .ll-clients-search,
+#app #borrowersPage #clientsSort,
+#app #borrowersPage .ll-clients-view-toggle{height:46px!important}
+#app #borrowersPage .ll-clients-search input,
+#app #borrowersPage #clientsSort{font-size:var(--ui-control)!important}
+#app #borrowersPage .ll-clients-search input{height:44px!important}
+#app #borrowersPage .ll-clients-view-toggle button{height:44px!important;min-width:42px!important}
+#app #borrowersPage .ll-clients-filters button{font-size:var(--ui-caption)!important;height:38px!important;padding:0 14px!important}
+#app #borrowersPage .ll-clients-table-head{font-size:var(--ui-caption)!important;min-height:44px!important}
+#app #borrowersPage .ll-client-row{min-height:75px!important;padding:13px 9px!important;box-sizing:border-box!important}
+#app #borrowersPage .ll-client-person strong,
+#app #borrowersPage .ll-client-grid-card>strong{font-size:var(--ui-body)!important}
+#app #borrowersPage :is(.ll-client-phone,.ll-client-notes,.ll-client-last){font-size:var(--ui-control)!important}
+#app #borrowersPage :is(.ll-client-person>i,.ll-client-grid-top>i){width:40px!important;height:40px!important;min-width:40px!important;font-size:var(--ui-control)!important}
+#app #borrowersPage :is(.ll-client-grid-card>small,.ll-client-grid-card>p,.ll-client-grid-card>footer,.ll-clients-pagination,.ll-client-add-status){font-size:var(--ui-caption)!important}
+#app #borrowersPage .ll-client-grid-card{padding:18px!important;min-height:190px!important}
+#app #borrowersPage .ll-client-add-form label>span{font-size:var(--ui-control)!important}
+#app #borrowersPage .ll-client-add-form input,
+#app #borrowersPage .ll-client-add-form textarea{font-size:var(--ui-body)!important}
+#app #borrowersPage .ll-client-add-form input{height:46px!important}
+#app #borrowersPage .ll-client-add-submit{height:46px!important}
+#app #borrowersPage .ll-client-recent-activity strong{font-size:var(--ui-control)!important}
+#app #borrowersPage .ll-client-recent-activity small,
+#app #borrowersPage .ll-client-recent-activity time{font-size:var(--ui-caption)!important}
+#app #borrowersPage .ll-client-recent-activity button{min-height:65px!important;grid-template-columns:34px minmax(0,1fr)!important}
+#app #borrowersPage .ll-client-recent-activity time{grid-column:2!important;margin-top:-4px!important;white-space:normal!important}
+#app #borrowersPage .ll-clients-pagination button,
+#app #borrowersPage #clientsPageNumber{min-width:34px!important;height:34px!important;font-size:var(--ui-control)!important}
+#app #borrowersPage :is(.ll-clients-loading,.ll-clients-empty){font-size:var(--ui-body)!important}
+
+/* Client profiles: all tabs, forms, calendar and rail labels stay readable. */
+#app #borrowerAccountContent .ll-client-title{font-size:var(--ui-title)!important;line-height:1.15!important}
+#app #borrowerAccountContent :is(.ll-card-title,.ll-rail-title){font-size:var(--ui-section)!important;line-height:1.25!important}
+#app #borrowerAccountContent :is(.ll-client-meta,.ll-tab,.ll-client-name,.ll-record-title,.ll-record-date strong,.ll-activity-list strong,.ll-next-action>strong){font-size:var(--ui-body)!important}
+#app #borrowerAccountContent :is(.ll-client-balance,.ll-account-facts>div,.ll-cycle-calendar-head strong,.ll-profile-form label,.ll-form-section-title,.ll-funding-row){font-size:var(--ui-control)!important}
+#app #borrowerAccountContent :is(.ll-record-meta,.ll-record-note,.ll-record-date small,.ll-activity-list small,.ll-activity-list p,.ll-next-action p,.ll-card-note,.ll-form-status,.ll-card-link,.ll-summary-quick-pay p,.ll-cycle-calendar-head small,.ll-cycle-calendar-nav,.ll-cycle-detail small,.ll-cycle-date span,.ll-cycle-date small,.ll-filter-row){font-size:var(--ui-caption)!important;line-height:1.45!important}
+#app #borrowerAccountContent :is(.ll-status-pill,.ll-mini-pill,.ll-rail-badge){font-size:var(--ui-badge)!important}
+#app #borrowerAccountContent .ll-summary-stat-grid{grid-template-columns:repeat(auto-fit,minmax(158px,1fr))!important}
+#app #borrowerAccountContent .ll-summary-stat-grid>div{min-height:90px!important;min-width:0!important}
+#app #borrowerAccountContent .ll-summary-stat-grid span{font-size:var(--ui-control)!important;line-height:1.3!important}
+#app #borrowerAccountContent .ll-summary-stat-grid small{font-size:var(--ui-caption)!important;line-height:1.3!important}
+#app #borrowerAccountContent .ll-summary-stat-grid strong{font-size:20px!important;line-height:1.2!important}
+#app #borrowerAccountContent .ll-cycle-date{min-height:68px!important}
+#app #borrowerAccountContent .ll-cycle-date strong{font-size:22px!important}
+#app #borrowerAccountContent .ll-cycle-detail strong{font-size:var(--ui-body)!important}
+#app #borrowerAccountContent .ll-cycle-detail--compact{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))!important;gap:12px!important}
+#app #borrowerAccountContent .ll-profile-card{padding:18px!important}
+#app #borrowerAccountContent .ll-record-row{padding:16px!important;row-gap:12px!important}
+#app #borrowerAccountContent .ll-activity-list button{padding-top:12px!important;padding-bottom:12px!important}
+#app #borrowerAccountContent :is(.ll-soft-btn,.ll-primary-btn,.ll-purple-btn,.ll-inline-action){font-size:var(--ui-control)!important;min-height:40px!important}
+#app #borrowerAccountContent :is(.ll-summary-quick-amounts button,.ll-quick-profile-amounts button,.ll-movement-filter){font-size:var(--ui-caption)!important;min-height:36px!important}
+#app #borrowerAccountContent :is(.ll-profile-form input,.ll-profile-form select,.ll-profile-form textarea,.ll-summary-quick-pay input,.ll-client-search-input){font-size:var(--ui-body)!important;min-height:44px!important;box-sizing:border-box!important}
+#app #borrowerAccountContent .ll-profile-form{gap:14px!important}
+#app #borrowerAccountContent .ll-account-facts>div{padding-top:7px!important;padding-bottom:7px!important}
+#app #borrowerAccountContent :is(.ll-controller-loading-badge,.ll-controller-first-load-badge){font-size:var(--ui-control)!important}
+
+/* Loan drawers are part of the same application. */
+#app #loansDrawer .ld-drawer-head strong{font-size:var(--ui-section)!important}
+#app #loansDrawer :is(input,select,textarea){font-size:var(--ui-body)!important;min-height:46px!important}
+#app #loansDrawer label{font-size:var(--ui-control)!important;line-height:1.45}
+#app #loansDrawer button:not(.ld-drawer-close){font-size:var(--ui-control)!important;min-height:44px!important}
+#app #loansDrawer .card>div:first-child{font-size:var(--ui-section)!important}
+#app #loansDrawer .card{padding:20px!important}
+
+/* Modernize the remaining pages without replacing the controls or result slots. */
+#app .ll-ui-page{
+  background:var(--ui-bg)!important;color:var(--ui-ink)!important;
+  min-height:100vh;min-width:0;box-sizing:border-box;--ui-columns:repeat(2,minmax(0,1fr));
+}
+#app .ll-ui-page.active-page{display:grid!important;grid-template-columns:var(--ui-columns);gap:18px;align-content:start;align-items:start}
+#app :is(#activityPage,#loanHealthPage).ll-ui-page{--ui-columns:minmax(0,1fr)}
+#app .ll-ui-page-header{
+  grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:20px;
+  position:static!important;background:transparent!important;border:0!important;padding:4px 0 6px!important;margin:0 0 4px!important;
+}
+#app .ll-ui-page-header h1{font-size:var(--ui-title)!important;line-height:1.1!important;letter-spacing:-.04em;font-weight:800;color:var(--ui-ink)!important;margin:0}
+#app .ll-ui-page-header p{font-size:var(--ui-body);line-height:1.45;color:var(--ui-muted);margin:8px 0 0}
+#app .ll-ui-page .ll-ui-card{
+  min-width:0;margin:0!important;padding:22px!important;border:1px solid var(--ui-line)!important;border-radius:var(--ui-radius)!important;
+  background:var(--ui-surface)!important;color:var(--ui-ink)!important;box-shadow:var(--ui-shadow);box-sizing:border-box;
+}
+#app .ll-ui-page .ll-ui-section-title{font-size:var(--ui-section)!important;font-weight:800;line-height:1.3;letter-spacing:-.02em;margin-bottom:16px}
+#app .ll-ui-page :is(.ll-ui-duplicate-heading,.ll-ui-duplicate-description,.ll-ui-empty-intro){display:none!important}
+#app .ll-ui-page :is(.ll-ui-container-card,.ll-ui-summary-card){grid-column:1/-1;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+#app .ll-ui-page .ll-ui-container-card>.muted{color:var(--ui-ink)!important;font-size:var(--ui-body)!important}
+#app .ll-ui-page .muted{color:var(--ui-muted)!important}
+#app .ll-ui-page strong{color:var(--ui-ink);font-size:var(--ui-body);line-height:1.45}
+#app .ll-ui-page :is(.row,.admin-mini-grid){gap:12px;min-width:0}
+#app .ll-ui-page :is(input:not([type=checkbox]):not([type=radio]),select,textarea){
+  font-size:var(--ui-body)!important;line-height:1.35!important;width:100%;min-width:0;min-height:46px;
+  padding:12px 14px!important;margin:7px 0!important;box-sizing:border-box!important;
+  border:1px solid var(--ui-line)!important;border-radius:12px!important;background:var(--ui-surface)!important;color:var(--ui-ink)!important;
+}
+#app .ll-ui-page textarea{min-height:96px;resize:vertical}
+#app .ll-ui-page :is(input,select,textarea):focus{outline:2px solid rgba(118,84,230,.16);outline-offset:1px;border-color:#bca9f4!important}
+#app .ll-ui-page input[type=checkbox]{width:18px!important;height:18px;min-width:18px;margin:3px 0 0!important;accent-color:var(--ui-purple);flex:none}
+#app .ll-ui-page button{
+  font-size:var(--ui-control)!important;font-weight:750!important;line-height:1.3!important;min-height:44px;
+  padding:11px 17px!important;border-radius:12px!important;border:1px solid var(--ui-line)!important;
+  background:var(--ui-surface)!important;color:var(--ui-ink)!important;box-sizing:border-box;
+  transition:background-color .16s ease,border-color .16s ease;cursor:pointer;
+}
+#app .ll-ui-page button:hover{filter:none!important;background:#f7f5ff!important;border-color:#d7cdf7!important}
+#app .ll-ui-page button:disabled{opacity:.48;cursor:default}
+#app .ll-ui-page :is(#btnAddFollowup,#btnAddContactLog,#btnSaveDefaultRates,#btnSaveDefaultFunding,#btnAddDefaultFunding,[data-save-profile]){
+  background:var(--ui-lime)!important;border-color:var(--ui-lime)!important;color:#171b0d!important;
+}
+#app .ll-ui-page :is(.admin-danger,.batch-danger-button,[data-remove-default-split],#btnResetTestData){
+  background:#fff1ef!important;color:#ce4e46!important;border-color:#f1cdc8!important;
+}
+#app .ll-ui-page .ll-ui-filter-button{width:auto!important;margin:0!important;border-radius:999px!important;font-size:var(--ui-caption)!important}
+#app .ll-ui-page .ll-ui-filter-button[aria-pressed=true]{background:#17191e!important;color:#fff!important;border-color:#17191e!important;box-shadow:0 6px 16px rgba(17,19,25,.12)}
+#app .ll-ui-page .ll-ui-filter-card{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+#app .ll-ui-page .ll-ui-filter-card>.ll-ui-section-title,
+#app .ll-ui-page .ll-ui-filter-card>:is(input,.muted){grid-column:1/-1}
+#app .ll-ui-page .ll-ui-filter-card>.row{display:contents}
+#app .ll-ui-page .ll-ui-filter-card .row:has(input){display:grid;grid-column:1/-1;grid-template-columns:minmax(0,1fr) auto}
+#app .ll-ui-page .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:0!important}
+#app #partnersPage .stats-grid:has(>.stat-card:nth-child(6)){grid-template-columns:repeat(3,minmax(0,1fr))}
+#app .ll-ui-page .stat-card{min-width:0;min-height:128px;padding:20px!important;display:flex;flex-direction:column;justify-content:center;gap:8px;border:1px solid var(--ui-line)!important;border-radius:var(--ui-radius)!important;background:var(--ui-surface)!important;color:var(--ui-ink)!important;box-shadow:var(--ui-shadow);box-sizing:border-box}
+#app .ll-ui-page .stat-label{font-size:var(--ui-control)!important;color:var(--ui-muted)!important;line-height:1.3;margin:0}
+#app .ll-ui-page .stat-value{font-size:var(--ui-value)!important;color:var(--ui-ink)!important;line-height:1.2;letter-spacing:-.03em;overflow-wrap:anywhere}
+#app .ll-ui-page .compact-card{padding:17px 18px!important;margin:12px 0!important;border:1px solid var(--ui-line)!important;border-radius:15px!important;background:var(--ui-surface)!important;color:var(--ui-ink)!important;font-size:var(--ui-body);line-height:1.6}
+#app .ll-ui-page [data-partner-detail-id]{position:relative;padding-right:36px!important;cursor:pointer}
+#app .ll-ui-page [data-partner-detail-id]:hover{border-color:#cfc2f6!important;background:#fcfbff!important}
+#app .ll-ui-page [data-partner-detail-id]::after{content:"";position:absolute;right:18px;top:50%;width:6px;height:6px;border-right:1.5px solid var(--ui-muted);border-bottom:1.5px solid var(--ui-muted);transform:translateY(-50%) rotate(-45deg)}
+#app .ll-ui-page :is(.pill,.activity-chip){font-size:var(--ui-badge)!important;line-height:1.3!important;border:0!important;border-radius:999px!important;padding:5px 9px!important;background:var(--ui-purple-soft)!important;color:#7251d7!important;white-space:nowrap}
+#app .ll-ui-page [data-ui-tone=danger]{background:#ffe8e5!important;color:#d44f49!important}
+#app .ll-ui-page [data-ui-tone=warning]{background:#fff2df!important;color:#ae6a20!important}
+#app .ll-ui-page [data-ui-tone=success]{background:#e8f7e2!important;color:#398346!important}
+#app .ll-ui-page [data-ui-tone=info]{background:#eaf3ff!important;color:#497fb8!important}
+#app #activityPage .ll-ui-card:has(#activityList),
+#app #loanHealthPage .ll-ui-card:has(#loanHealthList),
+#app #systemCheckPage .ll-ui-card:has(#systemCheckList){grid-column:1/-1}
+#app #activityPage .ll-ui-card:has(#activityFilterAction){grid-column:1/-1}
+#app #activityPage .row:has(#activitySearch){grid-template-columns:minmax(0,1fr) auto}
+#app #activityPage .compact-card{border:0!important;border-bottom:1px solid var(--ui-line)!important;border-radius:0!important;margin:0!important;padding:20px 2px!important}
+#app #activityPage .compact-card:last-child{border-bottom:0!important}
+#app #activityPage .activity-chip{flex:none}
+#app :is(#reportsPageContent,#dueOverduePageContent){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+#app #reportsPageContent>.ll-ui-report-range{grid-column:1/-1}
+#app #reportsPageContent .admin-tools-button{
+  width:100%!important;text-align:left;display:flex;align-items:center;gap:14px;margin:10px 0 0!important;padding:17px!important;
+}
+#app #reportsPageContent .admin-tools-button::before{content:"";width:20px;height:20px;flex:none;background:var(--ui-purple);mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+#app #reportsPageContent .admin-mini-grid{max-width:600px}
+#app #dueOverduePageContent>.stats-grid{grid-column:1/-1}
+#app #profilesPageContent{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+#app #profilesPageContent>.compact-card{margin:0!important;padding:22px!important}
+#app #profilesPageContent>.compact-card .admin-profile-card>.muted{font-size:var(--ui-caption)!important;overflow-wrap:anywhere}
+#app #profilesPageContent>.compact-card .admin-profile-card>div:first-child{font-size:var(--ui-body)!important}
+#app #maintenancePageContent>.card{margin-bottom:18px!important}
+#app #maintenancePageContent>.card:has(.admin-danger){border-color:#f1d4cc!important}
+#app #rolePermissionList .compact-card{line-height:1.5}
+#app #manualChecklist{font-size:var(--ui-body)!important}
+#app #manualChecklist label{padding:11px 0;margin:0!important;border-bottom:1px solid var(--ui-line);line-height:1.5}
+#app #manualChecklist label:last-child{border-bottom:0}
+#app #defaultsPage .row{margin-top:8px}
+#app #defaultsPage .ll-ui-card>button{margin-top:14px!important}
+#app .ll-ui-page [style*="color:#ffd27a"]{color:#ae6a20!important}
+#app .ll-ui-page [style*="color:#ff8b8b"]{color:#ce4e46!important}
+#app .ll-ui-page [style*="color:#87e39a"]{color:#398346!important}
+
+@media(min-width:1221px){
+  #app #borrowerAccountContent .ll-panel-grid{grid-template-columns:minmax(0,1fr) 310px!important}
+}
+@media(max-width:1200px){
+  #app .ll-ui-page.active-page{--ui-columns:minmax(0,1fr)}
+  #app #profilesPageContent{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:980px){
+  #app .ll-ui-page .stats-grid,
+  #app #partnersPage .stats-grid:has(>.stat-card:nth-child(6)){grid-template-columns:repeat(2,minmax(0,1fr))}
+  #app :is(#reportsPageContent,#dueOverduePageContent){grid-template-columns:minmax(0,1fr)}
+  #app #borrowersPage .ll-clients-layout{grid-template-columns:minmax(0,1fr)!important}
+}
+@media(max-width:760px){
+  #app .ll-ui-page-header{align-items:flex-start;flex-wrap:wrap;gap:12px}
+  #app .ll-ui-page-header h1,
+  #app #borrowersPage .ll-clients-header h1,
+  #app #paymentsPage .ll-payments-header h1,
+  #app #loansDashboardHost .ld-page-title,
+  #app #borrowerAccountContent .ll-client-title{font-size:28px!important}
+  #app .ll-ui-page .ll-ui-card,
+  #app #borrowersPage :is(.ll-clients-list-card,.ll-client-add-card,.ll-client-activity-card){padding:18px!important}
+  #app .ll-ui-page :is(.ll-ui-container-card,.ll-ui-summary-card){padding:0!important}
+  #app .ll-ui-page .ll-ui-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #app #profilesPageContent{grid-template-columns:minmax(0,1fr)}
+  #app #borrowersPage .ll-client-row{padding:13px!important;row-gap:8px!important}
+  #app #borrowersPage .ll-client-person{min-height:40px}
+  #app #borrowerAccountContent .ll-summary-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #app #borrowerAccountContent .ll-cycle-detail--compact{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #app .ll-ui-page :is(input:not([type=checkbox]):not([type=radio]),select,textarea),
+  #app #borrowersPage .ll-client-add-form :is(input,textarea),
+  #app #borrowerAccountContent .ll-profile-form :is(input,select,textarea),
+  #app #paymentsPage .ll-payment-field :is(input,select,textarea),
+  #app #loansDrawer :is(input,select,textarea){font-size:16px!important}
+}
+@media(max-width:420px){
+  #app .ll-ui-page .stats-grid,
+  #app #partnersPage .stats-grid:has(>.stat-card:nth-child(6)){grid-template-columns:minmax(0,1fr)}
+}
+@media(prefers-reduced-motion:reduce){
+  #app .ll-ui-page button{transition:none!important}
+}
+

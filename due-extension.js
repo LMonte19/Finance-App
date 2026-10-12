@@ -18,6 +18,7 @@ import './global-app-sidebar.js?v=2';
 import './loans-dashboard-global-shell.js?v=4';
 import './clients-management.js?v=1';
 import './client-profile-controller.js?v=2';
+import './app-design-system.js?v=1';
 
 const paymentManagementCss=document.getElementById('paymentManagementCss');
 if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=3';
