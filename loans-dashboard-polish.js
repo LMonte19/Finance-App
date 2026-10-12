@@ -32,7 +32,7 @@ async function loadMetrics(){
   const now=new Date();
   const monthStart=iso(new Date(now.getFullYear(),now.getMonth(),1));
   const [accountsRes,paymentsRes,disbursementsRes]=await Promise.all([
-    db.from('borrower_account_summary').select('principal_balance,total_disbursed,total_principal_paid,overdue_amount,due_today_amount,account_status'),
+    db.from('borrower_account_summary').select('principal_balance,total_disbursed,total_principal_paid,overdue_amount,due_today_amount,account_status,next_due_date,current_cycle_fee'),
     db.from('borrower_account_payments_view').select('paid_on,applied_principal,is_voided').eq('is_voided',false).gte('paid_on',monthStart),
     db.from('borrower_disbursements_view').select('start_date,principal_original').gte('start_date',monthStart)
   ]);
@@ -48,13 +48,19 @@ async function loadMetrics(){
   const previousBalance=currentBalance-disbursedThisMonth+principalPaidThisMonth;
   const previousDisbursed=currentDisbursed-disbursedThisMonth;
   const previousRecovered=currentRecovered-principalPaidThisMonth;
-  const pendingDues=sum(accounts,'overdue_amount')+sum(accounts,'due_today_amount');
+  const overdueAmount=sum(accounts,'overdue_amount');
+  const today=new Date();today.setHours(0,0,0,0);
+  const horizon=new Date(today);horizon.setDate(horizon.getDate()+14);
+  const upcomingCount=accounts.filter(row=>{
+    if(!row.next_due_date||Number(row.principal_balance||0)<=0)return false;
+    const due=new Date(String(row.next_due_date).slice(0,10)+'T00:00:00');
+    return !Number.isNaN(due.getTime())&&due>=today&&due<=horizon;
+  }).length;
   const active=accounts.filter(row=>statusKey(row.account_status)!=='PAID_OFF').length;
   metricCache={
     balanceChange:percent(currentBalance,previousBalance),
-    disbursedChange:percent(currentDisbursed,previousDisbursed),
-    recoveredChange:percent(currentRecovered,previousRecovered),
-    pendingShare:currentBalance?pendingDues/currentBalance*100:0,
+    overdueShare:currentBalance?overdueAmount/currentBalance*100:0,
+    upcomingCount,
     activeShare:accounts.length?active/accounts.length*100:0
   };
   metricCacheAt=Date.now();
@@ -71,18 +77,17 @@ function trendHtml(value,label,{inverse=false,neutral=false}={}){
 
 async function applyMetricFooters(){
   const cards=[...document.querySelectorAll('#loansDashboardHost .ld-metric-card')];
-  if(cards.length<5||loading)return;
+  if(cards.length<4||loading)return;
   loading=true;
   try{
     const metrics=await loadMetrics();
     const footers=[
       trendHtml(metrics.balanceChange,'vs. inicio de mes'),
-      trendHtml(metrics.disbursedChange,'vs. inicio de mes'),
-      trendHtml(metrics.recoveredChange,'vs. inicio de mes'),
-      trendHtml(metrics.pendingShare,'del balance pendiente',{neutral:true}),
+      trendHtml(metrics.overdueShare,'del balance pendiente',{neutral:true}),
+      '<div class="ld-metric-change neutral"><span class="ld-trend-arrow">•</span><strong>'+metrics.upcomingCount+'</strong><span>cuotas en 14 días</span></div>',
       trendHtml(metrics.activeShare,'de clientes activos',{neutral:true})
     ];
-    cards.slice(0,5).forEach((card,index)=>{
+    cards.slice(0,4).forEach((card,index)=>{
       const next=footers[index];
       if(card.dataset.metricFooter===next)return;
       card.querySelector('.ld-metric-change')?.remove();
