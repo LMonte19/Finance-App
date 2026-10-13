@@ -14,10 +14,10 @@ import './system-check.js?v=2';
 import './language-toggle.js?v=4';
 import './account-router.js?v=1';
 import './loans-dashboard-boot.js?v=15';
-import './global-app-sidebar.js?v=3';
+import './global-app-sidebar.js?v=4';
 import './loans-dashboard-global-shell.js?v=4';
 import './clients-management.js?v=3';
-import './client-profile-controller.js?v=4';
+import './client-profile-controller.js?v=5';
 import './app-design-system.js?v=2';
 
 const paymentManagementCss=document.getElementById('paymentManagementCss');
@@ -55,6 +55,6 @@ homeDashboardThemeCss.href='./home-dashboard-theme.css?v=2';
 
 
 const clientProfileControllerCss=document.getElementById('clientProfileControllerCss');
-if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=2';
+if(clientProfileControllerCss) clientProfileControllerCss.href='./client-profile-controller.css?v=3';
 
 console.log('safe module loader active — modern home, payments, clients and single client profile controller');

@@ -48,7 +48,7 @@ const PAGE_META={
 
 function ensureStyle(){
   let link=document.getElementById('globalAppSidebarCss');
-  const href='./global-app-sidebar.css?v=2';
+  const href='./global-app-sidebar.css?v=3';
   if(link){if(link.getAttribute('href')!==href)link.setAttribute('href',href);return;}
   link=document.createElement('link');link.id='globalAppSidebarCss';link.rel='stylesheet';link.href=href;document.head.appendChild(link);
 }
@@ -85,12 +85,14 @@ function createSidebar(){
   PRIMARY.forEach(item=>{
     const btn=document.createElement('button');
     btn.type='button';btn.className='ll-global-nav-item';btn.dataset.page=item.page;
+    btn.setAttribute('aria-label',item.label);btn.title=item.label;
     btn.innerHTML=`${svg(item.icon)}<span>${item.label}</span>`;
     btn.onclick=()=>activatePage(item.page);
     primary.appendChild(btn);
   });
 
   nav.querySelectorAll('[data-global-toggle]').forEach(btn=>btn.onclick=toggleGlobalNav);
+  nav.querySelectorAll('.ll-global-action').forEach(btn=>{const label=btn.querySelector('span')?.textContent||'';btn.setAttribute('aria-label',label);btn.title=label;});
   nav.querySelector('[data-global-action="theme"]').onclick=()=>document.getElementById('btnThemeToggle')?.click();
   nav.querySelector('[data-global-action="language"]').onclick=()=>document.getElementById('btnLangToggle')?.click();
   nav.querySelector('[data-global-action="logout"]').onclick=()=>document.getElementById('btnSignOut')?.click();
@@ -118,7 +120,7 @@ function rebuildSecondary(){
     if(!page||PRIMARY.some(x=>x.page===page)||seen.has(page))return;
     seen.add(page);
     const meta=PAGE_META[page]||[(source.textContent||page).trim(),'settings'];
-    items.push({page,label:meta[0],icon:meta[1],source,hidden:source.style.display==='none'||source.dataset.roleHidden==='true'});
+    items.push({page,label:meta[0],icon:meta[1],source,hidden:source.hidden||source.style.display==='none'||source.dataset.roleHidden==='true'});
   });
   Object.entries(PAGE_META).forEach(([page,meta])=>{
     if(seen.has(page))return;
@@ -133,6 +135,7 @@ function rebuildSecondary(){
   items.forEach(item=>{
     const btn=document.createElement('button');
     btn.type='button';btn.className='ll-global-nav-item ll-global-secondary-item';btn.dataset.page=item.page;
+    btn.setAttribute('aria-label',item.label);btn.title=item.label;
     btn.innerHTML=`${svg(item.icon)}<span>${item.label}</span>`;
     if(item.hidden)btn.hidden=true;
     btn.onclick=()=>item.source?item.source.click():activatePage(item.page);

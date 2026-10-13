@@ -94,8 +94,9 @@
 
   .ll-global-primary,
   .ll-global-secondary{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .ll-global-head,.ll-global-primary,.ll-global-divider,.ll-global-footer{flex-shrink:0}
   .ll-global-divider{height:1px;background:rgba(255,255,255,.08);margin:10px 4px}
-  .ll-global-secondary{overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-bottom:5px}
+  .ll-global-secondary{flex:0 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-bottom:5px;overscroll-behavior:contain}
   .ll-global-secondary::-webkit-scrollbar{display:none}
 
   .ll-global-nav-item,
@@ -125,7 +126,10 @@
   .ll-global-nav-item.active::before{
     content:"";position:absolute;left:0;width:3px;height:26px;border-radius:0 4px 4px 0;background:#d5fa1b;
   }
+  .ll-global-nav-item,.ll-global-action{flex-shrink:0}
   .ll-global-nav-item{position:relative}
+  .ll-global-nav-item[hidden]{display:none!important}
+  .ll-global-nav-item:focus-visible,.ll-global-action:focus-visible,.ll-global-menu-toggle:focus-visible{outline:2px solid #d5fa1b;outline-offset:-2px}
   .ll-global-nav-item.active .ll-global-svg{color:#d5fa1b}
   .ll-global-svg{width:19px;height:19px;min-width:19px;display:block;flex:none}
   .ll-global-nav-item span,
@@ -140,7 +144,6 @@
   body:not(.ll-global-nav-expanded) .ll-global-action span,
   body:not(.ll-global-nav-expanded) .ll-global-action em{display:none!important}
   body:not(.ll-global-nav-expanded) .ll-global-divider{margin:10px 8px}
-  body:not(.ll-global-nav-expanded) .ll-global-secondary-item{display:none!important}
 
   .ll-global-spacer{flex:1;min-height:14px}
   .ll-global-footer{padding-top:10px;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:4px}
@@ -148,7 +151,7 @@
   .ll-global-logout{color:#b7bdc5!important}
   .ll-global-logout:hover{color:#ff7774!important}
 
-  /* Two-level navigation behaves like one coupled dark sidebar. */
+  /* The client rail has a separate charcoal surface beside the global menu. */
   body.ll-global-shell-active #borrowerAccountContent .ll-account-shell{
     min-height:100vh!important;
     border-radius:0!important;
@@ -163,7 +166,8 @@
     border-radius:0 22px 22px 0!important;
     border-left:0!important;
     box-shadow:none!important;
-    background:linear-gradient(180deg,#0b0f12 0%,#080b0e 100%)!important;
+    background:linear-gradient(180deg,#202830 0%,#1a2129 100%)!important;
+    border-right:1px solid rgba(255,255,255,.08)!important;
   }
   body.ll-global-shell-active #borrowerAccountContent .ll-workspace{
     margin-top:12px!important;
@@ -199,7 +203,7 @@
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-rail-title,
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-rail-top .ll-icon-btn,
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-filter-row,
-  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-card>div:nth-child(2),
+  #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-copy,
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-trailing,
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed #acctBack>span:last-child{display:none!important}
   #borrowerAccountContent .ll-account-shell.ll-client-rail-collapsed .ll-client-list{

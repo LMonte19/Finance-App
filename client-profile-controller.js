@@ -16,9 +16,9 @@ const STYLE_FILES=[
   ['clientProfileElegantFixCss','./client-profile-elegant-fix.css?v=1'],
   ['clientProfileReferenceMatchCss','./client-profile-reference-match.css?v=3'],
   ['clientProfileRailExactCss','./client-profile-rail-exact.css?v=1'],
-  ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=1'],
+  ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
-  ['clientProfileControllerCss','./client-profile-controller.css?v=1']
+  ['clientProfileControllerCss','./client-profile-controller.css?v=3']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -91,7 +91,6 @@ function dueStatus(row){
   return row?.status||row?.timing_status||'UPCOMING';
 }
 function paymentTypeLabel(type){return {INSTALLMENT:'Cuota/interés',PRINCIPAL:'Abono a capital',MIXED:'Mixto',PAYOFF:'Saldar capital'}[type]||type||'—';}
-function avatarTone(name){return [...String(name||'')].reduce((sum,ch)=>sum+ch.charCodeAt(0),0)%4;}
 
 const ICONS={
   dollar:'<circle cx="12" cy="12" r="8.2"/><path d="M15.2 8.2c-.8-.8-1.8-1.2-3.2-1.2-1.9 0-3.1.8-3.1 2.1 0 3.1 6.2 1.2 6.2 4.4 0 1.4-1.3 2.4-3.4 2.4-1.7 0-3-.5-3.8-1.5M12 5v14"/>',
@@ -125,6 +124,7 @@ function showAccountPage(){
   document.querySelectorAll('.page').forEach(node=>node.classList.remove('active-page'));
   page?.classList.add('active-page');
   document.body.classList.add('ll-client-detail-fixed');
+  if(document.scrollingElement)document.scrollingElement.scrollTop=0;
   document.getElementById('sideMenu')?.classList.remove('open');
   document.getElementById('menuOverlay')?.classList.remove('open');
 }
@@ -227,9 +227,9 @@ function clientRailHtml(selectedId){
 function clientRowHtml(a,selectedId){
   const active=String(a.borrower_id)===String(selectedId);
   const name=a.full_name||'Sin nombre';
-  return `<div class="ll-client-card ll-elegant-client-row ${active?'active':''}" data-acct-borrower="${esc(a.borrower_id)}" data-client-search="${esc(name.toLowerCase())}">
+  return `<div class="ll-client-card ll-elegant-client-row ${active?'active':''}" role="button" tabindex="0" aria-label="${esc(name)}" aria-current="${active?'true':'false'}" title="${esc(name)}" data-acct-borrower="${esc(a.borrower_id)}" data-client-search="${esc(name.toLowerCase())}">
     ${active?'<span class="ll-active-rail-indicator" aria-hidden="true"></span>':''}
-    <div class="ll-client-avatar ll-initial-avatar tone-${avatarTone(name)}"><span class="ll-client-initials">${esc(initials(name))}</span></div>
+    <div class="ll-client-avatar ll-initial-avatar" aria-hidden="true"><span class="ll-client-initials">${esc(initials(name))}</span></div>
     <div class="ll-client-copy"><div class="ll-client-name">${esc(name)}</div><div class="ll-client-balance">${money(a.principal_balance)}</div></div>
     <span class="ll-rail-badge ll-elegant-status ${tone(a.account_status)}"><i></i><span class="ll-dynamic-value" data-rail-status>${esc(statusLabel(a.account_status))}</span></span>
   </div>`;
@@ -488,6 +488,7 @@ function updateActiveRail(borrowerId,summary=null){
   root.querySelectorAll('.ll-client-card').forEach(card=>{
     const active=String(card.dataset.acctBorrower)===String(borrowerId);
     card.classList.toggle('active',active);
+    card.setAttribute('aria-current',active?'true':'false');
     card.querySelector('.ll-active-rail-indicator')?.remove();
     if(active){const indicator=document.createElement('span');indicator.className='ll-active-rail-indicator';indicator.setAttribute('aria-hidden','true');card.prepend(indicator);}
   });
@@ -546,13 +547,26 @@ async function selectClient(borrowerId,{initial=false}={}){
   }
 }
 
-function showTab(key,focus=true){
+function showTab(key,resetScroll=true){
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
   if(!root)return;
+  if(![...root.querySelectorAll('[data-profile-panel]')].some(panel=>panel.dataset.profilePanel===key))return;
   activeTab=key;
   root.querySelectorAll('.ll-tab').forEach(tab=>{const active=tab.dataset.profileTab===key;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',active?'true':'false');});
   root.querySelectorAll('[data-profile-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.profilePanel===key));
-  if(focus)root.querySelector(`[data-profile-panel="${key}"]`)?.scrollIntoView({behavior:'smooth',block:'start'});
+  // Only the inner workspace scrolls; scrolling a panel into view also moves
+  // overflow-hidden ancestors and pushes both client navigation and content up.
+  if(resetScroll){const workspace=root.querySelector('.ll-workspace');if(workspace)workspace.scrollTop=0;}
+}
+function focusProfileControl(root,selector){
+  const control=root.querySelector(selector);
+  if(!control)return;
+  const fixed=window.matchMedia('(min-width:900px)').matches;
+  control.focus({preventScroll:fixed});
+  const workspace=control.closest('.ll-workspace');
+  if(!fixed||!workspace)return;
+  const target=control.getBoundingClientRect(),viewport=workspace.getBoundingClientRect();
+  if(target.top<viewport.top||target.bottom>viewport.bottom)workspace.scrollTop+=target.top-viewport.top-24;
 }
 function applyMovementFilter(root,filter){
   movementFilter=filter;
@@ -653,12 +667,12 @@ async function handleClick(event){
   const open=event.target.closest('[data-open-tab]');if(open){showTab(open.dataset.openTab);return;}
   const top=event.target.closest('[data-top-action]');if(top){
     const action=top.dataset.topAction;
-    if(action==='disbursement'){showTab('disbursements');setTimeout(()=>root.querySelector('#llProfilePrincipal')?.focus(),80);}
-    if(action==='note'){showTab('followups');setTimeout(()=>root.querySelector('#llProfileContactNotes')?.focus(),80);}
+    if(action==='disbursement'){showTab('disbursements');setTimeout(()=>focusProfileControl(root,'#llProfilePrincipal'),80);}
+    if(action==='note'){showTab('followups');setTimeout(()=>focusProfileControl(root,'#llProfileContactNotes'),80);}
     if(action==='whatsapp'){const phone=String(currentData?.summary?.phone||'').replace(/\D/g,'');if(!phone)return alert('Este cliente no tiene un teléfono registrado.');window.open(`https://wa.me/${phone}`,'_blank','noopener,noreferrer');}
     return;
   }
-  if(event.target.closest('#llFocusPay')){showTab('payments');setTimeout(()=>root.querySelector('#llProfilePayAmount')?.focus(),80);return;}
+  if(event.target.closest('#llFocusPay')){showTab('payments');setTimeout(()=>focusProfileControl(root,'#llProfilePayAmount'),80);return;}
   const move=event.target.closest('[data-calendar-move]');if(move){event.preventDefault();moveCalendar(move.dataset.calendarMove);return;}
   const date=event.target.closest('[data-calendar-date]');if(date){event.preventDefault();chooseCalendarDate(date.dataset.calendarDate);return;}
   const filter=event.target.closest('.ll-movement-filter');if(filter){applyMovementFilter(root,filter.dataset.filter);return;}
@@ -666,13 +680,15 @@ async function handleClick(event){
   const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input)input.value=profileAmount.dataset.profileAmount;return;}
   const complete=event.target.closest('[data-complete-followup]');if(complete){const note=prompt('Nota de finalización (opcional):','');if(note===null)return;const {error}=await db.rpc('complete_followup',{p_followup_id:complete.dataset.completeFollowup,p_completed_notes:note.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
   const voidButton=event.target.closest('[data-void-payment]');if(voidButton){const reason=prompt('Motivo de anulación (opcional):','');if(reason===null)return;if(!confirm('¿Seguro que quieres anular este pago? Se revertirán las aplicaciones de cuota, capital y distribuciones.'))return;const {error}=await db.rpc('void_payment',{p_payment_id:voidButton.dataset.voidPayment,p_reason:reason.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
-  const search=event.target.closest('.ll-controller-search');if(search){const wrap=root.querySelector('.ll-client-search-wrap'),input=root.querySelector('.ll-client-search-input');if(wrap){wrap.hidden=!wrap.hidden;if(!wrap.hidden)setTimeout(()=>input?.focus(),0);}return;}
+  const search=event.target.closest('.ll-controller-search');if(search){const wrap=root.querySelector('.ll-client-search-wrap');if(wrap){wrap.hidden=!wrap.hidden;if(!wrap.hidden)setTimeout(()=>focusProfileControl(root,'.ll-client-search-input'),0);}return;}
 }
 function handleInput(event){
   if(event.target.matches('.ll-client-search-input')){const q=event.target.value.trim().toLowerCase();document.querySelectorAll('#borrowerAccountContent .ll-client-card').forEach(card=>card.hidden=!!q&&!String(card.dataset.clientSearch||'').includes(q));}
   if(event.target.matches('[data-partner-user-id]'))updateFundingTotal();
 }
 function handleKeydown(event){
+  const client=event.target.closest('.ll-client-card[data-acct-borrower]');
+  if(client&&(event.key==='Enter'||event.key===' ')){event.preventDefault();selectClient(client.dataset.acctBorrower);return;}
   const tab=event.target.closest('.ll-tab[data-profile-tab]');if(tab&&(event.key==='Enter'||event.key===' ')){event.preventDefault();showTab(tab.dataset.profileTab);}
 }
 function updateFundingTotal(){
