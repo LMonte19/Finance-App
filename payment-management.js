@@ -1,4 +1,5 @@
-import { invalidatePageReads } from './page-read-runtime.js?v=1';
+import { invalidatePageReads, readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
+import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
@@ -29,8 +30,9 @@ let periodFilter = "month";
 let typeFilter = "";
 let accountsCache = [];
 let paymentsCache = [];
-let accountBusy = false;
-let paymentBusy = false;
+let refreshBusy = false;
+let requestSequence = 0;
+let pendingRefresh = null;
 let pageNumber = 1;
 let drawerMode = "closed";
 let activeDetailId = null;
@@ -133,7 +135,7 @@ function ensurePaymentsDom() {
   wireWorkspace();
 }
 function kpiSkeleton(label) {
-  return `<article class="ll-payment-kpi ll-kpi-skeleton"><div class="ll-payment-kpi-icon"></div><div><span>${label}</span><strong>—</strong><small>Cargando...</small></div></article>`;
+  return `<article class="ll-payment-kpi ll-kpi-skeleton"><div class="ll-payment-kpi-main"><div class="ll-payment-kpi-icon"></div><div class="ll-payment-kpi-copy"><span>${label}</span><strong>—</strong><small>—</small></div></div><span class="ll-kpi-trend neutral">—</span></article>`;
 }
 
 function wireWorkspace() {
@@ -150,37 +152,28 @@ function wireWorkspace() {
   });
 }
 
-async function loadAccounts(force = false) {
-  if (accountBusy) return accountsCache;
-  if (!force && accountsCache.length) return accountsCache;
-  accountBusy = true;
-  try {
-    const { data, error } = await supabase.from("borrower_account_summary")
+function readPaymentData(force = false) {
+  return Promise.all([
+    readPageQuery('payments-accounts', () => supabase.from("borrower_account_summary")
       .select("borrower_id, full_name, principal_balance, current_cycle_fee, account_status, next_due_date, overdue_amount")
-      .order("full_name", { ascending: true });
-    if (error) throw error;
-    accountsCache = data || [];
-    return accountsCache;
-  } finally { accountBusy = false; }
-}
-async function loadPayments(force = false) {
-  if (paymentBusy) return paymentsCache;
-  if (!force && paymentsCache.length) return paymentsCache;
-  paymentBusy = true;
-  try {
-    const { data, error } = await supabase.from("borrower_account_payments_view").select("*")
-      .order("paid_on", { ascending: false }).order("created_at", { ascending: false }).limit(250);
-    if (error) throw error;
-    paymentsCache = data || [];
-    return paymentsCache;
-  } finally { paymentBusy = false; }
+      .order("full_name", { ascending: true }), {force, ttl:45000}),
+    readPageQuery('payments-history', () => supabase.from("borrower_account_payments_view").select("*")
+      .order("paid_on", { ascending: false }).order("created_at", { ascending: false }).limit(250), {force, ttl:45000})
+  ]);
 }
 
 async function refreshData(force = false) {
   ensurePaymentsDom();
   if (!isPaymentsPage()) return;
+  if (refreshBusy) { pendingRefresh=!!force||!!pendingRefresh; return; }
+  refreshBusy=true;const sequence=++requestSequence;
   try {
-    await Promise.all([loadAccounts(force), loadPayments(force)]);
+    const [accounts, payments] = await readPaymentData(force);
+    if (sequence!==requestSequence) return;
+    if (accounts.error) throw accounts.error;
+    if (payments.error) throw payments.error;
+    accountsCache=accounts.data||[];
+    paymentsCache=payments.data||[];
     populateFilterBorrowers();
     renderKpis();
     renderPayments();
@@ -190,9 +183,13 @@ async function refreshData(force = false) {
     }
     lastRefreshAt = Date.now();
   } catch (error) {
+    if (isStalePageSession(error)) return;
     console.error("payments workspace refresh failed", error);
     const list = qs("accountPaymentList");
-    if (list) list.innerHTML = `<div class="ll-payment-empty">${esc(error.message || error)}</div>`;
+    if (!lastRefreshAt) setStableMarkup(list, `<div class="ll-payment-empty">${esc(error.message || error)}</div>`);
+  } finally {
+    refreshBusy=false;
+    if (pendingRefresh!==null) {const pending=pendingRefresh;pendingRefresh=null;queueMicrotask(()=>refreshData(pending));}
   }
 }
 
@@ -237,7 +234,7 @@ function renderKpis() {
     { tone: "blue", icon: "capital", label: "Capital recuperado", value: sum(currentRows, "applied_principal"), sub: "Total aplicado", previous: sum(previousRows, "applied_principal") },
     { tone: "coral", icon: "voided", label: "Pagos anulados", value: sum(currentVoided, "amount"), sub: `${currentVoided.length} ${currentVoided.length === 1 ? "pago" : "pagos"}`, previous: sum(previousVoided, "amount") },
   ];
-  host.innerHTML = metrics.map((metric) => `<article class="ll-payment-kpi ${metric.tone}"><div class="ll-payment-kpi-icon">${svg(metric.icon, 19)}</div><div><span>${metric.label}</span><strong>${money(metric.value)}</strong><small>${metric.sub}</small>${metricTrend(metric.value, metric.previous)}</div></article>`).join("");
+  setStableMarkup(host, metrics.map((metric) => `<article class="ll-payment-kpi ${metric.tone}"><div class="ll-payment-kpi-main"><div class="ll-payment-kpi-icon">${svg(metric.icon, 19)}</div><div class="ll-payment-kpi-copy"><span>${metric.label}</span><strong>${money(metric.value)}</strong><small>${metric.sub}</small></div></div>${metricTrend(metric.value, metric.previous)}</article>`).join(""));
 }
 
 function setStatusFilter(next) {
@@ -278,7 +275,7 @@ function renderPayments() {
   if (pageNumber > totalPages) pageNumber = totalPages;
   const start = (pageNumber - 1) * PAGE_SIZE;
   const visible = rows.slice(start, start + PAGE_SIZE);
-  host.innerHTML = visible.length ? visible.map(paymentRowHtml).join("") : `<div class="ll-payment-empty">No hay pagos para esta vista.</div>`;
+  setStableMarkup(host, visible.length ? visible.map(paymentRowHtml).join("") : `<div class="ll-payment-empty">No hay pagos para esta vista.</div>`);
   const resultCount = qs("paymentResultCount");
   if (resultCount) resultCount.textContent = rows.length ? `Mostrando ${start + 1}–${Math.min(start + PAGE_SIZE, rows.length)} de ${rows.length} pagos` : "0 pagos";
   const page = qs("llPayPage"); if (page) page.textContent = String(pageNumber);
@@ -470,16 +467,13 @@ function handleWorkspaceInput(event) {
   if (event.target.id === "paySearch") { pageNumber = 1; renderPayments(); }
 }
 
-function tick() {
-  if (!isPaymentsPage()) return;
-  ensurePaymentsDom();
-  if (!lastRefreshAt || Date.now() - lastRefreshAt > 10000) refreshData(false);
-}
-
-const observer = new MutationObserver(() => setTimeout(tick, 80));
-observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ["class"] });
-setInterval(tick, 5000);
+watchPage('paymentsPage', () => refreshData(false), {interval:45000, prefetch:() => readPaymentData(false), reset:() => {
+  requestSequence++;accountsCache=[];paymentsCache=[];lastRefreshAt=0;pageNumber=1;
+  closeDrawer();
+  setStableMarkup(qs('paymentKpis'), ['Pagado este mes','Cuota / interés','Capital recuperado','Pagos anulados'].map(kpiSkeleton).join(''));
+  setStableMarkup(qs('accountPaymentList'), '<div class="ll-payment-loading">Cargando pagos...</div>');
+  ['payFilterBorrower','acctPaymentBorrower'].forEach(id=>setStableMarkup(qs(id),''));
+}});
 ensurePaymentsDom();
-tick();
 
 console.log("modern payments workspace active");

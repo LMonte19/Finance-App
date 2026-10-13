@@ -207,7 +207,7 @@ function monthRangeTitle(dates){
 }
 
 function metricCell(icon,label,value,sub,slot,subSlot=''){
-  return `<div><span class="ll-elegant-metric-icon">${svg(icon,'ll-ref-svg',14)}</span><span>${label}</span><strong class="ll-dynamic-value" data-slot="${slot}">${esc(value)}</strong><small class="${subSlot?'ll-dynamic-value':''}" ${subSlot?`data-slot="${subSlot}"`:''}>${esc(sub)}</small></div>`;
+  return `<div><div class="ll-summary-kpi-main"><span class="ll-elegant-metric-icon">${svg(icon,'ll-ref-svg',14)}</span><div class="ll-summary-kpi-copy"><span>${label}</span><strong class="ll-dynamic-value" data-slot="${slot}">${esc(value)}</strong></div></div><small class="${subSlot?'ll-dynamic-value':''}" ${subSlot?`data-slot="${subSlot}"`:''}>${esc(sub)}</small></div>`;
 }
 function dataCard(title,body,extraClass='',headExtra=''){
   return `<section class="ll-card ll-profile-card ${extraClass}"><div class="ll-card-head"><div class="ll-card-title">${title}</div>${headExtra}</div>${body}</section>`;
@@ -379,6 +379,11 @@ function transitionValue(element,nextText,nextClassName=null){
   const sameText=element.textContent===text;
   const sameClass=nextClassName===null||element.className===nextClassName;
   if(sameText&&sameClass)return Promise.resolve();
+  if(element.closest('.ll-summary-stat-grid')){
+    element.textContent=text;
+    if(nextClassName!==null)element.className=nextClassName;
+    return Promise.resolve();
+  }
   element.classList.add('ll-value-leaving');
   return new Promise(resolve=>setTimeout(()=>{
     element.textContent=text;

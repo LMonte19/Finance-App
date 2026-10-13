@@ -12,8 +12,6 @@ addStyle('loansDashboardPolishCss','./loans-dashboard-polish.css?v=2');
 addStyle('loansDashboardFinalCss','./loans-dashboard-final.css?v=3');
 addStyle('loansDashboardCorrectionsCss','./loans-dashboard-corrections.css?v=3');
 
-import('./loans-dashboard.js?v=4')
-  .then(()=>import('./loans-dashboard-polish.js?v=4'))
-  .then(()=>import('./loans-dashboard-period.js?v=1'))
+import('./loans-dashboard.js?v=5')
   .then(()=>import('./loans-dashboard-corrections.js?v=3'))
   .catch(error=>console.error('loans dashboard failed to load',error));

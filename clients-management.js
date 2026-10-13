@@ -1,4 +1,5 @@
 import { invalidatePageReads } from './page-read-runtime.js?v=1';
+import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase=createClient(
@@ -206,7 +207,7 @@ function renderClients(){
   page=Math.min(Math.max(1,page),totalPages);
   const start=(page-1)*PAGE_SIZE;
   const visible=rows.slice(start,start+PAGE_SIZE);
-  host.innerHTML=visible.length?visible.map(view==="grid"?clientGridHtml:clientRowHtml).join(""):`<div class="ll-clients-empty">No hay clientes para esta vista.</div>`;
+  setStableMarkup(host,visible.length?visible.map(view==="grid"?clientGridHtml:clientRowHtml).join(""):`<div class="ll-clients-empty">No hay clientes para esta vista.</div>`);
   qs("clientsResultCount").textContent=rows.length?`Mostrando ${start+1}–${Math.min(start+PAGE_SIZE,rows.length)} de ${rows.length} clientes`:"0 clientes";
   qs("clientsPageNumber").textContent=String(page);
   qs("clientsPrev").disabled=page<=1;

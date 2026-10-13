@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
+import { setStableMarkup } from './dashboard-presentation.js?v=1';
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",
@@ -26,7 +28,8 @@ const pct1=value=>`${Math.abs(Number(value||0)).toFixed(1)}%`;
 
 let dataCache=null;
 let loading=false;
-let lastLoadAt=0;
+let requestSequence=0;
+let pendingRefresh=null;
 let operationTab="dues";
 const REFRESH_MS=45000;
 const DUE_SOON_DAYS=14;
@@ -136,22 +139,22 @@ function openRelatedView(view){
   }
 }
 
-async function fetchUpcomingDue(activeAccounts){
+async function fetchUpcomingDue(activeAccounts,force=false){
   const today=todayIso(),end=addDays(today,45);
   const chunks=await Promise.all(activeAccounts.map(async account=>{
-    const {data,error}=await supabase.rpc("get_borrower_due_calendar",{p_borrower_id:account.borrower_id,p_start_date:today,p_end_date:end});
+    const {data,error}=await readPageQuery(`home-dues:${account.borrower_id}:${today}:${end}`,()=>supabase.rpc("get_borrower_due_calendar",{p_borrower_id:account.borrower_id,p_start_date:today,p_end_date:end}),{force,ttl:REFRESH_MS});
     if(error){console.warn("home due calendar",account.full_name,error);return [];}
     return (data||[]).map(row=>({...row,full_name:account.full_name,borrower_id:account.borrower_id}));
   }));
   return chunks.flat().map(row=>({...row,amount_due:Number(row.amount_due||0)})).filter(row=>row.amount_due>0&&row.status!=="CANCELLED"&&row.due_date>=today).sort((a,b)=>a.due_date.localeCompare(b.due_date)||String(a.full_name||"").localeCompare(String(b.full_name||"")));
 }
 
-async function fetchData(){
+async function fetchData(force=false){
   const [accountsRes,paymentsRes,disbursementsRes,activityRes]=await Promise.all([
-    supabase.from("borrower_account_summary").select("*").order("principal_balance",{ascending:false}).limit(250),
-    supabase.from("borrower_account_payments_view").select("*").order("paid_on",{ascending:false}).order("created_at",{ascending:false}).limit(300),
-    supabase.from("borrower_disbursements_view").select("*").order("start_date",{ascending:false}).order("created_at",{ascending:false}).limit(300),
-    supabase.from("activity_log_view").select("*").order("created_at",{ascending:false}).limit(30)
+    readPageQuery('home-accounts',()=>supabase.from("borrower_account_summary").select("*").order("principal_balance",{ascending:false}).limit(250),{force,ttl:REFRESH_MS}),
+    readPageQuery('home-payments',()=>supabase.from("borrower_account_payments_view").select("*").order("paid_on",{ascending:false}).order("created_at",{ascending:false}).limit(300),{force,ttl:REFRESH_MS}),
+    readPageQuery('home-disbursements',()=>supabase.from("borrower_disbursements_view").select("*").order("start_date",{ascending:false}).order("created_at",{ascending:false}).limit(300),{force,ttl:REFRESH_MS}),
+    readPageQuery('home-activity',()=>supabase.from("activity_log_view").select("*").order("created_at",{ascending:false}).limit(30),{force,ttl:REFRESH_MS})
   ]);
   if(accountsRes.error)throw accountsRes.error;
   if(paymentsRes.error)throw paymentsRes.error;
@@ -159,7 +162,7 @@ async function fetchData(){
   if(activityRes.error)throw activityRes.error;
   const accounts=accountsRes.data||[];
   const activeAccounts=accounts.filter(a=>Number(a.principal_balance||0)>0);
-  const upcomingDue=await fetchUpcomingDue(activeAccounts);
+  const upcomingDue=await fetchUpcomingDue(activeAccounts,force);
   const payments=paymentsRes.data||[];
   const disbursements=disbursementsRes.data||[];
   const activePayments=payments.filter(p=>!p.is_voided);
@@ -188,12 +191,14 @@ async function fetchData(){
 }
 
 async function refresh(force=false){
-  ensureDom();if(!isHome()||loading)return;
-  if(!force&&dataCache&&Date.now()-lastLoadAt<REFRESH_MS){render(dataCache);return;}
-  loading=true;
-  try{dataCache=await fetchData();lastLoadAt=Date.now();render(dataCache);}catch(error){console.error("home dashboard load failed",error);showError(error);}finally{loading=false;}
+  ensureDom();if(!isHome())return;
+  if(loading){pendingRefresh=!!force||!!pendingRefresh;return;}
+  loading=true;const sequence=++requestSequence;
+  try{const data=await fetchData(force);if(sequence!==requestSequence)return;dataCache=data;render(dataCache);}
+  catch(error){if(!isStalePageSession(error)){console.error("home dashboard load failed",error);if(!dataCache)showError(error);}}
+  finally{loading=false;if(pendingRefresh!==null){const pending=pendingRefresh;pendingRefresh=null;queueMicrotask(()=>refresh(pending));}}
 }
-function showError(error){const host=qs("homeKpis");if(host)host.innerHTML=`<div class="ll-home-error">${esc(error.message||error)}</div>`;}
+function showError(error){setStableMarkup(qs("homeKpis"),`<div class="ll-home-error">${esc(error.message||error)}</div>`);}
 
 function render(data){
   renderKpis(data);renderPortfolio(data);renderRecovery(data);renderMonthly(data);renderPriority(data);renderOperations();renderActivity(data);
@@ -217,14 +222,14 @@ function renderKpis(data){
     {tone:"purple",icon:"dollar",label:"Pagos del mes",value:money(data.monthPaid),sub:`${data.monthPayments.length} ${data.monthPayments.length===1?"pago registrado":"pagos registrados"}`,change:kpiChangeMarkup(paymentTone,paymentValue,"vs. mes anterior")},
     {tone:"lime",icon:"calendar",label:"Próximas cuotas",value:money(data.dueSoonAmount),sub:"Monto a cobrar",change:kpiChangeMarkup("neutral",String(data.dueSoon.length),`vencen en ${DUE_SOON_DAYS} días`)}
   ];
-  host.innerHTML=cards.map(card=>`<article class="ll-home-kpi ${card.tone}"><div class="ll-home-kpi-main"><span class="ll-home-kpi-icon">${svg(card.icon,22)}</span><div class="ll-home-kpi-copy"><small>${card.label}</small><strong>${card.value}</strong><p>${card.sub}</p></div></div>${card.change}</article>`).join("");
+  setStableMarkup(host,cards.map(card=>`<article class="ll-home-kpi ${card.tone}"><div class="ll-home-kpi-main"><span class="ll-home-kpi-icon">${svg(card.icon,22)}</span><div class="ll-home-kpi-copy"><small>${card.label}</small><strong>${card.value}</strong><p>${card.sub}</p></div></div>${card.change}</article>`).join(""));
 }
 function renderPortfolio(data){
   const host=qs("homePortfolioChart");if(!host)return;
   const current=data.currentAccounts.length,overdue=data.overdueAccounts.length,closed=data.closedAccounts.length,total=Math.max(1,current+overdue+closed);
   const currentPct=Math.round(current/total*100),overduePct=Math.round(overdue/total*100),closedPct=Math.max(0,100-currentPct-overduePct);
   const gradient=`conic-gradient(#8dcc35 0 ${currentPct}%,#ff6262 ${currentPct}% ${currentPct+overduePct}%,#6f49e8 ${currentPct+overduePct}% 100%)`;
-  host.innerHTML=`<div class="ll-portfolio-layout"><div class="ll-donut" style="background:${gradient}"><div><small>Total</small><strong>${money(data.activeCapital)}</strong></div></div><div class="ll-donut-legend"><span><i class="lime"></i>Al día <b>${currentPct}%</b></span><span><i class="coral"></i>Atrasado <b>${overduePct}%</b></span><span><i class="purple"></i>Saldado <b>${closedPct}%</b></span></div></div>`;
+  setStableMarkup(host,`<div class="ll-portfolio-layout"><div class="ll-donut" style="background:${gradient}"><div><small>Total</small><strong>${money(data.activeCapital)}</strong></div></div><div class="ll-donut-legend"><span><i class="lime"></i>Al día <b>${currentPct}%</b></span><span><i class="coral"></i>Atrasado <b>${overduePct}%</b></span><span><i class="purple"></i>Saldado <b>${closedPct}%</b></span></div></div>`);
 }
 function renderRecovery(data){
   const host=qs("homeRecoveryChart");if(!host)return;
@@ -238,18 +243,18 @@ function renderRecovery(data){
   const W=520,H=155,padX=20,padY=15,plotW=W-padX*2,plotH=H-padY*2;
   const points=cumulative.map((v,i)=>`${padX+(i/(Math.max(1,days-1)))*plotW},${H-padY-(v/chartMax)*plotH}`).join(" ");
   const bars=byDay.map((v,i)=>{const x=padX+(i/days)*plotW+2,w=Math.max(3,plotW/days-4),h=(v/chartMax)*plotH,y=H-padY-h;return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="2"/>`;}).join("");
-  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Recuperación acumulada del mes"><g class="bars">${bars}</g><polyline points="${points}"/></svg><div class="ll-chart-axis"><span>1</span><span>8</span><span>15</span><span>22</span><span>${days}</span></div>`;
-  const goalHost=qs("homeRecoveryGoal");if(goalHost){const pct=Math.min(100,Math.round(data.monthPaid/goal*100));goalHost.innerHTML=`<div><span>Meta mensual: <b>${money(goal)}</b></span><strong>${pct}% alcanzado</strong></div><i><b style="width:${pct}%"></b></i>`;}
+  setStableMarkup(host,`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Recuperación acumulada del mes"><g class="bars">${bars}</g><polyline points="${points}"/></svg><div class="ll-chart-axis"><span>1</span><span>8</span><span>15</span><span>22</span><span>${days}</span></div>`);
+  const goalHost=qs("homeRecoveryGoal");if(goalHost){const pct=Math.min(100,Math.round(data.monthPaid/goal*100));setStableMarkup(goalHost,`<div><span>Meta mensual: <b>${money(goal)}</b></span><strong>${pct}% alcanzado</strong></div><i><b style="width:${pct}%"></b></i>`);}
 }
 function renderMonthly(data){
   const host=qs("homeMonthlySummary");if(!host)return;
-  host.innerHTML=`${monthlyRow("purple","dollar","Cuota mensual total",money(data.monthlyFee),"Total a cobrar")}${monthlyRow("lime","users","Socios mensual",money(data.monthlyFunders),"Participaciones")}${monthlyRow("blue","shield","Administración",money(data.monthlyMgmt),"Comisiones")}`;
+  setStableMarkup(host,`${monthlyRow("purple","dollar","Cuota mensual total",money(data.monthlyFee),"Total a cobrar")}${monthlyRow("lime","users","Socios mensual",money(data.monthlyFunders),"Participaciones")}${monthlyRow("blue","shield","Administración",money(data.monthlyMgmt),"Comisiones")}`);
 }
 function monthlyRow(tone,icon,label,value,sub){return `<div class="ll-monthly-row"><span class="${tone}">${svg(icon,20)}</span><div><small>${label}</small><strong>${value}</strong><p>${sub}</p></div></div>`;}
 function renderPriority(data){
   const host=qs("homePriorityList");if(!host)return;
   const rows=data.overdueAccounts.slice(0,4);
-  host.innerHTML=rows.length?rows.map(a=>`<button type="button" class="ll-priority-row" data-home-client="${esc(a.borrower_id)}"><i>${esc(initials(a.full_name))}</i><span class="ll-priority-copy"><span class="ll-priority-top"><strong>${esc(a.full_name||"Cliente")}</strong><em>ATRASADO</em></span><small>${Number(a.overdue_count||0)} cuotas · ${Number(a.max_days_late||0)} días tarde</small></span><b>${money(a.overdue_amount)}</b>${svg("chevron",14)}</button>`).join(""):`<div class="ll-home-empty">No hay cuentas atrasadas.</div>`;
+  setStableMarkup(host,rows.length?rows.map(a=>`<button type="button" class="ll-priority-row" data-home-client="${esc(a.borrower_id)}"><i>${esc(initials(a.full_name))}</i><span class="ll-priority-copy"><span class="ll-priority-top"><strong>${esc(a.full_name||"Cliente")}</strong><em>ATRASADO</em></span><small>${Number(a.overdue_count||0)} cuotas · ${Number(a.max_days_late||0)} días tarde</small></span><b>${money(a.overdue_amount)}</b>${svg("chevron",14)}</button>`).join(""):`<div class="ll-home-empty">No hay cuentas atrasadas.</div>`);
 }
 function snapshotLimit(){
   const priorityCount=dataCache?.overdueAccounts?.length||0;
@@ -261,9 +266,9 @@ function renderOperations(){
   const host=qs("homeOperationsBody");if(!host)return;
   const limit=snapshotLimit();
   if(operationTab==="payments"){
-    const rows=dataCache.activePayments.slice(0,limit);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Detalle",""])+rows.map(p=>`<button class="ll-operation-row payment" type="button" data-home-payment="${esc(p.id)}"><strong>${esc(p.borrower_name||"Cliente")}</strong><b>${money(p.amount)}</b><span>${fmtDate(p.paid_on)}</span><small>Cuota ${money(p.applied_interest)} · Capital ${money(p.applied_principal)}</small>${svg("chevron",13)}</button>`).join("");return;
+    const rows=dataCache.activePayments.slice(0,limit);setStableMarkup(host,tableHeader(["Cliente","Monto","Fecha","Detalle",""])+rows.map(p=>`<button class="ll-operation-row payment" type="button" data-home-payment="${esc(p.id)}"><strong>${esc(p.borrower_name||"Cliente")}</strong><b>${money(p.amount)}</b><span>${fmtDate(p.paid_on)}</span><small>Cuota ${money(p.applied_interest)} · Capital ${money(p.applied_principal)}</small>${svg("chevron",13)}</button>`).join(""));return;
   }
-  const rows=dataCache.upcomingDue.slice(0,limit);host.innerHTML=tableHeader(["Cliente","Monto","Fecha","Estado",""])+rows.map(d=>`<button class="ll-operation-row" type="button" data-home-client="${esc(d.borrower_id)}"><strong>${esc(d.borrower_name||d.full_name||"Cliente")}</strong><b>${money(d.amount_due)}</b><span>${fmtDate(d.due_date)}</span><em class="${d.is_virtual?"virtual":"registered"}">${d.is_virtual?"Virtual":"Registrada"}</em>${svg("chevron",13)}</button>`).join("");
+  const rows=dataCache.upcomingDue.slice(0,limit);setStableMarkup(host,tableHeader(["Cliente","Monto","Fecha","Estado",""])+rows.map(d=>`<button class="ll-operation-row" type="button" data-home-client="${esc(d.borrower_id)}"><strong>${esc(d.borrower_name||d.full_name||"Cliente")}</strong><b>${money(d.amount_due)}</b><span>${fmtDate(d.due_date)}</span><em class="${d.is_virtual?"virtual":"registered"}">${d.is_virtual?"Virtual":"Registrada"}</em>${svg("chevron",13)}</button>`).join(""));
 }
 function tableHeader(labels){return `<div class="ll-operation-head">${labels.map(x=>`<span>${x}</span>`).join("")}</div>`;}
 
@@ -293,12 +298,14 @@ function activitySub(row){
 function activityIcon(row){const key=String(row.action_type||"");if(key.includes("PAYMENT"))return ["purple","edit"];if(key.includes("PARTNER"))return ["lime","users"];if(key.includes("CLIENT"))return ["blue","users"];return ["purple","edit"];}
 function renderActivity(data){
   const host=qs("homeActivityFeed");if(!host)return;const rows=meaningfulActivity(data.activity).slice(0,3);
-  host.innerHTML=rows.length?rows.map(row=>{const [tone,icon]=activityIcon(row);return `<div class="ll-activity-item"><span class="${tone}">${svg(icon,18)}</span><div><strong>${esc(activityTitle(row))}</strong><small>${esc(activitySub(row))}</small></div><time>${esc(relativeDate(row.created_at))}</time></div>`;}).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`;
+  setStableMarkup(host,rows.length?rows.map(row=>{const [tone,icon]=activityIcon(row);return `<div class="ll-activity-item"><span class="${tone}">${svg(icon,18)}</span><div><strong>${esc(activityTitle(row))}</strong><small>${esc(activitySub(row))}</small></div><time>${esc(relativeDate(row.created_at))}</time></div>`;}).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`);
 }
 
-function tick(){ensureDom();if(isHome())refresh(false);}
-const pageNode=qs("dashboardPage");if(pageNode)new MutationObserver(()=>setTimeout(tick,40)).observe(pageNode,{attributes:true,attributeFilter:["class"]});
-setInterval(()=>{if(isHome())refresh(false);},REFRESH_MS);
-tick();
+watchPage('dashboardPage',()=>refresh(false),{interval:REFRESH_MS,prefetch:()=>fetchData(false),reset:()=>{
+  requestSequence++;dataCache=null;operationTab='dues';
+  setStableMarkup(qs('homeKpis'),kpiSkeleton().repeat(4));
+  ['homePortfolioChart','homeRecoveryChart','homeRecoveryGoal','homeMonthlySummary','homePriorityList','homeOperationsBody','homeActivityFeed'].forEach(id=>setStableMarkup(qs(id),''));
+}});
+ensureDom();
 
 console.log("modern home dashboard active");
