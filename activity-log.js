@@ -1,245 +1,91 @@
-import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows } from './page-read-runtime.js?v=1';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { readPageQuery, watchPage, isStalePageSession, loadingRows, getPageSessionId } from './page-read-runtime.js?v=1';
+import { setStableMarkup } from './dashboard-presentation.js?v=1';
+import { qs, esc, money, roleName, dateLabel, isoDate, today, icon, empty, openPage } from './combined-workspace-ui.js?v=1';
+import { actionLabels, tableLabels, technicalTables, actionName, tableName, changeDetails, groupActivity } from './activity-labels.js?v=1';
+import { REPORTS, exportReport, collectRows, downloadCsv, validateRange } from './report-exports.js?v=1';
 
-const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },
-});
+const db=createClient('https://eatxkhhpjruwwibhcubf.supabase.co','sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'loan-ledger-auth'}});
+const state={page:0,size:50,total:0,rows:[],sequence:0,searchTimer:null,tab:'history',exporting:false};
 
-const qs = (id) => document.getElementById(id);
-let activityTimer = null;
-let lastActivityHtml = "";
-let activityBusy = false;
-
-function isActivityPage() { return qs("activityPage")?.classList.contains("active-page"); }
-function money(n) { return `$${Number(n || 0).toFixed(2)}`; }
-function safeText(value) { if (value === null || value === undefined || value === "") return "—"; if (typeof value === "object") return JSON.stringify(value); return String(value); }
-function fmtDate(value) { try { return value ? new Date(value).toLocaleString() : "—"; } catch { return value || "—"; } }
-function card(html, attrs = "") { return `<div class="compact-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;">${html}</div>`; }
-
-const actionLabels = {
-  CLIENT_CREATED: "Cliente creado",
-  CLIENT_EDITED: "Cliente editado",
-  CLIENT_DELETED: "Cliente eliminado",
-  DISBURSEMENT_CREATED: "Desembolso creado",
-  DISBURSEMENT_EDITED: "Desembolso editado",
-  DISBURSEMENT_DELETED: "Desembolso eliminado",
-  DISBURSEMENT_CLOSED: "Desembolso cerrado",
-  DISBURSEMENT_VOIDED: "Desembolso anulado",
-  DISBURSEMENT_REACTIVATED: "Desembolso reactivado",
-  DISBURSEMENT_STATUS_CHANGED: "Estado de desembolso cambiado",
-  PRINCIPAL_BALANCE_CHANGED: "Balance de capital cambiado",
-  ACCOUNT_PRINCIPAL_PAID_OFF: "Capital saldado",
-  ACCOUNT_MARKED_DEFAULTED: "Cuenta marcada en default",
-  ACCOUNT_PAUSED: "Cuenta pausada",
-  ACCOUNT_PAYMENT_RECORDED: "Pago registrado",
-  ACCOUNT_PAYMENT_VOIDED: "Pago anulado",
-  PAYMENT_EDITED: "Pago editado",
-  PAYMENT_DELETED: "Pago eliminado",
-  PAYMENT_NOTES_EDITED: "Notas del pago editadas",
-  FUNDING_SPLIT_ADDED: "Distribución de inversión agregada",
-  FUNDING_SPLIT_EDITED: "Distribución de inversión editada",
-  FUNDING_SPLIT_REMOVED: "Distribución de inversión removida",
-  PARTNER_ALLOCATION_CREATED: "Distribución a socio creada",
-  PARTNER_ALLOCATION_EDITED: "Distribución a socio editada",
-  PARTNER_ALLOCATION_REVERSED: "Distribución a socio revertida",
-  PRINCIPAL_PAYMENT_APPLIED: "Abono a capital aplicado",
-  PRINCIPAL_PAYMENT_EDITED: "Abono a capital editado",
-  PRINCIPAL_PAYMENT_REVERSED: "Abono a capital revertido",
-  CONTACT_NOTE_CREATED: "Nota de contacto creada",
-  CONTACT_NOTE_EDITED: "Nota de contacto editada",
-  CONTACT_NOTE_DELETED: "Nota de contacto eliminada",
-  FOLLOWUP_CREATED: "Seguimiento creado",
-  FOLLOWUP_EDITED: "Seguimiento editado",
-  FOLLOWUP_DELETED: "Seguimiento eliminado",
-  DEFAULT_SPLIT_ADDED: "Distribución predeterminada agregada",
-  DEFAULT_SPLIT_EDITED: "Distribución predeterminada editada",
-  DEFAULT_SPLIT_REMOVED: "Distribución predeterminada removida",
-  SETTING_CREATED: "Configuración creada",
-  SETTING_EDITED: "Configuración editada",
-  SETTING_DELETED: "Configuración eliminada",
-  PROFILE_CREATED: "Perfil creado",
-  PROFILE_EDITED: "Perfil editado",
-  PROFILE_DELETED: "Perfil eliminado",
-};
-
-const tableLabels = {
-  borrowers: "Clientes",
-  loans: "Desembolsos / Capital",
-  payments: "Pagos",
-  loan_funding: "Distribución de inversión",
-  payment_allocations: "Distribuciones a socios",
-  payment_principal_applications: "Abonos a capital",
-  borrower_contact_log: "Notas de contacto",
-  borrower_followups: "Seguimientos",
-  default_funding_splits: "Distribuciones predeterminadas",
-  app_settings: "Configuración",
-  profiles: "Perfiles",
-};
-
-function prettyAction(action = "") { return actionLabels[action] || String(action).replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()); }
-function tableLabel(table = "") { return tableLabels[table] || table || "—"; }
-function actionClass(action = "") {
-  if (action.includes("VOID") || action.includes("DELETED") || action.includes("REVERSED")) return "activity-danger";
-  if (action.includes("PAYMENT") || action.includes("PRINCIPAL")) return "activity-money";
-  if (action.includes("FOLLOWUP") || action.includes("CONTACT")) return "activity-note";
-  return "";
+function periodRange(key){
+  const now=new Date(),end=new Date(now.getFullYear(),now.getMonth()+1,0);let start=new Date(now.getFullYear(),now.getMonth(),1);
+  if(key==='today')return {start:today(),end:today()};if(key==='7d'){start=new Date(now);start.setDate(start.getDate()-6);return {start:isoDate(start),end:today()};}
+  if(key==='3m')start=new Date(now.getFullYear(),now.getMonth()-2,1);if(key==='all')return {start:'',end:''};return {start:isoDate(start),end:isoDate(end)};
 }
-function openPage(id) {
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-  document.querySelectorAll(".page").forEach((p) => p.classList.remove("active-page"));
-  qs(id)?.classList.add("active-page");
-  qs("sideMenu")?.classList.remove("open");
-  qs("menuOverlay")?.classList.remove("open");
+function ensureShell(){
+  let page=qs('activityPage');if(!page){page=document.createElement('div');page.id='activityPage';page.className='page';qs('app')?.append(page);}if(qs('activityWorkspace'))return;
+  page.classList.add('ll-combined-page');page.dataset.combinedWorkspace='true';const range=periodRange('month');
+  page.innerHTML=`<div id="activityWorkspace" data-no-translate="true"><header class="cw-header"><div><h1>Actividad y reportes</h1><p>Revisa los movimientos, consulta sus detalles y descarga tus reportes.</p></div><button class="cw-button" type="button" data-activity-refresh>Actualizar</button></header>
+    <nav class="cw-tabs" role="tablist" aria-label="Actividad y reportes"><button id="activityHistoryTab" role="tab" aria-controls="activityHistoryPanel" aria-selected="true" data-activity-tab="history">Historial</button><button id="activityReportsTab" role="tab" aria-controls="activityReportsPanel" aria-selected="false" data-activity-tab="reports">Reportes</button></nav>
+    <section class="cw-card cw-range"><label><span>Período</span><select id="activityFilterPeriod"><option value="today">Hoy</option><option value="7d">Últimos 7 días</option><option value="month" selected>Este mes</option><option value="3m">Últimos 3 meses</option><option value="all">Todo el historial</option><option value="custom">Personalizado</option></select></label><label><span>Desde</span><input id="activityFilterStart" type="date" value="${range.start}"></label><label><span>Hasta</span><input id="activityFilterEnd" type="date" value="${range.end}"></label><p id="activityRangeNote">El período se aplica al historial y a los reportes de movimientos.</p></section>
+    <div id="activityMessage" class="cw-message" role="status" hidden></div>
+    <section id="activityHistoryPanel" role="tabpanel" aria-labelledby="activityHistoryTab"><div class="cw-card"><div class="cw-card-head"><div><h2>Movimientos</h2><p id="activityCount">Cargando el historial…</p></div><button class="cw-button" type="button" data-export-activity>${icon('download')} Exportar historial</button></div>
+      <div class="cw-controls cw-activity-filters"><label class="cw-search">${icon('search')}<input id="activitySearch" type="search" placeholder="Buscar persona, cliente o texto…" aria-label="Buscar en el historial"></label><label><span class="cw-sr">Tipo de acción</span><select id="activityFilterAction"><option value="">Todas las acciones</option>${Object.entries(actionLabels).map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('')}</select></label><label><span class="cw-sr">Sección</span><select id="activityFilterTable"><option value="">Todas las secciones</option>${Object.entries(tableLabels).map(([key,label])=>`<option value="${key}">${label}</option>`).join('')}</select></label></div>
+      <div class="cw-history-note"><label class="cw-check"><input type="checkbox" id="activityFilterTechnical"> Incluir registros de cuotas calculadas y aplicaciones automáticas</label></div><div id="activityList">${loadingRows(4)}</div><footer class="cw-pagination"><span id="activityPageInfo"></span><div><button class="cw-button" type="button" data-activity-prev disabled>Anterior</button><button class="cw-button" type="button" data-activity-next disabled>Siguiente</button></div></footer>
+    </div></section>
+    <section id="activityReportsPanel" role="tabpanel" aria-labelledby="activityReportsTab" hidden><div class="cw-report-intro"><h2>Reportes para descargar</h2><p>Los reportes de movimientos usan las fechas de arriba. Las cuentas y el resumen de socios muestran el estado actual.</p></div><div class="cw-report-grid">${REPORTS.map(r=>`<article class="cw-card cw-report-card"><span class="cw-round-icon purple">${icon(r.icon)}</span><h3>${r.title}</h3><p>${r.description}</p><small>${r.scope}</small><button type="button" class="cw-button" data-report="${r.key}">${icon('download')} Descargar CSV</button></article>`).join('')}</div></section>
+  </div>`;
+  page.addEventListener('click',handleClick);page.addEventListener('change',handleChange);page.addEventListener('input',event=>{if(event.target.id==='activitySearch'){state.page=0;state.sequence++;clearTimeout(state.searchTimer);state.searchTimer=setTimeout(()=>refresh(false),250);}});
+  const side=qs('sideMenu');if(side&&!qs('menuActivity')){const button=document.createElement('button');button.id='menuActivity';button.className='menu-link';button.dataset.page='activityPage';button.textContent='Actividad y reportes';button.onclick=()=>openPage('activityPage');side.insertBefore(button,side.querySelector('[data-page="defaultsPage"]'));}
 }
-function ensureStyles() {
-  if (qs("activityStyle")) return;
-  const style = document.createElement("style");
-  style.id = "activityStyle";
-  style.textContent = `
-    .activity-danger{color:#ff8b8b;}.activity-money{color:#9ff5b2;}.activity-note{color:#ffd27a;}
-    .activity-chip{display:inline-block;padding:4px 9px;border:1px solid #333;border-radius:999px;font-size:12px;color:#cfcfe6;}
-    .activity-row:hover{filter:brightness(1.06);}
-  `;
-  document.head.appendChild(style);
+function message(text,error=false){const node=qs('activityMessage');node.hidden=!text;node.textContent=text;node.classList.toggle('is-error',error);}
+function filters(){return {start:qs('activityFilterStart').value,end:qs('activityFilterEnd').value,action:qs('activityFilterAction').value,table:qs('activityFilterTable').value,search:qs('activitySearch').value.trim(),technical:qs('activityFilterTechnical').checked};}
+function queryFor(f,count=false){
+  let query=db.from('activity_log_view').select('*',count?{count:'exact'}:{}).order('created_at',{ascending:false}).order('id',{ascending:false});
+  if(f.start)query=query.gte('created_at',new Date(f.start+'T00:00:00').toISOString());
+  if(f.end){const end=new Date(f.end+'T00:00:00');end.setDate(end.getDate()+1);query=query.lt('created_at',end.toISOString());}
+  if(f.action)query=query.eq('action_type',f.action);if(f.table)query=query.eq('entity_table',f.table);
+  if(!f.technical)query=query.not('entity_table','in','('+technicalTables.join(',')+')');
+  // Keep user text out of the PostgREST filter grammar while retaining words and names.
+  const term=f.search.replace(/[^\p{L}\p{N}\s@+\-]/gu,' ').replace(/\s+/g,' ').trim();
+  if(term)query=query.or(['actor_name','borrower_name','entity_text','summary'].map(field=>`${field}.ilike.%${term}%`).join(','));
+  return query;
 }
-function activityPageHtml() {
-  return `
-    <div class="card" data-no-translate="true">
-      <div style="font-weight:800;">Actividad / Historial</div>
-      <div class="muted">Registro de desembolsos, pagos, anulaciones, capital, socios, seguimientos y cambios importantes.</div>
-      <div class="row" style="margin-top:10px;">
-        <select id="activityFilterAction"><option value="">Todas las acciones</option></select>
-        <select id="activityFilterTable">
-          <option value="">Todas las secciones</option>
-          <option value="borrowers">Clientes</option>
-          <option value="loans">Desembolsos / Capital</option>
-          <option value="payments">Pagos</option>
-          <option value="loan_funding">Distribución de inversión</option>
-          <option value="payment_allocations">Distribuciones a socios</option>
-          <option value="payment_principal_applications">Abonos a capital</option>
-          <option value="borrower_contact_log">Notas de contacto</option>
-          <option value="borrower_followups">Seguimientos</option>
-          <option value="default_funding_splits">Distribuciones predeterminadas</option>
-          <option value="app_settings">Configuración</option>
-          <option value="profiles">Perfiles</option>
-        </select>
-      </div>
-      <div class="row">
-        <input id="activitySearch" placeholder="Buscar usuario, cliente, acción, resumen..." />
-        <button id="btnRefreshActivity" type="button">Actualizar</button>
-      </div>
-    </div>
-    <div class="card" data-no-translate="true">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div style="font-weight:800;">Actividad reciente</div>
-        <span class="pill" id="activityCountPill">0</span>
-      </div>
-      <div id="activityList" class="muted">Cargando...</div>
-    </div>
-  `;
+function readActivity(f,page=0,force=false){return readPageQuery('activity-workspace:'+JSON.stringify({...f,page}),()=>queryFor(f,true).range(page*state.size,(page+1)*state.size-1),{force,ttl:45000});}
+function setTab(tab){state.tab=tab;qs('activityHistoryPanel').hidden=tab!=='history';qs('activityReportsPanel').hidden=tab!=='reports';qs('activityWorkspace').querySelectorAll('[role="tab"]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.activityTab===tab)));}
+function eventTone(row){if(/VOID|DELET|REVERSE/.test(row.action_type))return 'coral';if(row.entity_table==='payments')return 'lime';if(row.entity_table==='profiles')return 'blue';return 'purple';}
+function rowMarkup(row,children=[]){
+  const amount=row.new_data?.amount??row.old_data?.amount??(row.entity_table==='loans'?row.new_data?.principal_original:null)??(row.entity_table==='payments'?row.payment_amount:null);
+  const date=new Date(row.created_at),time=Number.isNaN(date.getTime())?'—':date.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
+  const detail=changeDetails(row),notes=String(row.summary||'');
+  const summary=notes&&!/changed$|BORROWER_DUE_EVENTS|MANAGEMENT_FEE|PARTNER_DISTRIBUTION|FUNDER_FEE|FUNDING_FEE|allocation_type/.test(notes)&&!technicalTables.includes(row.entity_table)?`<p class="cw-event-summary">${esc(notes)}</p>`:'';
+  return `<article class="cw-event"><time datetime="${esc(row.created_at)}">${time}</time><span class="cw-round-icon ${eventTone(row)}">${icon(row.entity_table==='payments'?'dollar':row.entity_table==='profiles'?'users':technicalTables.includes(row.entity_table)?'calendar':'chart')}</span><div class="cw-event-copy"><div class="cw-event-top"><h3>${actionName(row.action_type)}</h3><span class="cw-tag">${tableName(row.entity_table)}</span></div><p class="cw-event-actor">${esc(row.actor_name||'Sistema')}${row.actor_role?' · '+roleName(row.actor_role):''}</p>${row.borrower_name?`<button class="cw-link" type="button" data-activity-client="${esc(row.borrower_id||'')}">${esc(row.borrower_name)}</button>`:''}${summary}${detail||children.length?`<details class="cw-event-details"><summary>Ver detalles${children.length?' · '+children.length+' registros relacionados':''}</summary><div>${detail}${row.payment_id&&row.entity_table!=='payments'?`<p class="cw-help">Pago vinculado: ${money(row.payment_amount)} · ${dateLabel(row.payment_paid_on)}</p>`:''}${children.map(child=>`<section class="cw-related-event"><h4>${actionName(child.action_type)}</h4><p>${tableName(child.entity_table)}</p>${changeDetails(child)}</section>`).join('')}</div></details>`:''}</div>${amount!=null?`<strong class="cw-event-amount">${money(amount)}</strong>`:'<span></span>'}</article>`;
 }
-function ensureActivityPage() {
-  const app = qs("app");
-  if (!app) return null;
-  let page = qs("activityPage");
-  if (!page) { page = document.createElement("div"); page.id = "activityPage"; page.className = "page"; app.appendChild(page); }
-  if (!qs("activityList") || !qs("activityFilterAction")) page.innerHTML = activityPageHtml();
-
-  const sideMenu = qs("sideMenu");
-  if (sideMenu && !qs("menuActivity")) {
-    const btn = document.createElement("button");
-    btn.id = "menuActivity";
-    btn.className = "menu-link";
-    btn.dataset.page = "activityPage";
-    btn.textContent = "Actividad / Historial";
-    const reportsBtn = qs("menuReports");
-    const defaultsBtn = sideMenu.querySelector('[data-page="defaultsPage"]');
-    if (reportsBtn) sideMenu.insertBefore(btn, reportsBtn);
-    else sideMenu.insertBefore(btn, defaultsBtn || null);
-  }
-  const menuBtn = qs("menuActivity");
-  if (menuBtn && menuBtn.dataset.activityBound !== "true") {
-    menuBtn.dataset.activityBound = "true";
-    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureActivityPage(); openPage("activityPage"); renderActivity(false); };
-  }
-  if (qs("btnRefreshActivity") && qs("btnRefreshActivity").dataset.bound !== "true") {
-    qs("btnRefreshActivity").dataset.bound = "true";
-    qs("btnRefreshActivity").onclick = () => renderActivity(true);
-    qs("activitySearch").oninput = () => renderActivity(false, true);
-    qs("activityFilterAction").onchange = () => renderActivity(false);
-    qs("activityFilterTable").onchange = () => renderActivity(false);
-  }
-  return page;
+function renderActivity(){
+  const groups=groupActivity(state.rows);let previous='',html='';
+  groups.forEach(({row,children})=>{const key=dateLabel(row.created_at);if(previous!==key){html+=`<h3 class="cw-day-heading">${key}</h3>`;previous=key;}html+=rowMarkup(row,children);});
+  setStableMarkup(qs('activityList'),html||empty('No hay movimientos con estos filtros.'));
+  qs('activityCount').textContent=`${state.total} registros encontrados · Los movimientos relacionados se agrupan.`;
+  const from=state.total?state.page*state.size+1:0,to=Math.min(state.total,(state.page+1)*state.size);
+  qs('activityPageInfo').textContent=`${from}–${to} de ${state.total} registros`;
+  qs('activityWorkspace').querySelector('[data-activity-prev]').disabled=state.page===0;
+  qs('activityWorkspace').querySelector('[data-activity-next]').disabled=to>=state.total;
 }
-async function populateActionFilter(rows) {
-  const sel = qs("activityFilterAction");
-  if (!sel) return;
-  const current = sel.value || "";
-  const actions = [...new Set(rows.map((r) => r.action_type).filter(Boolean))].sort();
-  sel.innerHTML = `<option value="">Todas las acciones</option>${actions.map((a) => `<option value="${a}">${prettyAction(a)}</option>`).join("")}`;
-  sel.value = actions.includes(current) ? current : "";
+async function refresh(force=false){
+  ensureShell();if(!qs('activityPage').classList.contains('active-page'))return;const sequence=++state.sequence,f=filters(),page=state.page;
+  try{validateRange(f);const result=await readActivity(f,page,force);if(sequence!==state.sequence)return;if(result.error)throw result.error;state.rows=result.data||[];state.total=result.count??state.rows.length;renderActivity();}
+  catch(e){if(!isStalePageSession(e)&&sequence===state.sequence)message(e.message||String(e),true);}
 }
-function rowMatchesFilters(row) {
-  const action = qs("activityFilterAction")?.value || "";
-  const table = qs("activityFilterTable")?.value || "";
-  const term = String(qs("activitySearch")?.value || "").trim().toLowerCase();
-  if (action && row.action_type !== action) return false;
-  if (table && row.entity_table !== table) return false;
-  if (term) {
-    const haystack = [row.actor_name, row.actor_role, row.action_type, prettyAction(row.action_type), tableLabel(row.entity_table), row.entity_text, row.borrower_name, row.summary, row.loan_id, row.payment_id].map((x) => String(x || "").toLowerCase()).join(" ");
-    if (!haystack.includes(term)) return false;
-  }
-  return true;
+function handleChange(event){
+  const target=event.target;if(!target.id.startsWith('activityFilter'))return;
+  if(target.id==='activityFilterPeriod'&&target.value!=='custom'){const range=periodRange(target.value);qs('activityFilterStart').value=range.start;qs('activityFilterEnd').value=range.end;}
+  if(['activityFilterStart','activityFilterEnd'].includes(target.id))qs('activityFilterPeriod').value='custom';
+  if(target.id==='activityFilterTable'&&technicalTables.includes(target.value))qs('activityFilterTechnical').checked=true;
+  state.page=0;message('');refresh(false);
 }
-function changedFields(oldData = {}, newData = {}) {
-  if (!oldData || !newData) return [];
-  const ignored = new Set(["updated_at", "created_at", "id", "loan_id", "borrower_id", "created_by"]);
-  const keys = [...new Set([...Object.keys(oldData), ...Object.keys(newData)])].filter((k) => !ignored.has(k));
-  return keys.filter((key) => JSON.stringify(oldData[key]) !== JSON.stringify(newData[key])).slice(0, 6).map((key) => ({ key, before: oldData[key], after: newData[key] }));
+async function exportHistory(f){
+  const rows=await collectRows(()=>queryFor(f));downloadCsv('historial',rows.map(row=>({registrado:row.created_at,persona:row.actor_name,rol:roleName(row.actor_role),accion:actionName(row.action_type),seccion:tableName(row.entity_table),cliente:row.borrower_name,monto:row.new_data?.amount??row.payment_amount,fecha_pago:row.payment_paid_on,resumen:row.summary,antes:row.old_data,despues:row.new_data,referencia:row.id})));return rows.length;
 }
-function renderChangeSummary(row) {
-  const oldData = row.old_data || null;
-  const newData = row.new_data || null;
-  if (!oldData && newData) {
-    const interesting = ["full_name", "paid_on", "amount", "payment_type", "principal_original", "principal_outstanding", "status", "funding_percent", "allocation_type", "role", "due_date", "priority", "contact_type"];
-    return interesting.filter((k) => newData[k] !== undefined && newData[k] !== null).map((k) => `<div><strong>${k}:</strong> ${safeText(newData[k])}</div>`).join("");
-  }
-  if (oldData && !newData) return `<div><strong>Eliminado:</strong> ${safeText(row.summary)}</div>`;
-  const changes = changedFields(oldData, newData);
-  if (!changes.length) return "";
-  return changes.map((c) => `<div><strong>${c.key}:</strong> <span class="muted">${safeText(c.before)}</span> → <span>${safeText(c.after)}</span></div>`).join("");
+async function handleClick(event){
+  const target=event.target,tab=target.closest('[data-activity-tab]');if(tab){setTab(tab.dataset.activityTab);return;}
+  const client=target.closest('[data-activity-client]');if(client?.dataset.activityClient){window.dispatchEvent(new CustomEvent('loan-ledger:open-account',{detail:{borrowerId:client.dataset.activityClient}}));return;}
+  if(target.closest('[data-activity-refresh]')){refresh(true);return;}if(target.closest('[data-activity-prev]')){state.page=Math.max(0,state.page-1);refresh(false);return;}if(target.closest('[data-activity-next]')){state.page++;refresh(false);return;}
+  const report=target.closest('[data-report]'),history=target.closest('[data-export-activity]');if(!report&&!history||state.exporting)return;
+  const f=filters(),owner=getPageSessionId(),button=report||history;state.exporting=true;button.disabled=true;message('Preparando la descarga…');
+  try{validateRange(f);const count=history?await exportHistory(f):await exportReport(report.dataset.report,f);if(owner===getPageSessionId())message(`Descarga preparada: ${count} registros.`);}
+  catch(e){if(!isStalePageSession(e)&&owner===getPageSessionId())message(e.message||String(e),true);}
+  finally{state.exporting=false;button.disabled=false;}
 }
-function renderRow(row) {
-  const action = prettyAction(row.action_type);
-  const cls = actionClass(row.action_type);
-  const entity = row.borrower_name || row.entity_text || (row.payment_id ? `Pago ${String(row.payment_id).slice(0, 8)}` : "") || (row.loan_id ? `Desembolso ${String(row.loan_id).slice(0, 8)}` : "") || tableLabel(row.entity_table);
-  const amountLine = row.payment_amount != null ? `<span class="muted">Pago: ${money(row.payment_amount)} ${row.payment_paid_on ? `el ${row.payment_paid_on}` : ""}</span><br>` : "";
-  const changes = renderChangeSummary(row);
-  return card(`<div class="activity-row"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><strong class="${cls}">${action}</strong><br><span class="muted">${fmtDate(row.created_at)} | ${row.actor_name || "Sistema"}${row.actor_role ? ` (${row.actor_role})` : ""}</span></div><span class="activity-chip">${tableLabel(row.entity_table)}</span></div><div style="margin-top:8px;"><strong>${entity}</strong><br><span class="muted">${row.summary || "—"}</span><br>${amountLine}${changes ? `<div style="margin-top:8px;">${changes}</div>` : ""}</div></div>`);
-}
-async function renderActivity(force = false, localOnly = false) {
-  ensureActivityPage();
-  if (!isActivityPage() || activityBusy || !qs("activityList")) return;
-  if (localOnly) {
-    const term = String(qs("activitySearch")?.value || "").trim().toLowerCase();
-    document.querySelectorAll("#activityList .compact-card").forEach((el) => { el.style.display = !term || el.textContent.toLowerCase().includes(term) ? "" : "none"; });
-    return;
-  }
-  const stamp = `${qs("activityFilterAction")?.value || ""}:${qs("activityFilterTable")?.value || ""}`;
-  if (!force && qs("activityList").dataset.stamp === stamp && lastActivityHtml) return;
-  activityBusy = true;
-  try {
-    const { data, error } = await readPageQuery("activity", () => supabase.from("activity_log_view").select("*").order("created_at", { ascending: false }).limit(200), {force: force});
-    if (error) throw error;
-    await populateActionFilter(data || []);
-    const rows = (data || []).filter(rowMatchesFilters);
-    const html = rows.length ? rows.map(renderRow).join("") : "No hay actividad para esta vista.";
-    qs("activityList").dataset.stamp = stamp;
-    qs("activityCountPill").textContent = String(rows.length);
-    if (force || html !== lastActivityHtml) { qs("activityList").innerHTML = html; lastActivityHtml = html; }
-  } catch (error) { if(isStalePageSession(error))return;console.error(error); qs("activityList").innerHTML = error.message || String(error); } finally { activityBusy = false; finishPageLoading("activityPage"); }
-}
-async function tick() { ensureStyles(); ensureActivityPage(); if (isActivityPage()) await renderActivity(); }
-tick();
-fillInitialLoading("activityList");
-watchPage("activityPage", tick, {prefetch: () => readPageQuery("activity", () => supabase.from("activity_log_view").select("*").order("created_at", { ascending: false }).limit(200)), reset: () => {lastActivityHtml="";const n=qs("activityList");if(n){delete n.dataset.stamp;n.innerHTML=loadingRows();}}});
+ensureShell();
+watchPage('activityPage',()=>refresh(false),{interval:45000,prefetch:()=>readActivity(filters(),state.page),reset:()=>{state.sequence++;state.rows=[];state.total=0;state.page=0;state.exporting=false;setStableMarkup(qs('activityList'),loadingRows(4));qs('activityCount').textContent='Cargando el historial…';qs('activityPageInfo').textContent='';message('');}});

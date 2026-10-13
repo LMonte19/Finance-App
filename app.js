@@ -1,4 +1,5 @@
 import { setPageSession, invalidatePageReads, readPageQuery, getPageSessionId, isStalePageSession } from './page-read-runtime.js?v=1';
+import { esc } from './combined-workspace-ui.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
@@ -27,6 +28,7 @@ let pendingNewLoanFunding = [];
 function openMenu() { qs("sideMenu")?.classList.add("open"); qs("menuOverlay")?.classList.add("open"); }
 function closeMenu() { qs("sideMenu")?.classList.remove("open"); qs("menuOverlay")?.classList.remove("open"); }
 function openPage(targetId) {
+  targetId = ({profilesPage:'partnersPage',reportsPage:'activityPage'})[targetId] || targetId;
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".page").forEach((p) => p.classList.remove("active-page"));
   const matchingTab = document.querySelector(`.tab-btn[data-page="${targetId}"]`);
@@ -76,29 +78,14 @@ async function saveAppSetting(key, value) {
   if (error) throw error;
   invalidatePageReads();
 }
-function renderDefaultFundingList(rows = []) {
-  const el = qs("defaultFundingList");
-  if (!el) return;
-  const total = rows.reduce((sum, row) => sum + Number(row.funding_percent || 0), 0);
-  el.innerHTML = rows.length ? `
-    ${rows.map((row) => `
-      <div class="compact-card" data-partner-id="${row.partner_user_id}" data-percent="${row.funding_percent}" data-partner-name="${row.partner_name}">
-        <strong>${row.partner_name}</strong><br>
-        <span class="muted">${(Number(row.funding_percent) * 100).toFixed(2)}%</span>
-      </div>
-    `).join("")}
-    <div style="margin-top:10px"><strong>Total:</strong> ${(total * 100).toFixed(2)}%</div>
-    ${Math.abs(total - 1) > 0.001 ? `<div style="color:#ffd27a;margin-top:8px">La distribución debe sumar 100%.</div>` : ""}
-  ` : "No hay distribución predeterminada guardada.";
-}
 function renderPendingNewLoanFunding() {
   const el = qs("newLoanFundingList");
   if (!el) return;
   const total = pendingNewLoanFunding.reduce((sum, row) => sum + Number(row.funding_percent || 0), 0);
   el.innerHTML = pendingNewLoanFunding.length ? `
     ${pendingNewLoanFunding.map((row) => `
-      <div class="compact-card">
-        <strong>${row.partner_name}</strong><br>
+      <div class="compact-card" data-partner-id="${esc(row.partner_user_id)}" data-percent="${Number(row.funding_percent)}" data-partner-name="${esc(row.partner_name)}">
+        <strong>${esc(row.partner_name)}</strong><br>
         <span class="muted">${(Number(row.funding_percent) * 100).toFixed(2)}%</span>
       </div>
     `).join("")}
@@ -113,26 +100,30 @@ function updateLoanFunderRatePreview() {
   if (qs("loanFunderRatePreview")) qs("loanFunderRatePreview").textContent = funders >= 0 ? `Socios: ${funders.toFixed(2)}%` : "Porcentaje inválido.";
 }
 async function loadDefaultsIntoSettingsUI() {
-  const [rates, funding] = await Promise.all([loadAppSetting("loan_defaults"), loadAppSetting("default_funding_split")]);
+  const rates = await loadAppSetting("loan_defaults");
   if (qs("defaultInterestRate")) qs("defaultInterestRate").value = rates?.default_total_monthly_rate != null ? Number(rates.default_total_monthly_rate).toFixed(2) : "10.00";
   if (qs("defaultManagementRate")) qs("defaultManagementRate").value = rates?.default_management_rate != null ? Number(rates.default_management_rate).toFixed(2) : "3.00";
-  renderDefaultFundingList(funding ?? []);
 }
 async function prefillLoanDefaults(force = false) {
-  const [rates, funding] = await Promise.all([loadAppSetting("loan_defaults"), loadAppSetting("default_funding_split")]);
+  const [rates, funding, people] = await Promise.all([loadAppSetting("loan_defaults"), loadAppSetting("default_funding_split"),readFundingPartners()]);
   if (qs("loanTotalRate")) qs("loanTotalRate").value = rates?.default_total_monthly_rate != null ? Number(rates.default_total_monthly_rate).toFixed(2) : "10.00";
   if (qs("loanMgmtRate")) qs("loanMgmtRate").value = rates?.default_management_rate != null ? Number(rates.default_management_rate).toFixed(2) : "3.00";
   updateLoanFunderRatePreview();
   if (force || pendingNewLoanFunding.length === 0) {
-    pendingNewLoanFunding = (funding ?? []).map((row) => ({ partner_user_id: row.partner_user_id, funding_percent: Number(row.funding_percent), partner_name: row.partner_name }));
+    const names=new Map(people.map(p=>[p.user_id,p.full_name]));
+    pendingNewLoanFunding = (funding ?? []).map((row) => ({ partner_user_id: row.partner_user_id, funding_percent: Number(row.funding_percent), partner_name: names.get(row.partner_user_id)||row.partner_name }));
     renderPendingNewLoanFunding();
   }
 }
-async function refreshFundingPartnerSelects() {
+async function readFundingPartners() {
   const { data, error } = await readPageQuery("funding-partners", () => supabase.from("profiles").select("user_id, full_name, role").in("role", ["ADMIN", "PARTNER"]).order("full_name", { ascending: true }));
   if (error) throw error;
-  const options = (data ?? []).map((p) => `<option value="${p.user_id}">${p.full_name || "Sin nombre"} (${p.role})</option>`).join("");
-  ["newLoanFundingPartner", "defaultFundingPartner"].forEach((id) => { if (qs(id)) qs(id).innerHTML = options; });
+  return data??[];
+}
+async function refreshFundingPartnerSelects() {
+  const data=await readFundingPartners();
+  const options = (data ?? []).map((p) => `<option value="${esc(p.user_id)}">${esc(p.full_name || "Sin nombre")} (${esc(p.role)})</option>`).join("");
+  ["newLoanFundingPartner"].forEach((id) => { if (qs(id)) qs(id).innerHTML = options; });
 }
 async function refreshBorrowers() {
   const { data, error } = await readPageQuery("base-borrowers", () => supabase.from("borrowers").select("*").order("created_at", { ascending: false }));
@@ -179,26 +170,9 @@ async function saveDefaultRates() {
   if (!default_total_monthly_rate || default_management_rate < 0) return alert("Ingresa tasas válidas.");
   if (default_management_rate > default_total_monthly_rate) return alert("Administración no puede exceder el interés total.");
   await saveAppSetting("loan_defaults", { default_total_monthly_rate, default_management_rate });
+  window.dispatchEvent(new CustomEvent('loan-ledger:rates-updated'));
   await prefillLoanDefaults(true);
   alert("Tasas predeterminadas guardadas.");
-}
-async function saveDefaultFunding() {
-  if (!currentProfile || currentProfile.role !== "ADMIN") return alert("Solo Admin puede actualizar valores predeterminados.");
-  const partner_user_id = qs("defaultFundingPartner")?.value;
-  const percent = Number(qs("defaultFundingPercent")?.value || 0);
-  if (!partner_user_id || !percent) return alert("Socio y porcentaje son requeridos.");
-  const partner_name = qs("defaultFundingPartner").selectedOptions[0]?.textContent || "Socio";
-  const current = (await loadAppSetting("default_funding_split")) ?? [];
-  const funding_percent = percent / 100;
-  const index = current.findIndex((x) => x.partner_user_id === partner_user_id);
-  const row = { partner_user_id, partner_name, funding_percent };
-  if (index >= 0) current[index] = row;
-  else current.push(row);
-  await saveAppSetting("default_funding_split", current);
-  qs("defaultFundingPercent").value = "";
-  await loadDefaultsIntoSettingsUI();
-  await prefillLoanDefaults(true);
-  alert("Distribución predeterminada guardada.");
 }
 function initHandlers() {
   if (qs("btnSignIn")) qs("btnSignIn").onclick = safe(async () => {
@@ -258,9 +232,18 @@ function initHandlers() {
   };
   if (qs("btnAddBorrower")) qs("btnAddBorrower").onclick = safe(addBorrower);
   if (qs("btnAddNewLoanFunding")) qs("btnAddNewLoanFunding").onclick = addPendingLoanFunding;
-  if (qs("btnSaveDefaultFunding")) qs("btnSaveDefaultFunding").onclick = safe(saveDefaultFunding);
   if (qs("btnSaveDefaultRates")) qs("btnSaveDefaultRates").onclick = safe(saveDefaultRates);
+  if (qs('btnOpenPartnersSplit')) qs('btnOpenPartnersSplit').onclick = () => {openPage('partnersPage');window.dispatchEvent(new CustomEvent('loan-ledger:partners-tab',{detail:{tab:'split'}}));};
 }
+window.addEventListener('loan-ledger:defaults-updated',()=>prefillLoanDefaults(true).catch(error=>{if(!isStalePageSession(error))console.error(error);}));
+window.addEventListener('loan-ledger:profile-updated',async()=>{
+  const id=getPageSessionId();if(!id)return;
+  try{const profile=await loadProfileByUserId(id);if(getPageSessionId()!==id)return;currentProfile=profile;
+    if(qs('whoami'))qs('whoami').textContent=`${profile.full_name??'Usuario'} • ${profile.role}`;
+    if(qs('rolePill'))qs('rolePill').textContent=profile.role;
+    await refreshFundingPartnerSelects();
+  }catch(error){if(!isStalePageSession(error))console.error(error);}
+});
 async function setSignedInUI(profile) {
   currentProfile = profile;
   qs("authCard").style.display = "none";

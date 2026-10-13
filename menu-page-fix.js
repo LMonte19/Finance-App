@@ -3,8 +3,6 @@ const qs = (id) => document.getElementById(id);
 function repairMenuButtonsOnly() {
   const map = [
     ["menuDueOverdue", "dueOverduePage"],
-    ["menuProfiles", "profilesPage"],
-    ["menuReports", "reportsPage"],
     ["menuMaintenance", "maintenancePage"],
     ["menuActivity", "activityPage"],
     ["menuLoanHealth", "loanHealthPage"],

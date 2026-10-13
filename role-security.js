@@ -225,6 +225,7 @@ supabase.auth.onAuthStateChange(() => {
   currentName = null;
   setTimeout(applyRoleGuards, 500);
 });
+window.addEventListener('loan-ledger:profile-updated',()=>{currentRole=null;currentName=null;setTimeout(applyRoleGuards,0);});
 
 const observer = new MutationObserver(() => {
   clearTimeout(guardTimer);

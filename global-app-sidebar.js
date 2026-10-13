@@ -36,14 +36,12 @@ const PRIMARY=[
 
 const PAGE_META={
   borrowersPage:['Clientes','clients'],
-  partnersPage:['Socios','partners'],
+  partnersPage:['Socios y usuarios','partners'],
   followupsPage:['Seguimientos','followups'],
-  activityPage:['Actividad','activity'],
+  activityPage:['Actividad y reportes','activity'],
   loanHealthPage:['Revisión de cuentas','review'],
   dueOverduePage:['Cuotas / vencimientos','calendar'],
-  reportsPage:['Reportes','reports'],
   systemCheckPage:['Revisión del sistema','system'],
-  profilesPage:['Perfiles / usuarios','users'],
   maintenancePage:['Mantenimiento','maintenance'],
   defaultsPage:['Configuración','settings'],
 };

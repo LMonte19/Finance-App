@@ -5,6 +5,8 @@ let timer = null;
 let isApplying = false;
 
 const pairs = {
+  "Partners and users":"Socios y usuarios",
+  "Activity and reports":"Actividad y reportes",
   "Loan Ledger": "Control de Préstamos",
   "Not signed in": "Sesión no iniciada",
   "Sign in": "Iniciar sesión",

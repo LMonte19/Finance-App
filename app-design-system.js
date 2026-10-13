@@ -9,7 +9,7 @@ const PAGE_COPY = {
   systemCheckPage: { es: ['Revisión del sistema', 'Consulta resultados, permisos y comprobaciones de la aplicación.'], en: ['System review', 'Review application results, permissions and checks.'] },
   profilesPage: { es: ['Perfiles y usuarios', 'Administra nombres y roles de las personas con acceso.'], en: ['Profiles and users', 'Manage the names and roles of people with access.'] },
   maintenancePage: { es: ['Mantenimiento', 'Herramientas administrativas para el mantenimiento de la aplicación.'], en: ['Maintenance', 'Administrative tools for application maintenance.'] },
-  defaultsPage: { es: ['Configuración', 'Define tasas y distribución de inversión para nuevos desembolsos.'], en: ['Settings', 'Set default rates and investment distribution for new disbursements.'] }
+  defaultsPage: { es: ['Configuración', 'Define las tasas para nuevos desembolsos.'], en: ['Settings', 'Set the default rates for new disbursements.'] }
 };
 const CONTAINER_PAGES = new Set(['profilesPage', 'reportsPage', 'maintenancePage', 'dueOverduePage']);
 const SUMMARY_PAGES = new Set(['partnersPage', 'followupsPage', 'loanHealthPage']);
@@ -47,6 +47,7 @@ function ensurePageHeader(page, copy) {
   return header;
 }
 function decoratePage(page, copy) {
+  if(page.dataset.combinedWorkspace==='true')return;
   addClass(page, 'll-ui-page');
   const header = ensurePageHeader(page, copy);
   const cards = [...page.querySelectorAll('.card')];

@@ -1,4 +1,4 @@
-import { readPageQuery, watchPage, isStalePageSession, invalidatePageReads } from './page-read-runtime.js?v=1';
+import { readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
@@ -26,88 +26,20 @@ function isLoansPage() {
   return qs("loansPage")?.classList.contains("active-page");
 }
 
-function roundPct(n) {
-  return `${(Number(n || 0) * 100).toFixed(2)}%`;
+const editedRates=new Set();
+document.addEventListener('input',event=>{if(['defaultInterestRate','defaultManagementRate'].includes(event.target.id))editedRates.add(event.target.id);});
+window.addEventListener('loan-ledger:rates-updated',()=>{editedRates.clear();renderEnhancedDefaults(true);});
+async function loadSetting(key){
+ const {data,error}=await readPageQuery('setting:'+key,()=>supabase.from('app_settings').select('setting_value').eq('setting_key',key).maybeSingle());
+ if(error)throw error;return data?.setting_value??null;
 }
-
-async function loadSetting(key) {
-  const { data, error } = await readPageQuery("setting:"+key, () => supabase
-    .from("app_settings")
-    .select("setting_value")
-    .eq("setting_key", key)
-    .maybeSingle());
-  if (error) throw error;
-  return data?.setting_value ?? null;
-}
-
-async function saveSetting(key, value) {
-  const { error } = await supabase.rpc("set_app_setting", { p_key: key, p_value: value });
-  if (error) throw error;
-  invalidatePageReads();
-}
-
-function fundingTotal(rows = []) {
-  return rows.reduce((sum, row) => sum + Number(row.funding_percent || 0), 0);
-}
-
-function splitWarning(total) {
-  if (Math.abs(total - 1) <= 0.001) return `<div style="color:#87e39a;margin-top:8px;">Default split totals 100%.</div>`;
-  if (total > 1) return `<div style="color:#ff8b8b;margin-top:8px;">Warning: default split exceeds 100%.</div>`;
-  return `<div style="color:#ffd27a;margin-top:8px;">Warning: default split is below 100%.</div>`;
-}
-
-async function renderEnhancedDefaults(force = false) {
-  if (!isDefaultsPage() || busy || !qs("defaultFundingList")) return;
-  const stamp = `${Date.now() - (Date.now() % 3000)}`;
-  if (!force && qs("defaultFundingList").dataset.enhancedStamp === stamp) return;
-
-  busy = true;
-  try {
-    const [rates, funding] = await Promise.all([
-      loadSetting("loan_defaults"),
-      loadSetting("default_funding_split"),
-    ]);
-
-    const rows = Array.isArray(funding) ? funding : [];
-    const total = fundingTotal(rows);
-
-    if (qs("defaultInterestRate") && !document.activeElement?.isSameNode(qs("defaultInterestRate"))) {
-      qs("defaultInterestRate").value = rates?.default_total_monthly_rate != null ? Number(rates.default_total_monthly_rate).toFixed(2) : "10.00";
-    }
-    if (qs("defaultManagementRate") && !document.activeElement?.isSameNode(qs("defaultManagementRate"))) {
-      qs("defaultManagementRate").value = rates?.default_management_rate != null ? Number(rates.default_management_rate).toFixed(2) : "3.00";
-    }
-
-    qs("defaultFundingList").dataset.enhancedStamp = stamp;
-    qs("defaultFundingList").innerHTML = rows.length ? `
-      ${rows.map((row) => `
-        <div class="compact-card" data-default-split-row="${row.partner_user_id}" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;">
-          <div>
-            <strong>${row.partner_name || "Unknown partner"}</strong><br>
-            <span class="muted">${roundPct(row.funding_percent)}</span>
-          </div>
-          <button type="button" data-remove-default-split="${row.partner_user_id}" style="width:auto;background:#7a2b2b;padding:10px 14px;">Remove</button>
-        </div>
-      `).join("")}
-      <div style="margin-top:10px;"><strong>Total:</strong> ${(total * 100).toFixed(2)}%</div>
-      ${splitWarning(total)}
-    ` : "No default funding split saved yet.";
-
-    document.querySelectorAll("[data-remove-default-split]").forEach((btn) => {
-      btn.onclick = async () => {
-        const partnerId = btn.dataset.removeDefaultSplit;
-        const current = await loadSetting("default_funding_split") || [];
-        const next = current.filter((row) => row.partner_user_id !== partnerId);
-        await saveSetting("default_funding_split", next);
-        await renderEnhancedDefaults(true);
-        alert("Default split row removed.");
-      };
-    });
-  } catch (error) {
-    console.error(error);
-  } finally {
-    busy = false;
-  }
+async function renderEnhancedDefaults(force=false){
+ if(!isDefaultsPage()||busy)return;busy=true;
+ try{
+  const rates=await loadSetting('loan_defaults');
+  const values={defaultInterestRate:rates?.default_total_monthly_rate??10,defaultManagementRate:rates?.default_management_rate??3};
+  for(const [id,value] of Object.entries(values))if(qs(id)&&(force||!editedRates.has(id)))qs(id).value=Number(value).toFixed(2);
+ }catch(error){if(!isStalePageSession(error))console.error(error);}finally{busy=false;}
 }
 
 function parseNewLoanSplitTotal() {
@@ -186,5 +118,5 @@ async function tick() {
 }
 
 tick();
-watchPage("defaultsPage", tick, {prefetch: () => Promise.all([loadSetting("loan_defaults"),loadSetting("default_funding_split")])});
+watchPage("defaultsPage", tick, {prefetch: () => loadSetting("loan_defaults")});
 watchPage("loansPage", tick, {interval:1000});

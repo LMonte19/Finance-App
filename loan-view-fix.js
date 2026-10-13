@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { esc } from './combined-workspace-ui.js?v=1';
 
 const db = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },
@@ -182,11 +183,11 @@ function renderNewFundingList() {
   const el = byId("newLoanFundingList");
   if (!el) return;
   const total = newDisbursementFunding.reduce((s, r) => s + Number(r.funding_percent || 0), 0);
-  el.innerHTML = newDisbursementFunding.length ? `${newDisbursementFunding.map(r => `<div style="margin:8px 0"><strong>${r.partner_name}</strong><br><span class="muted">${(r.funding_percent * 100).toFixed(2)}%</span></div>`).join("")}<div><strong>Total:</strong> ${(total * 100).toFixed(2)}%</div>` : "Sin distribución agregada todavía.";
+  el.innerHTML = newDisbursementFunding.length ? `${newDisbursementFunding.map(r => `<div style="margin:8px 0"><strong>${esc(r.partner_name)}</strong><br><span class="muted">${(r.funding_percent * 100).toFixed(2)}%</span></div>`).join("")}<div><strong>Total:</strong> ${(total * 100).toFixed(2)}%</div>` : "Sin distribución agregada todavía.";
 }
 function loadDefaultFundingFromDom() {
   if (newDisbursementFunding.length) return;
-  const rows = Array.from(document.querySelectorAll("#defaultFundingList [data-partner-id]"));
+  const rows = Array.from(document.querySelectorAll("#newLoanFundingList [data-partner-id]"));
   newDisbursementFunding = rows.map(row => ({ partner_user_id: row.dataset.partnerId, funding_percent: Number(row.dataset.percent || 0), partner_name: row.dataset.partnerName || "Socio" })).filter(r => r.partner_user_id && r.funding_percent > 0);
 }
 function addNewDisbursementFunding(event) {
