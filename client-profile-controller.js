@@ -18,7 +18,8 @@ const STYLE_FILES=[
   ['clientProfileRailExactCss','./client-profile-rail-exact.css?v=1'],
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
-  ['clientProfileControllerCss','./client-profile-controller.css?v=3']
+  ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=1']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -41,6 +42,9 @@ let activeTab='summary';
 let calendarOffset=0;
 let selectedDueIso=null;
 let movementFilter='todos';
+const profileListTemplates=new WeakMap();
+let composerTrigger=null;
+let composerBackgrounds=[];
 
 function fmtDate(iso,options={day:'2-digit',month:'short',year:'numeric'}){
   if(!iso)return '—';
@@ -131,6 +135,7 @@ function showAccountPage(){
 function syncFixedMode(){
   const page=document.getElementById('borrowerAccountPage');
   document.body.classList.toggle('ll-client-detail-fixed',!!page?.classList.contains('active-page')&&mounted);
+  if(!page?.classList.contains('active-page'))closeComposer(true,false);
 }
 
 async function currentUserId(){
@@ -175,7 +180,7 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
     contacts:contactRes.data||[],
     followups:followRes.data||[],
     defaults:settings.loan_defaults||{default_total_monthly_rate:10,default_management_rate:3},
-    defaultFunding:Array.isArray(settings.default_funding_split)?settings.default_funding_split:[],
+    defaultFunding:Array.isArray(settings.default_funding_split)?settings.default_funding_split.map(row=>({...row,partner_name:profileNames.get(row.partner_user_id)||row.partner_name||'Socio'})):[],
     accounts:accountsRes?.data||null
   };
 }
@@ -209,16 +214,20 @@ function monthRangeTitle(dates){
 function metricCell(icon,label,value,sub,slot,subSlot=''){
   return `<div><div class="ll-summary-kpi-main"><span class="ll-elegant-metric-icon">${svg(icon,'ll-ref-svg',14)}</span><div class="ll-summary-kpi-copy"><span>${label}</span><strong class="ll-dynamic-value" data-slot="${slot}">${esc(value)}</strong></div></div><small class="${subSlot?'ll-dynamic-value':''}" ${subSlot?`data-slot="${subSlot}"`:''}>${esc(sub)}</small></div>`;
 }
-function dataCard(title,body,extraClass='',headExtra=''){
-  return `<section class="ll-card ll-profile-card ${extraClass}"><div class="ll-card-head"><div class="ll-card-title">${title}</div>${headExtra}</div>${body}</section>`;
+function overdueCaption(summary){
+  if(Number(summary.overdue_amount||0)<=0)return 'Sin cuotas atrasadas';
+  const count=Number(summary.overdue_count||0),days=Number(summary.max_days_late||0);
+  return `${count} ${count===1?'cuota':'cuotas'} · ${days} ${days===1?'día':'días'}`;
 }
-function emptyState(text){return `<div class="ll-empty-state">${esc(text)}</div>`;}
+function emptyState(text,action='',label=''){
+  return `<div class="cp-empty"><span>${svg('note')}</span><p>${esc(text)}</p>${action?`<button type="button" class="cp-action cp-quiet" data-composer="${action}">${esc(label)}</button>`:''}</div>`;
+}
 
 function clientRailHtml(selectedId){
   return `<aside class="ll-client-rail" data-no-translate="true">
     <div class="ll-rail-top"><div class="ll-rail-title">Clientes</div><button class="ll-icon-btn ll-controller-search" type="button" aria-label="Buscar clientes">${svg('search','ll-ref-svg',15)}</button></div>
     <div class="ll-filter-row"><span>Todos los clientes</span><span class="ll-filter-control" aria-hidden="true">${svg('chevronDown','ll-ref-svg',12)}</span></div>
-    <div class="ll-collapsed-client-marker">${svg('person','ll-ref-svg',15)}</div>
+    <button type="button" class="ll-collapsed-client-marker" data-expand-client-rail aria-label="Buscar o cambiar cliente" title="Buscar o cambiar cliente">${svg('person','ll-ref-svg',15)}</button>
     <div class="ll-client-search-wrap" hidden><input class="ll-client-search-input" type="search" placeholder="Buscar cliente" aria-label="Buscar cliente"></div>
     <div class="ll-client-list">${accounts.map(a=>clientRowHtml(a,selectedId)).join('')}</div>
     <button id="acctBack" type="button" class="ll-soft-btn ll-rail-back" data-reference-match="1"><span class="ll-collapse-icon">${svg('chevronLeft','ll-ref-svg',14)}</span><span>Colapsar</span></button>
@@ -241,7 +250,7 @@ function calendarHtml(context,data){
   const selected=selectedCalendarRow(data,selectedDueIso);
   const selectedStatus=dueStatus(selected);
   return `<div class="ll-cycle-calendar" data-calendar-context="${context}">
-    <div class="ll-cycle-calendar-head"><div><strong>Cuotas pendientes</strong><small>Cuotas automáticas: día 15 y último día del mes</small></div><div class="ll-cycle-calendar-nav"><button type="button" data-calendar-move="-2" aria-label="Fechas anteriores">${svg('chevronLeft','ll-ref-svg',13)}</button><span>${esc(monthRangeTitle(dates))}</span><button type="button" data-calendar-move="2" aria-label="Fechas siguientes">${svg('chevronRight','ll-ref-svg',13)}</button></div></div>
+    <div class="ll-cycle-calendar-head"><div><strong>Calendario de cuotas</strong><small>Día 15 y último día del mes</small></div><div class="ll-cycle-calendar-nav"><button type="button" data-calendar-move="-2" aria-label="Fechas anteriores">${svg('chevronLeft','ll-ref-svg',13)}</button><span>${esc(monthRangeTitle(dates))}</span><button type="button" data-calendar-move="2" aria-label="Fechas siguientes">${svg('chevronRight','ll-ref-svg',13)}</button></div></div>
     <div class="ll-cycle-date-row">${calendarDateButtonsHtml(dates,data)}</div>
     <div class="ll-cycle-detail ll-cycle-detail--compact">
       <div><small>Monto esperado</small><strong class="ll-dynamic-value" data-calendar-slot="expected">${money(selected.expected_total)}</strong></div>
@@ -255,89 +264,106 @@ function calendarHtml(context,data){
 function calendarDateButtonsHtml(dates,data){
   return dates.map(date=>{
     const iso=toIso(date),row=selectedCalendarRow(data,iso),status=dueStatus(row);
-    return `<button type="button" class="ll-cycle-date ${iso===selectedDueIso?'selected':''} ${tone(status)}" data-calendar-date="${iso}"><span>${date.toLocaleDateString('es',{weekday:'short'}).replace('.','')}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('es',{month:'short'}).replace('.','').toUpperCase()}</small></button>`;
+    return `<button type="button" class="ll-cycle-date ${iso===selectedDueIso?'selected':''} ${tone(status)}" data-calendar-date="${iso}" aria-pressed="${iso===selectedDueIso?'true':'false'}" aria-label="${esc(fmtDate(iso)+' · '+statusLabel(status)+' · Pendiente '+money(row.amount_due))}"><span>${date.toLocaleDateString('es',{weekday:'short'}).replace('.','')}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('es',{month:'short'}).replace('.','').toUpperCase()}</small></button>`;
   }).join('');
 }
 
 function movementEvents(data){
   return [
-    ...data.payments.slice(0,5).map(row=>({date:row.paid_on,tab:'payments',title:`Pago recibido por ${money(row.amount)}`,detail:paymentTypeLabel(row.payment_type),kind:'payment',filter:'pagos'})),
+    ...data.payments.slice(0,5).map(row=>({date:row.paid_on,tab:'payments',title:`${row.is_voided?'Pago anulado':'Pago recibido'} por ${money(row.amount)}`,detail:paymentTypeLabel(row.payment_type),kind:'payment',filter:'pagos'})),
     ...data.disbursements.slice(0,5).map(row=>({date:row.start_date,tab:'disbursements',title:`Capital agregado: ${money(row.principal_original)}`,detail:`Balance actual ${money(row.principal_outstanding)}`,kind:'disbursement',filter:'desembolsos'})),
-    ...data.contacts.slice(0,5).map(row=>({date:row.contact_date,tab:'followups',title:row.outcome||'Contacto registrado',detail:row.notes||row.contact_type||'',kind:'note',filter:'notas'})),
-    ...data.followups.slice(0,5).map(row=>({date:row.due_date,tab:'followups',title:row.reason||'Seguimiento',detail:statusLabel(row.status==='DONE'?'DONE':row.timing_status),kind:'note',filter:'notas'}))
-  ].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,5);
+    ...data.contacts.slice(0,5).map(row=>({date:row.contact_date,tab:'followups',title:row.outcome||'Contacto registrado',detail:row.notes||row.contact_type||'',kind:'note',filter:'notas'}))
+  ].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
 }
 function movementsHtml(data){
-  const events=movementEvents(data);
+  const events=movementEvents(data).filter(event=>movementFilter==='todos'||event.filter===movementFilter).slice(0,6);
   if(!events.length)return emptyState('Todavía no hay actividad en esta cuenta.');
   return `<div class="ll-activity-list ll-dynamic-list" data-list="movements">${events.map(event=>`<button type="button" data-open-tab="${event.tab}" data-movement-filter="${event.filter}" ${movementFilter!=='todos'&&movementFilter!==event.filter?'hidden':''}><span class="ll-activity-dot ll-movement-icon-${event.kind}">${svg(event.kind==='payment'?'payment':event.kind==='disbursement'?'disbursement':'note','ll-elegant-svg',16)}</span><span><strong>${esc(event.title)}</strong><small>${fmtDate(event.date)}</small>${event.detail?`<p>${esc(event.detail)}</p>`:''}</span><b>${svg('chevronRight','ll-elegant-svg',16)}</b></button>`).join('')}</div>`;
 }
 function movementFilterHtml(){return `<div class="ll-movement-filters">${[['todos','Todos'],['pagos','Pagos'],['desembolsos','Desembolsos'],['notas','Notas']].map(([key,label])=>`<button type="button" class="ll-movement-filter ${movementFilter===key?'active':''}" data-filter="${key}">${label}</button>`).join('')}</div>`;}
 
 function paymentRowsHtml(rows){
-  if(!rows.length)return emptyState('No hay pagos registrados para este cliente.');
-  return `<div class="ll-record-list ll-dynamic-list" data-list="payments">${rows.map(p=>`<article class="ll-record-row"><div class="ll-record-date"><strong>${fmtDate(p.paid_on,{day:'2-digit',month:'short'})}</strong><small>${fmtDate(p.paid_on,{year:'numeric'})}</small></div><div class="ll-record-main"><div class="ll-record-title">${money(p.amount)} <span class="ll-mini-pill ${p.is_voided?'ll-record-danger':''}">${p.is_voided?'ANULADO':paymentTypeLabel(p.payment_type)}</span></div><div class="ll-record-meta">Cuota/interés: ${money(p.applied_interest)} · Capital: ${money(p.applied_principal)} · Administración: ${money(p.applied_mgmt)} · Socios: ${money(p.applied_funders)}</div>${p.notes?`<div class="ll-record-note">${esc(p.notes)}</div>`:''}${p.void_reason?`<div class="ll-record-note">Motivo de anulación: ${esc(p.void_reason)}</div>`:''}</div>${p.is_voided?'':`<button type="button" class="ll-inline-action ll-danger-action" data-void-payment="${esc(p.id)}">Anular</button>`}</article>`).join('')}</div>`;
+  if(!rows.length)return emptyState('Todavía no hay pagos registrados.','payment','Registrar primer pago');
+  return `<div class="cp-ledger-head cp-payment-columns" aria-hidden="true"><span>Fecha</span><span>Monto</span><span>Tipo de pago</span><span>Capital</span><span>Cuota/interés</span><span>Estado</span><span></span></div><div class="cp-record-list" data-list="payments">${rows.map(p=>`
+    <details class="cp-record" data-profile-record="${esc(p.id)}" data-history-row="payments" data-payment-state="${p.is_voided?'voided':'active'}" data-history-search="${esc([p.paid_on,fmtDate(p.paid_on),p.amount,paymentTypeLabel(p.payment_type),p.notes,p.void_reason].join(' ').toLowerCase())}">
+      <summary class="cp-payment-columns"><time datetime="${esc(p.paid_on)}">${fmtDate(p.paid_on)}</time><strong>${money(p.amount)}</strong><span>${esc(paymentTypeLabel(p.payment_type))}</span><span class="cp-row-amount">${money(p.applied_principal)}</span><span class="cp-row-amount">${money(p.applied_interest)}</span><span class="cp-record-state ${p.is_voided?'is-voided':'is-current'}">${p.is_voided?'Anulado':'Registrado'}</span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary>
+      <div class="cp-record-detail"><dl><div><dt>Abono a capital</dt><dd>${money(p.applied_principal)}</dd></div><div><dt>Cuota/interés</dt><dd>${money(p.applied_interest)}</dd></div><div><dt>Administración</dt><dd>${money(p.applied_mgmt)}</dd></div><div><dt>Socios</dt><dd>${money(p.applied_funders)}</dd></div><div><dt>Notas</dt><dd>${esc(p.notes||'Sin notas')}</dd></div>${p.void_reason?`<div><dt>Motivo de anulación</dt><dd>${esc(p.void_reason)}</dd></div>`:''}</dl>${p.is_voided?'':`<button type="button" class="cp-action cp-danger" data-void-payment="${esc(p.id)}">Anular pago</button>`}</div>
+    </details>`).join('')}</div>`;
 }
 function disbursementRowsHtml(rows){
-  if(!rows.length)return emptyState('No hay desembolsos registrados para este cliente.');
-  return `<div class="ll-record-list ll-dynamic-list" data-list="disbursements">${rows.map(row=>{const funding=row.funding?.length?row.funding.map(item=>`${esc(item.partner_name)} ${Math.round(Number(item.funding_percent||0)*100)}%`).join(' · '):'Sin distribución visible';return `<article class="ll-record-row ll-disbursement-record"><div class="ll-record-date"><strong>${fmtDate(row.start_date,{day:'2-digit',month:'short'})}</strong><small>${fmtDate(row.start_date,{year:'numeric'})}</small></div><div class="ll-record-main"><div class="ll-record-title">${money(row.principal_original)} <span class="ll-status-pill ${tone(row.status)}">${statusLabel(row.status)}</span></div><div class="ll-record-meta">Balance pendiente: ${money(row.principal_outstanding)} · Interés mensual: ${(Number(row.monthly_rate_total||0)*100).toFixed(2)}% · Administración: ${(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)}%</div><div class="ll-record-note">Distribución: ${funding}</div>${row.notes?`<div class="ll-record-note">${esc(row.notes)}</div>`:''}</div></article>`;}).join('')}</div>`;
+  if(!rows.length)return emptyState('Todavía no hay desembolsos registrados.','disbursement','Crear desembolso');
+  return `<div class="cp-ledger-head cp-loan-columns" aria-hidden="true"><span>Fecha de inicio</span><span>Desembolsado</span><span>Capital pendiente</span><span>Interés mensual</span><span>Estado</span><span></span></div><div class="cp-record-list" data-list="disbursements">${rows.map(row=>`
+    <details class="cp-record" data-profile-record="${esc(row.id)}" data-history-row="disbursements" data-history-search="${esc([row.start_date,fmtDate(row.start_date),row.principal_original,row.principal_outstanding,statusLabel(row.status),row.notes,...(row.funding||[]).map(item=>item.partner_name)].join(' ').toLowerCase())}">
+      <summary class="cp-loan-columns"><time datetime="${esc(row.start_date)}">${fmtDate(row.start_date)}</time><strong>${money(row.principal_original)}</strong><span class="cp-row-amount">${money(row.principal_outstanding)}</span><span>${(Number(row.monthly_rate_total||0)*100).toFixed(2)}%</span><span class="ll-status-pill ${tone(row.status)}">${esc(statusLabel(row.status))}</span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary>
+      <div class="cp-record-detail"><dl><div><dt>Capital pendiente</dt><dd>${money(row.principal_outstanding)}</dd></div><div><dt>Administración mensual</dt><dd>${(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)}%</dd></div><div><dt>Distribución de inversión</dt><dd>${row.funding?.length?row.funding.map(item=>`${esc(item.partner_name)} ${(Number(item.funding_percent||0)*100).toFixed(2).replace(/\.00$/,'')}%`).join(' · '):'Sin distribución visible'}</dd></div><div><dt>Notas</dt><dd>${esc(row.notes||'Sin notas')}</dd></div></dl></div>
+    </details>`).join('')}</div>`;
 }
 function followupRowsHtml(rows){
-  if(!rows.length)return emptyState('No hay seguimientos para este cliente.');
-  return `<div class="ll-record-list ll-dynamic-list" data-list="followups">${rows.map(row=>`<article class="ll-record-row"><div class="ll-record-date"><strong>${fmtDate(row.due_date,{day:'2-digit',month:'short'})}</strong><small>${dueTiming(row.due_date)}</small></div><div class="ll-record-main"><div class="ll-record-title">${esc(row.reason||'Seguimiento')} <span class="ll-status-pill ${tone(row.timing_status||row.status)}">${statusLabel(row.status==='DONE'?'DONE':row.timing_status)}</span></div><div class="ll-record-meta">Prioridad: ${esc(row.priority||'NORMAL')}${row.loan_start_date?` · Desembolso: ${fmtDate(row.loan_start_date)}`:''}</div>${row.completed_notes?`<div class="ll-record-note">${esc(row.completed_notes)}</div>`:''}</div>${row.status==='DONE'?'':`<button type="button" class="ll-inline-action" data-complete-followup="${esc(row.id)}">Completar</button>`}</article>`).join('')}</div>`;
+  if(!rows.length)return emptyState('Sin seguimientos pendientes.','followup','Programar seguimiento');
+  const priority={NORMAL:'Normal',LOW:'Baja',HIGH:'Alta',URGENT:'Urgente'};
+  const sorted=[...rows].sort((a,b)=>(a.status==='DONE')-(b.status==='DONE')||String(a.due_date).localeCompare(String(b.due_date)));
+  return `<div class="cp-record-list" data-list="followups">${sorted.map(row=>`<article class="cp-followup-row"><div class="cp-date"><time datetime="${esc(row.due_date)}">${fmtDate(row.due_date)}</time><small>${row.status==='DONE'?'Completado':dueTiming(row.due_date)}</small></div><div class="cp-followup-copy"><strong>${esc(row.reason||'Seguimiento')}</strong><p>Prioridad ${esc(priority[row.priority]||row.priority||'Normal')}${row.loan_start_date?` · Desembolso del ${fmtDate(row.loan_start_date)}`:''}</p>${row.completed_notes?`<p>${esc(row.completed_notes)}</p>`:''}</div><div class="cp-followup-actions"><span class="ll-status-pill ${tone(row.status==='DONE'?'DONE':row.timing_status||row.status)}">${esc(statusLabel(row.status==='DONE'?'DONE':row.timing_status||row.status))}</span>${row.status==='DONE'?'':`<button type="button" class="cp-action cp-quiet" data-complete-followup="${esc(row.id)}">Completar</button>`}</div></article>`).join('')}</div>`;
 }
 function contactRowsHtml(rows){
-  if(!rows.length)return emptyState('No hay notas o contactos registrados para este cliente.');
-  return `<div class="ll-record-list ll-dynamic-list" data-list="contacts">${rows.map(row=>`<article class="ll-record-row"><div class="ll-record-date"><strong>${fmtDate(row.contact_date,{day:'2-digit',month:'short'})}</strong><small>${esc(row.contact_type||'NOTA')}</small></div><div class="ll-record-main"><div class="ll-record-title">${esc(row.outcome||'Contacto registrado')}</div><div class="ll-record-note">${esc(row.notes||'')}</div><div class="ll-record-meta">Registrado por: ${esc(row.created_by_name||'Usuario')}</div></div></article>`).join('')}</div>`;
+  if(!rows.length)return emptyState('Todavía no hay notas ni contactos.','note','Agregar nota');
+  const types={NOTE:'Nota',CALL:'Llamada',TEXT:'Texto',WHATSAPP:'WhatsApp',EMAIL:'Correo',IN_PERSON:'En persona',OTHER:'Otro'};
+  return `<div class="cp-record-list" data-list="contacts">${rows.map(row=>`<details class="cp-record cp-contact-record" data-profile-record="${esc(row.id)}"><summary><span class="cp-date"><time datetime="${esc(row.contact_date)}">${fmtDate(row.contact_date)}</time><small>${esc(types[row.contact_type]||row.contact_type||'Nota')}</small></span><span class="cp-followup-copy"><strong>${esc(row.outcome||'Nota de contacto')}</strong><small>${esc(row.notes||'')}</small></span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary><div class="cp-record-detail"><p>${esc(row.notes||'Sin notas')}</p><small>Registrado por ${esc(row.created_by_name||'Usuario')}</small></div></details>`).join('')}</div>`;
 }
 function loanOptionsHtml(rows){return `<option value="">Cuenta general</option>${rows.map(row=>`<option value="${esc(row.id)}">${fmtDate(row.start_date)} · ${money(row.principal_outstanding)} · ${statusLabel(row.status)}</option>`).join('')}`;}
 function fundingRowsHtml(data){
-  if(!data.defaultFunding.length)return emptyState('No hay distribución predeterminada. Configúrala antes de crear un desembolso.');
-  return data.defaultFunding.map((row,index)=>`<label class="ll-funding-row"><span>${esc(row.partner_name||'Socio')}</span><input type="number" min="0" max="100" step="0.01" value="${(Number(row.funding_percent||0)*100).toFixed(2)}" data-funding-index="${index}" data-partner-user-id="${esc(row.partner_user_id)}"></label>`).join('');
+  if(!data.defaultFunding.length)return emptyState('Configura la distribución predeterminada en Socios y usuarios antes de crear un desembolso.');
+  return data.defaultFunding.map((row,index)=>`<label class="ll-funding-row"><span>${esc(row.partner_name||'Socio')}</span><input type="number" aria-label="Participación de ${esc(row.partner_name||'Socio')} en porcentaje" min="0" max="100" step="0.01" value="${(Number(row.funding_percent||0)*100).toFixed(2)}" data-funding-index="${index}" data-partner-user-id="${esc(row.partner_user_id)}"></label>`).join('');
 }
-
 function nextActionBodyHtml(data){
   const row=data.followups.find(item=>item.status!=='DONE');
-  if(!row)return `<div class="ll-next-action"><span class="ll-status-pill closed">SIN PENDIENTES</span><strong>Sin seguimientos pendientes</strong><p>La cuenta no tiene acciones abiertas.</p><button type="button" class="ll-soft-btn" data-open-tab="followups">Crear seguimiento</button></div>`;
-  return `<div class="ll-next-action"><span class="ll-status-pill ${tone(row.timing_status)}">${statusLabel(row.timing_status)}</span><strong>${esc(row.reason)}</strong><p>${fmtDate(row.due_date)} · ${dueTiming(row.due_date)}</p><button type="button" class="ll-purple-btn" data-complete-followup="${esc(row.id)}">Marcar como completada</button></div>`;
+  if(!row)return `<div class="cp-next-action"><span class="cp-subtle-status">${svg('check')} Sin pendientes</span><p>Programa un recordatorio cuando necesites retomar esta cuenta.</p><button type="button" class="cp-action cp-quiet" data-composer="followup">Programar seguimiento</button></div>`;
+  return `<div class="cp-next-action"><span class="ll-status-pill ${tone(row.timing_status)}">${esc(statusLabel(row.timing_status||row.status))}</span><strong>${esc(row.reason)}</strong><p>${fmtDate(row.due_date)} · ${dueTiming(row.due_date)}</p><button type="button" class="cp-action cp-quiet" data-complete-followup="${esc(row.id)}">Marcar como completado</button></div>`;
 }
-
-function profileShellHtml(data,selectedId){
-  const a=data.summary,next=nextDueRow(data),suggested=Number(a.current_cycle_fee||a.current_monthly_fee||0);
+function historyToolbar(kind,title,description,action,label){
+  return `<div class="cp-panel-heading"><div><h2>${title}</h2><p>${description}</p></div><button type="button" class="cp-action" data-composer="${action}">${label}</button></div><div class="cp-history-tools"><label class="cp-search">${svg('search')}<input type="search" data-history-search-input="${kind}" placeholder="Buscar por fecha, monto o notas" aria-label="Buscar ${kind==='payments'?'pagos':'desembolsos'}"></label>${kind==='payments'?'<select data-payment-state-filter aria-label="Filtrar estado de pagos"><option value="all">Todos los pagos</option><option value="active">Registrados</option><option value="voided">Anulados</option></select>':'<button type="button" class="cp-text-action" data-open-tab="summary">Ver resumen</button>'}<span class="cp-result-count" data-history-count="${kind}"></span></div>`;
+}
+function composerHtml(data){
+  const a=data.summary,suggested=Number(a.current_cycle_fee||a.current_monthly_fee||0);
   const totalRate=Number(data.defaults.default_total_monthly_rate??10),mgmtRate=Number(data.defaults.default_management_rate??3);
-  return `<div class="ll-account-shell ll-client-rail-collapsed ll-tabs-ready ll-elegant-profile ll-reference-match" data-active-borrower="${esc(selectedId)}">
-    ${clientRailHtml(selectedId)}
-    <main class="ll-workspace" data-no-translate="true">
+  return `<div class="cp-composer-overlay" data-close-composer hidden></div><aside class="cp-composer" role="dialog" aria-modal="true" aria-labelledby="cpComposerTitle" hidden>
+    <header class="cp-composer-head"><div><p>Cuenta de <strong data-slot="composer-name">${esc(a.full_name)}</strong></p><h2 id="cpComposerTitle">Registrar pago</h2></div><button type="button" class="cp-close" data-close-composer aria-label="Cerrar panel">×</button></header>
+    <div class="cp-composer-context"><span>Capital pendiente</span><strong data-slot="composer-balance">${money(a.principal_balance)}</strong></div><div class="cp-composer-body">
+      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="1" step="1" value="${suggested?Math.round(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select></label><label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
+      <section data-composer-panel="disbursement" hidden><form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="1" step="1" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div class="ll-form-section-title">Distribución de inversión</div><div id="llProfileFundingRows">${fundingRowsHtml(data)}</div><div id="llProfileFundingTotal" class="ll-form-status"></div><p class="cp-form-help">El capital se agrega a la cuenta y se recalculan las cuotas futuras.</p><div id="llProfileDisbursementStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary" ${data.defaultFunding.length?'':'disabled'}>Guardar desembolso</button></div></form></section>
+      <section data-composer-panel="note" hidden><form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><div id="llProfileContactStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar nota</button></div></form></section>
+      <section data-composer-panel="followup" hidden><form id="llProfileFollowupForm" class="ll-profile-form"><div class="ll-form-two"><label>Fecha<input id="llProfileFollowupDate" type="date" value="${today()}" required></label><label>Prioridad<select id="llProfileFollowupPriority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label>Desembolso relacionado<select id="llProfileFollowupLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Motivo<textarea id="llProfileFollowupReason" rows="4" required placeholder="Motivo o recordatorio"></textarea></label><div id="llProfileFollowupStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Crear seguimiento</button></div></form></section>
+    </div>
+  </aside>`;
+}
+function profileShellHtml(data,selectedId){
+  const a=data.summary,next=nextDueRow(data),pending=data.followups.filter(row=>row.status!=='DONE').length;
+  return `<div class="ll-account-shell ll-client-rail-collapsed ll-tabs-ready ll-elegant-profile ll-reference-match ll-client-hub" data-overdue="${Number(a.overdue_amount)>0?'1':'0'}" data-active-borrower="${esc(selectedId)}">
+    ${clientRailHtml(selectedId)}<main class="ll-workspace" data-no-translate="true">
       <div class="ll-controller-loading-badge" aria-live="polite"><span class="ll-controller-loading-dot"></span><strong>Cargando...</strong></div>
-      <section class="ll-client-header">
+      <div class="cp-masthead"><section class="ll-client-header">
         <div class="ll-avatar-xl ll-dynamic-value" data-slot="header-avatar">${esc(initials(a.full_name))}</div>
-        <div class="ll-client-header-copy"><div class="ll-title-row"><div class="ll-client-title ll-dynamic-value" data-slot="header-name">${esc(a.full_name||'Cuenta del cliente')}</div><span class="ll-status-pill ${tone(a.account_status)} ll-dynamic-value" data-slot="header-status">${esc(statusLabel(a.account_status))}</span></div><div class="ll-client-meta"><span>Teléfono: <b class="ll-dynamic-value" data-slot="header-phone">${esc(a.phone||'Sin teléfono')}</b></span><span>Próxima cuota: <b class="ll-dynamic-value" data-slot="header-next-due">${esc(fmtDate(next?.due_date||a.next_due_date))}</b></span><span>Atrasado: <b class="ll-dynamic-value" data-slot="header-overdue">${money(a.overdue_amount)}</b></span></div></div>
-        <div class="ll-action-row" data-elegant-ready="1"><button class="ll-soft-btn ll-elegant-pay" type="button" id="llFocusPay">Registrar pago</button><button class="ll-primary-btn" type="button" data-top-action="disbursement">Nuevo desembolso</button><details class="ll-more-actions"><summary aria-label="Más acciones">${svg('more','ll-ref-svg',16)}</summary><div class="ll-more-menu"><button class="ll-soft-btn" type="button" data-top-action="note">Agregar nota</button><button class="ll-soft-btn" type="button" data-top-action="whatsapp">WhatsApp</button></div></details></div>
+        <div class="ll-client-header-copy"><div class="ll-title-row"><h1 class="ll-client-title ll-dynamic-value" data-slot="header-name">${esc(a.full_name||'Cuenta del cliente')}</h1><span class="ll-status-pill ${tone(a.account_status)} ll-dynamic-value" data-slot="header-status">${esc(statusLabel(a.account_status))}</span></div><div class="ll-client-meta"><span>Teléfono: <b class="ll-dynamic-value" data-slot="header-phone">${esc(a.phone||'Sin teléfono')}</b></span><button type="button" class="cp-text-action" data-top-action="whatsapp">WhatsApp</button></div></div>
+        <div class="ll-action-row"><button class="ll-primary-btn cp-action cp-primary" type="button" id="llFocusPay" data-composer="payment">${svg('payment')} Registrar pago</button><button class="cp-action" type="button" data-composer="disbursement">Nuevo desembolso</button><details class="ll-more-actions"><summary aria-label="Más acciones">${svg('more')}</summary><div class="ll-more-menu"><button type="button" data-composer="note">Agregar nota o contacto</button><button type="button" data-composer="followup">Programar seguimiento</button></div></details></div>
       </section>
-      <nav class="ll-tabs" role="tablist"><div class="ll-tab active" role="tab" tabindex="0" data-profile-tab="summary">Resumen</div><div class="ll-tab" role="tab" tabindex="0" data-profile-tab="payments">Pagos</div><div class="ll-tab" role="tab" tabindex="0" data-profile-tab="disbursements">Desembolsos</div><div class="ll-tab" role="tab" tabindex="0" data-profile-tab="followups">Seguimientos</div></nav>
-      <div class="ll-profile-tabs-host" data-refinement-version="3">
-        <section class="ll-profile-panel active" data-profile-panel="summary"><div class="ll-panel-grid"><div class="ll-panel-main">
-          ${dataCard('Resumen financiero',`<div class="ll-summary-stat-grid">${metricCell('dollar','Balance de capital',money(a.principal_balance),statusLabel(a.account_status),'principal','principal-status')}${metricCell('trend','Total desembolsado',money(a.total_disbursed),`${a.disbursement_count||0} desembolsos`,'total-disbursed','disbursement-count')}${metricCell('clock','Cuota mensual',money(a.current_monthly_fee),'Actual','monthly-fee')}${metricCell('cycle','Cuota por ciclo',money(a.current_cycle_fee),'15 y fin de mes','cycle-fee')}${metricCell('calendar','Próxima cuota',fmtDate(next?.due_date),'Sin fecha'===dueTiming(next?.due_date)?'Sin fecha':dueTiming(next?.due_date),'next-due','next-due-timing')}</div>`)}
-          ${dataCard('Calendario de pagos',calendarHtml('summary',data))}
-          ${dataCard('Movimientos',`<div class="ll-list-host" data-list-host="movements">${movementsHtml(data)}</div>`,'ll-movements-card',movementFilterHtml())}
-        </div><aside class="ll-panel-side">
-          ${dataCard('Estado de la cuenta',`<div class="ll-account-facts"><div><span>Estado</span><strong class="ll-dynamic-value" data-slot="account-status">${statusLabel(a.account_status)}</strong></div><div><span>Atrasado</span><strong class="ll-dynamic-value" data-slot="account-overdue">${money(a.overdue_amount)}</strong></div><div><span>Cuotas atrasadas</span><strong class="ll-dynamic-value" data-slot="account-overdue-count">${a.overdue_count||0}</strong></div><div><span>Días tarde</span><strong class="ll-dynamic-value" data-slot="account-days-late">${a.max_days_late||0}</strong></div></div>`)}
-          ${dataCard('Próxima acción',`<div class="ll-next-action-host ll-dynamic-list" data-list-host="next-action">${nextActionBodyHtml(data)}</div>`) }
-          ${dataCard('Pago rápido',`<form id="llSummaryQuickPayForm" class="ll-summary-quick-pay"><p>Abona a la cuenta del cliente</p><div class="ll-summary-quick-amounts">${quickAmountButtons(suggested,4,true)}</div><input id="llSummaryPayAmount" type="number" min="1" step="1" value="${suggested?Math.round(suggested):''}" required><button type="submit" class="ll-primary-btn">Registrar pago</button><div id="llSummaryPayStatus" class="ll-form-status">Pago rápido de cuota/interés.</div></form>`)}
-        </aside></div></section>
-
-        <section class="ll-profile-panel" data-profile-panel="payments">
-          ${dataCard('Calendario de pagos y cuotas',calendarHtml('payments',data))}
-          <div class="ll-panel-grid ll-payment-layout"><div class="ll-panel-main">${dataCard('Historial de pagos',`<div class="ll-list-host" data-list-host="payments">${paymentRowsHtml(data.payments)}</div>`)}</div><aside class="ll-panel-side">${dataCard('Registrar pago',`<form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="1" step="1" value="${suggested?Math.round(suggested):''}" required></label><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select></label><label>Notas<input id="llProfilePayNotes" placeholder="Notas del pago"></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><button type="submit" class="ll-primary-btn">Registrar pago</button><div id="llProfilePayStatus" class="ll-form-status">Los pagos de cuota no reducen el capital. El capital solo baja con abono, mixto o saldo.</div></form>`)}</aside></div>
-        </section>
-
-        <section class="ll-profile-panel" data-profile-panel="disbursements"><div class="ll-panel-grid ll-disbursement-layout"><div class="ll-panel-main">${dataCard('Historial y detalles de desembolsos',`<div class="ll-list-host" data-list-host="disbursements">${disbursementRowsHtml(data.disbursements)}</div>`)}</div><aside class="ll-panel-side">${dataCard('Nuevo desembolso',`<form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="1" step="1" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div class="ll-form-section-title">Distribución de inversión</div><div id="llProfileFundingRows">${fundingRowsHtml(data)}</div><div id="llProfileFundingTotal" class="ll-form-status"></div><button type="submit" class="ll-primary-btn" ${data.defaultFunding.length?'':'disabled'}>Guardar desembolso</button><div id="llProfileDisbursementStatus" class="ll-form-status">El capital se agrega a la cuenta y las cuotas futuras se recalculan automáticamente.</div></form>`)}</aside></div></section>
-
-        <section class="ll-profile-panel" data-profile-panel="followups"><div class="ll-form-card-grid">${dataCard('Agregar nota o contacto',`<form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><button type="submit" class="ll-primary-btn">Guardar nota</button><div id="llProfileContactStatus" class="ll-form-status"></div></form>`)}${dataCard('Programar seguimiento',`<form id="llProfileFollowupForm" class="ll-profile-form"><div class="ll-form-two"><label>Fecha<input id="llProfileFollowupDate" type="date" value="${today()}" required></label><label>Prioridad<select id="llProfileFollowupPriority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label>Desembolso relacionado<select id="llProfileFollowupLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Motivo<textarea id="llProfileFollowupReason" rows="4" required placeholder="Motivo o recordatorio"></textarea></label><button type="submit" class="ll-primary-btn">Crear seguimiento</button><div id="llProfileFollowupStatus" class="ll-form-status"></div></form>`)}</div><div class="ll-form-card-grid ll-followup-lists">${dataCard('Historial de seguimientos',`<div class="ll-list-host" data-list-host="followups">${followupRowsHtml(data.followups)}</div>`)}${dataCard('Historial de notas y contactos',`<div class="ll-list-host" data-list-host="contacts">${contactRowsHtml(data.contacts)}</div>`)}</div></section>
+      <div class="ll-summary-stat-grid cp-kpis" aria-label="Resumen de la cuenta">
+        ${metricCell('dollar','Capital pendiente',money(a.principal_balance),'Saldo actual','principal')}
+        ${metricCell('cycle','Cuota por ciclo',money(a.current_cycle_fee),'15 y fin de mes','cycle-fee')}
+        ${metricCell('clock','Total atrasado',money(a.overdue_amount),overdueCaption(a),'account-overdue','overdue-caption')}
+        ${metricCell('calendar','Próxima cuota',fmtDate(next?.due_date),dueTiming(next?.due_date),'next-due','next-due-timing')}
       </div>
-    </main>
+      <nav class="ll-tabs" role="tablist" aria-label="Información del cliente"><button type="button" class="ll-tab active" role="tab" aria-controls="cpSummaryPanel" data-profile-tab="summary">Resumen</button><button type="button" class="ll-tab" role="tab" aria-controls="cpPaymentsPanel" data-profile-tab="payments">Pagos <span class="cp-tab-count" data-slot="payments-count">${data.payments.length}</span></button><button type="button" class="ll-tab" role="tab" aria-controls="cpDisbursementsPanel" data-profile-tab="disbursements">Desembolsos <span class="cp-tab-count" data-slot="disbursements-count">${data.disbursements.length}</span></button><button type="button" class="ll-tab" role="tab" aria-controls="cpFollowupsPanel" data-profile-tab="followups">Notas y seguimientos <span class="cp-tab-count" data-slot="followups-count">${pending}</span></button></nav></div>
+      <div class="cp-notice" role="status" hidden></div><div class="ll-profile-tabs-host cp-content" data-refinement-version="4">
+        <section id="cpSummaryPanel" class="ll-profile-panel active" role="tabpanel" data-profile-panel="summary"><div class="cp-panel cp-overview"><div class="cp-overview-main">
+          <section class="cp-section cp-calendar">${calendarHtml('summary',data)}</section><section class="cp-section"><div class="cp-section-heading"><h2>Actividad reciente</h2>${movementFilterHtml()}</div><div class="ll-list-host" data-list-host="movements">${movementsHtml(data)}</div></section>
+        </div><aside class="cp-overview-side"><section class="cp-section"><div class="cp-section-heading"><h2>Información de la cuenta</h2></div><dl class="cp-account-facts"><div><dt>Total desembolsado</dt><dd data-slot="total-disbursed">${money(a.total_disbursed)}</dd></div><div><dt>Capital abonado</dt><dd data-slot="principal-paid">${money(a.total_principal_paid)}</dd></div><div><dt>Cuota mensual</dt><dd data-slot="monthly-fee">${money(a.current_monthly_fee)}</dd></div><div><dt>Desembolsos</dt><dd data-slot="disbursement-count">${a.disbursement_count||0}</dd></div></dl><button type="button" class="cp-text-action" data-open-tab="disbursements">Ver detalle de desembolsos ${svg('chevronRight')}</button></section><section class="cp-section"><div class="cp-section-heading"><h2>Próximo seguimiento</h2></div><div class="ll-next-action-host" data-list-host="next-action">${nextActionBodyHtml(data)}</div></section></aside></div></section>
+        <section id="cpPaymentsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="payments"><div class="cp-panel cp-history-panel">${historyToolbar('payments','Historial de pagos','Consulta capital, intereses y distribución de cada pago.','payment','Registrar pago')}<div class="ll-list-host" data-list-host="payments">${paymentRowsHtml(data.payments)}</div><div class="cp-filter-empty" data-history-empty="payments" hidden>No hay pagos que coincidan con la búsqueda.</div></div></section>
+        <section id="cpDisbursementsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="disbursements"><div class="cp-panel cp-history-panel">${historyToolbar('disbursements','Desembolsos','Capital, saldo y condiciones de cada desembolso.','disbursement','Nuevo desembolso')}<div class="ll-list-host" data-list-host="disbursements">${disbursementRowsHtml(data.disbursements)}</div><div class="cp-filter-empty" data-history-empty="disbursements" hidden>No hay desembolsos que coincidan con la búsqueda.</div></div></section>
+        <section id="cpFollowupsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="followups"><div class="cp-panel cp-followup-panel"><div class="cp-panel-heading"><div><h2>Notas y seguimientos</h2><p>Recordatorios pendientes e historial de contacto.</p></div><div class="cp-toolbar-actions"><button type="button" class="cp-action" data-composer="note">Agregar nota</button><button type="button" class="cp-action" data-composer="followup">Programar seguimiento</button></div></div><section class="cp-section"><div class="cp-section-heading"><h3>Seguimientos</h3><span class="cp-result-count" data-slot="pending-followups">${pending} pendientes</span></div><div class="ll-list-host" data-list-host="followups">${followupRowsHtml(data.followups)}</div></section><section class="cp-section"><div class="cp-section-heading"><h3>Notas y contactos</h3><span class="cp-result-count" data-slot="contacts-count">${data.contacts.length} registros</span></div><div class="ll-list-host" data-list-host="contacts">${contactRowsHtml(data.contacts)}</div></section></div></section>
+      </div>
+    </main>${composerHtml(data)}
   </div>`;
 }
+
 function quickAmountButtons(suggested,count,summary){
   const values=count===4?[suggested/2,suggested,suggested*2,suggested*4]:[suggested/2,suggested,suggested*2];
   return values.map((value,index)=>`<button type="button" class="ll-dynamic-value ${summary&&index===1?'active':''}" ${summary?'data-summary-amount':'data-profile-amount'}="${Math.round(value||0)}" ${value>0?'':'hidden'}>${money(value)}</button>`).join('');
@@ -371,6 +397,7 @@ function mountProfile(data,selectedId){
   wireController(content.querySelector('.ll-account-shell'));
   updateFundingTotal();
   showTab(activeTab,false);
+  syncContactAction(content.querySelector('.ll-account-shell'),data);
 }
 
 function transitionValue(element,nextText,nextClassName=null){
@@ -379,7 +406,7 @@ function transitionValue(element,nextText,nextClassName=null){
   const sameText=element.textContent===text;
   const sameClass=nextClassName===null||element.className===nextClassName;
   if(sameText&&sameClass)return Promise.resolve();
-  if(element.closest('.ll-summary-stat-grid')){
+  if(element.closest('.ll-summary-stat-grid,.ll-client-hub')){
     element.textContent=text;
     if(nextClassName!==null)element.className=nextClassName;
     return Promise.resolve();
@@ -398,6 +425,14 @@ function transitionValue(element,nextText,nextClassName=null){
 }
 function transitionList(host,nextHtml){
   if(!host)return Promise.resolve();
+  if(profileListTemplates.get(host)===nextHtml)return Promise.resolve();
+  profileListTemplates.set(host,nextHtml);
+  if(host.closest('.ll-client-hub')){
+    const open=new Set([...host.querySelectorAll('[data-profile-record][open]')].map(row=>row.dataset.profileRecord));
+    host.innerHTML=nextHtml;
+    host.querySelectorAll('[data-profile-record]').forEach(row=>{if(open.has(row.dataset.profileRecord))row.setAttribute('open','');});
+    return Promise.resolve();
+  }
   const currentHeight=host.getBoundingClientRect().height;
   host.style.minHeight=`${currentHeight}px`;
   host.classList.add('ll-list-leaving');
@@ -423,6 +458,7 @@ async function updateCalendars(root,data){
       btn.classList.remove('ok','pending','danger','closed');
       btn.classList.add(tone(key));
       btn.classList.toggle('selected',btn.dataset.calendarDate===selectedDueIso);
+      btn.setAttribute('aria-pressed',btn.dataset.calendarDate===selectedDueIso?'true':'false');
     });
     const row=selectedCalendarRow(data,selectedDueIso),key=dueStatus(row);
     jobs.push(
@@ -440,7 +476,10 @@ async function updateProfile(data,borrowerId){
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
   if(!root)return;
   const a=data.summary,next=nextDueRow(data),suggested=Number(a.current_cycle_fee||a.current_monthly_fee||0);
+  const clientChanged=String(root.dataset.activeBorrower)!==String(borrowerId);
+  if(clientChanged){closeComposer(true,false);resetComposerForms(root,data);root.querySelectorAll('[data-history-search-input]').forEach(input=>input.value='');const filter=root.querySelector('[data-payment-state-filter]');if(filter)filter.value='all';const notice=root.querySelector('.cp-notice');if(notice)notice.hidden=true;}
   root.dataset.activeBorrower=String(borrowerId);
+  root.dataset.overdue=Number(a.overdue_amount)>0?'1':'0';
   const jobs=[
     transitionValue(slot(root,'header-avatar'),initials(a.full_name)),
     transitionValue(slot(root,'header-name'),a.full_name||'Cuenta del cliente'),
@@ -451,7 +490,16 @@ async function updateProfile(data,borrowerId){
     transitionValue(slot(root,'principal'),money(a.principal_balance)),
     transitionValue(slot(root,'principal-status'),statusLabel(a.account_status)),
     transitionValue(slot(root,'total-disbursed'),money(a.total_disbursed)),
-    transitionValue(slot(root,'disbursement-count'),`${a.disbursement_count||0} desembolsos`),
+    transitionValue(slot(root,'disbursement-count'),String(a.disbursement_count||0)),
+    transitionValue(slot(root,'principal-paid'),money(a.total_principal_paid)),
+    transitionValue(slot(root,'overdue-caption'),overdueCaption(a)),
+    transitionValue(slot(root,'composer-name'),a.full_name||'Cuenta del cliente'),
+    transitionValue(slot(root,'composer-balance'),money(a.principal_balance)),
+    transitionValue(slot(root,'payments-count'),String(data.payments.length)),
+    transitionValue(slot(root,'disbursements-count'),String(data.disbursements.length)),
+    transitionValue(slot(root,'followups-count'),String(data.followups.filter(row=>row.status!=='DONE').length)),
+    transitionValue(slot(root,'pending-followups'),`${data.followups.filter(row=>row.status!=='DONE').length} pendientes`),
+    transitionValue(slot(root,'contacts-count'),`${data.contacts.length} registros`),
     transitionValue(slot(root,'monthly-fee'),money(a.current_monthly_fee)),
     transitionValue(slot(root,'cycle-fee'),money(a.current_cycle_fee)),
     transitionValue(slot(root,'next-due'),fmtDate(next?.due_date)),
@@ -472,14 +520,15 @@ async function updateProfile(data,borrowerId){
   updateQuickAmounts(root,suggested,true);
   updateQuickAmounts(root,suggested,false);
   const quickInput=root.querySelector('#llSummaryPayAmount');if(quickInput)quickInput.value=suggested?Math.round(suggested):'';
-  const payInput=root.querySelector('#llProfilePayAmount');if(payInput)payInput.value=suggested?Math.round(suggested):'';
+  const payInput=root.querySelector('#llProfilePayAmount');if(payInput&&(clientChanged||payInput.closest('form')?.dataset.dirty!=='1'))payInput.value=suggested?Math.round(suggested):'';
   const options=loanOptionsHtml(data.disbursements);
-  const contactLoan=root.querySelector('#llProfileContactLoan');if(contactLoan)contactLoan.innerHTML=options;
-  const followLoan=root.querySelector('#llProfileFollowupLoan');if(followLoan)followLoan.innerHTML=options;
+  [root.querySelector('#llProfileContactLoan'),root.querySelector('#llProfileFollowupLoan')].forEach(select=>{if(!select)return;const value=select.value;select.innerHTML=options;if([...select.options].some(option=>option.value===value))select.value=value;});
 
   await Promise.all(jobs);
   updateActiveRail(borrowerId,data.summary);
   applyMovementFilter(root,movementFilter);
+  applyHistoryFilters(root);
+  syncContactAction(root,data);
 }
 
 function updateActiveRail(borrowerId,summary=null){
@@ -531,6 +580,7 @@ async function selectClient(borrowerId,{initial=false}={}){
     return;
   }
   if(String(currentBorrowerId)===String(borrowerId)&&!initial){syncFixedMode();return;}
+  closeComposer(true,false);
   updateActiveRail(borrowerId);
   showLoadingBadge(true);
   try{
@@ -552,11 +602,12 @@ function showTab(key,resetScroll=true){
   if(!root)return;
   if(![...root.querySelectorAll('[data-profile-panel]')].some(panel=>panel.dataset.profilePanel===key))return;
   activeTab=key;
-  root.querySelectorAll('.ll-tab').forEach(tab=>{const active=tab.dataset.profileTab===key;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',active?'true':'false');});
-  root.querySelectorAll('[data-profile-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.profilePanel===key));
+  root.querySelectorAll('.ll-tab').forEach(tab=>{const active=tab.dataset.profileTab===key;tab.id=`cpTab-${tab.dataset.profileTab}`;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',active?'true':'false');tab.tabIndex=active?0:-1;});
+  root.querySelectorAll('[data-profile-panel]').forEach(panel=>{const active=panel.dataset.profilePanel===key;panel.classList.toggle('active',active);panel.hidden=!active;panel.setAttribute('aria-labelledby',`cpTab-${panel.dataset.profilePanel}`);});
   // Only the inner workspace scrolls; scrolling a panel into view also moves
   // overflow-hidden ancestors and pushes both client navigation and content up.
-  if(resetScroll){const workspace=root.querySelector('.ll-workspace');if(workspace)workspace.scrollTop=0;}
+  if(resetScroll){const workspace=root.querySelector('.cp-content')||root.querySelector('.ll-workspace');if(workspace)workspace.scrollTop=0;}
+  applyHistoryFilters(root);
 }
 function focusProfileControl(root,selector){
   const control=root.querySelector(selector);
@@ -570,8 +621,77 @@ function focusProfileControl(root,selector){
 }
 function applyMovementFilter(root,filter){
   movementFilter=filter;
+  if(currentData&&root.classList.contains('ll-client-hub'))transitionList(root.querySelector('[data-list-host="movements"]'),movementsHtml(currentData));
   root.querySelectorAll('[data-movement-filter]').forEach(row=>row.hidden=filter!=='todos'&&row.dataset.movementFilter!==filter);
   root.querySelectorAll('.ll-movement-filter').forEach(btn=>btn.classList.toggle('active',btn.dataset.filter===filter));
+}
+function applyHistoryFilters(root){
+  if(!root)return;
+  const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  for(const kind of ['payments','disbursements']){
+    const input=root.querySelector(`[data-history-search-input="${kind}"]`);
+    const query=normalize(input?.value.trim());
+    const state=kind==='payments'?(root.querySelector('[data-payment-state-filter]')?.value||'all'):'all';
+    const rows=[...root.querySelectorAll(`[data-history-row="${kind}"]`)];
+    let count=0;
+    rows.forEach(row=>{row.hidden=!!query&&!normalize(row.dataset.historySearch).includes(query)||state!=='all'&&row.dataset.paymentState!==state;if(!row.hidden)count++;});
+    const empty=root.querySelector(`[data-history-empty="${kind}"]`);if(empty)empty.hidden=!rows.length||count>0;
+    const result=root.querySelector(`[data-history-count="${kind}"]`);if(result)result.textContent=`${count} de ${rows.length} ${kind==='payments'?'pagos':'desembolsos'}`;
+  }
+}
+function syncContactAction(root,data){
+  const action=root?.querySelector('[data-top-action="whatsapp"]');
+  if(action)action.hidden=!String(data?.summary?.phone||'').replace(/\D/g,'');
+}
+function resetComposerForms(root,data,form=null){
+  const scope=form||root.querySelector('.cp-composer');
+  if(!scope)return;
+  [scope,...scope.querySelectorAll('form')].forEach(node=>{if(node.tagName==='FORM')delete node.dataset.dirty;});
+  scope.querySelectorAll('input,textarea').forEach(input=>{
+    if(input.matches('[data-partner-user-id]'))return;
+    input.value=input.type==='date'?today():'';
+  });
+  const defaults={'#llProfilePayType':'INSTALLMENT','#llProfileContactType':'NOTE','#llProfileContactLoan':'','#llProfileFollowupLoan':'','#llProfileFollowupPriority':'NORMAL'};
+  Object.entries(defaults).forEach(([selector,value])=>{const input=scope.querySelector(selector);if(input)input.value=value;});
+  for(const [id,value] of [['llProfileTotalRate',data.defaults.default_total_monthly_rate??10],['llProfileMgmtRate',data.defaults.default_management_rate??3]]){const input=scope.querySelector(`#${id}`);if(input)input.value=Number(value).toFixed(2);}
+  const amount=scope.querySelector('#llProfilePayAmount'),suggested=Number(data.summary.current_cycle_fee||data.summary.current_monthly_fee||0);if(amount)amount.value=suggested?Math.round(suggested):'';
+  const funding=scope.querySelector('#llProfileFundingRows');if(funding)funding.innerHTML=fundingRowsHtml(data);
+  const submit=scope.querySelector('#llProfileDisbursementForm button[type="submit"]');if(submit)submit.disabled=!data.defaultFunding.length;
+  scope.querySelectorAll('.ll-form-status').forEach(status=>{status.textContent='';status.classList.remove('error');});
+  updateFundingTotal();
+}
+function openComposer(kind,trigger=null){
+  const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
+  const drawer=root?.querySelector('.cp-composer'),panel=drawer?.querySelector(`[data-composer-panel="${kind}"]`);
+  if(!drawer||!panel||root.querySelector('.ll-controller-loading-badge.visible'))return;
+  if(panel.querySelector('form')?.dataset.saving==='1')return;
+  const titles={payment:'Registrar pago',disbursement:'Nuevo desembolso',note:'Agregar nota o contacto',followup:'Programar seguimiento'};
+  drawer.querySelector('#cpComposerTitle').textContent=titles[kind];
+  drawer.querySelectorAll('[data-composer-panel]').forEach(item=>item.hidden=item!==panel);
+  root.querySelectorAll('.ll-more-actions').forEach(menu=>menu.removeAttribute('open'));
+  drawer.hidden=false;root.querySelector('.cp-composer-overlay').hidden=false;root.classList.add('cp-composer-open');
+  composerTrigger=trigger;
+  const backgrounds=[root.querySelector('.ll-workspace'),root.querySelector('.ll-client-rail'),document.getElementById('llGlobalSidebar')].filter(Boolean);
+  if(!composerBackgrounds.length){composerBackgrounds=backgrounds.map(node=>({node,inert:node.hasAttribute('inert')}));backgrounds.forEach(node=>node.setAttribute('inert',''));}
+  drawer.querySelector('.cp-composer-body').scrollTop=0;
+  const focus={payment:'#llProfilePayAmount',disbursement:'#llProfilePrincipal',note:'#llProfileContactNotes',followup:'#llProfileFollowupReason'};
+  panel.querySelector(focus[kind])?.focus({preventScroll:true});
+}
+function closeComposer(force=false,restoreFocus=true){
+  const root=document.querySelector('#borrowerAccountContent .ll-account-shell'),drawer=root?.querySelector('.cp-composer');
+  const wasOpen=drawer&&!drawer.hidden;
+  if(!force&&drawer?.querySelector('form[data-saving="1"]'))return false;
+  if(drawer){drawer.hidden=true;root.querySelector('.cp-composer-overlay').hidden=true;root.classList.remove('cp-composer-open');}
+  composerBackgrounds.forEach(({node,inert})=>{if(!inert)node.removeAttribute('inert');});composerBackgrounds=[];
+  if(restoreFocus&&wasOpen)(composerTrigger?.isConnected?composerTrigger:root.querySelector('.ll-tab.active'))?.focus({preventScroll:true});
+  composerTrigger=null;return true;
+}
+function announceProfile(message,retry=false){
+  const notice=document.querySelector('#borrowerAccountContent .cp-notice');
+  if(notice){
+    notice.textContent=message;notice.hidden=false;
+    if(retry){const button=document.createElement('button');button.type='button';button.className='cp-text-action';button.dataset.refreshProfile='1';button.textContent='Actualizar cuenta';notice.appendChild(button);}
+  }
 }
 
 async function moveCalendar(direction){
@@ -614,6 +734,9 @@ async function handleSubmit(event){
   if(!form||!form.closest('#borrowerAccountContent .ll-account-shell'))return;
   if(!['llSummaryQuickPayForm','llProfilePaymentForm','llProfileContactForm','llProfileFollowupForm','llProfileDisbursementForm'].includes(form.id))return;
   event.preventDefault();
+  if(form.dataset.saving==='1')return;
+  const submit=form.querySelector('button[type="submit"]'),wasDisabled=submit?.disabled;
+  form.dataset.saving='1';form.setAttribute('aria-busy','true');if(submit)submit.disabled=true;
   try{
     if(form.id==='llSummaryQuickPayForm'||form.id==='llProfilePaymentForm'){
       const summary=form.id==='llSummaryQuickPayForm';
@@ -655,12 +778,26 @@ async function handleSubmit(event){
       if(fundingResult.error)return setStatus('llProfileDisbursementStatus',fundingResult.error.message,true);
       setStatus('llProfileDisbursementStatus','Desembolso guardado.');
     }
-    invalidatePageReads();await refreshCurrent();
+    invalidatePageReads();
+    announceProfile({llProfilePaymentForm:'Pago registrado.',llProfileContactForm:'Nota guardada.',llProfileFollowupForm:'Seguimiento creado.',llProfileDisbursementForm:'Desembolso guardado.'}[form.id]||'Registro guardado.');
+    try{await refreshCurrent();}catch(error){console.error('saved profile refresh failed',error);announceProfile('El registro se guardó, pero no se pudo actualizar la cuenta.',true);showLoadingBadge(false);}
+    const root=document.querySelector('#borrowerAccountContent .ll-account-shell');if(root&&currentData)resetComposerForms(root,currentData,form);
+    closeComposer(true);
   }catch(error){console.error('client profile action failed',error);alert(error.message||error);}
+  finally{delete form.dataset.saving;form.removeAttribute('aria-busy');if(submit)submit.disabled=!!wasDisabled;}
 }
 
 async function handleClick(event){
   const root=event.currentTarget;
+  const retry=event.target.closest('[data-refresh-profile]');
+  if(retry){
+    event.preventDefault();retry.disabled=true;
+    try{await refreshCurrent();announceProfile('Cuenta actualizada.');}catch(error){console.error('profile retry failed',error);showLoadingBadge(false);announceProfile('No se pudo actualizar la cuenta. Inténtalo de nuevo.',true);}
+    return;
+  }
+  if(event.target.closest('[data-close-composer]')){event.preventDefault();closeComposer();return;}
+  const composer=event.target.closest('[data-composer]');if(composer){event.preventDefault();openComposer(composer.dataset.composer,composer);return;}
+  if(event.target.closest('[data-expand-client-rail]')){event.preventDefault();if(root.classList.contains('ll-client-rail-collapsed'))root.querySelector('#acctBack')?.click();root.querySelector('.ll-controller-search')?.click();return;}
   const client=event.target.closest('.ll-client-card[data-acct-borrower]');
   if(client){event.preventDefault();selectClient(client.dataset.acctBorrower);return;}
   const tab=event.target.closest('.ll-tab[data-profile-tab]');if(tab){showTab(tab.dataset.profileTab);return;}
@@ -677,19 +814,38 @@ async function handleClick(event){
   const date=event.target.closest('[data-calendar-date]');if(date){event.preventDefault();chooseCalendarDate(date.dataset.calendarDate);return;}
   const filter=event.target.closest('.ll-movement-filter');if(filter){applyMovementFilter(root,filter.dataset.filter);return;}
   const summaryAmount=event.target.closest('[data-summary-amount]');if(summaryAmount){root.querySelectorAll('[data-summary-amount]').forEach(btn=>btn.classList.remove('active'));summaryAmount.classList.add('active');const input=root.querySelector('#llSummaryPayAmount');if(input)input.value=summaryAmount.dataset.summaryAmount;return;}
-  const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input)input.value=profileAmount.dataset.profileAmount;return;}
+  const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}return;}
   const complete=event.target.closest('[data-complete-followup]');if(complete){const note=prompt('Nota de finalización (opcional):','');if(note===null)return;const {error}=await db.rpc('complete_followup',{p_followup_id:complete.dataset.completeFollowup,p_completed_notes:note.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
   const voidButton=event.target.closest('[data-void-payment]');if(voidButton){const reason=prompt('Motivo de anulación (opcional):','');if(reason===null)return;if(!confirm('¿Seguro que quieres anular este pago? Se revertirán las aplicaciones de cuota, capital y distribuciones.'))return;const {error}=await db.rpc('void_payment',{p_payment_id:voidButton.dataset.voidPayment,p_reason:reason.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
   const search=event.target.closest('.ll-controller-search');if(search){const wrap=root.querySelector('.ll-client-search-wrap');if(wrap){wrap.hidden=!wrap.hidden;if(!wrap.hidden)setTimeout(()=>focusProfileControl(root,'.ll-client-search-input'),0);}return;}
 }
 function handleInput(event){
+  const form=event.target.closest('.cp-composer form');if(form)form.dataset.dirty='1';
+  if(event.target.matches('[data-history-search-input],[data-payment-state-filter]'))applyHistoryFilters(event.currentTarget);
   if(event.target.matches('.ll-client-search-input')){const q=event.target.value.trim().toLowerCase();document.querySelectorAll('#borrowerAccountContent .ll-client-card').forEach(card=>card.hidden=!!q&&!String(card.dataset.clientSearch||'').includes(q));}
   if(event.target.matches('[data-partner-user-id]'))updateFundingTotal();
 }
 function handleKeydown(event){
+  const drawer=event.target.closest('.cp-composer');
+  if(drawer){
+    if(event.key==='Escape'){event.preventDefault();closeComposer();return;}
+    if(event.key==='Tab'){
+      const focusable=[...drawer.querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')].filter(node=>!node.disabled&&!node.closest('[hidden]'));
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(event.shiftKey&&event.target===first){event.preventDefault();last?.focus({preventScroll:true});}
+      else if(!event.shiftKey&&event.target===last){event.preventDefault();first?.focus({preventScroll:true});}
+    }
+    return;
+  }
   const client=event.target.closest('.ll-client-card[data-acct-borrower]');
   if(client&&(event.key==='Enter'||event.key===' ')){event.preventDefault();selectClient(client.dataset.acctBorrower);return;}
-  const tab=event.target.closest('.ll-tab[data-profile-tab]');if(tab&&(event.key==='Enter'||event.key===' ')){event.preventDefault();showTab(tab.dataset.profileTab);}
+  const tab=event.target.closest('.ll-tab[data-profile-tab]');if(!tab)return;
+  if(event.key==='Enter'||event.key===' '){event.preventDefault();showTab(tab.dataset.profileTab);}
+  if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+    event.preventDefault();const tabs=[...tab.parentElement.querySelectorAll('[data-profile-tab]')],index=tabs.indexOf(tab);
+    const next=event.key==='Home'?tabs[0]:event.key==='End'?tabs[tabs.length-1]:tabs[(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];
+    showTab(next.dataset.profileTab);next.focus({preventScroll:true});
+  }
 }
 function updateFundingTotal(){
   const inputs=[...document.querySelectorAll('#borrowerAccountContent [data-partner-user-id]')];
@@ -703,6 +859,7 @@ function wireController(root){
   root.addEventListener('click',handleClick);
   root.addEventListener('submit',handleSubmit);
   root.addEventListener('input',handleInput);
+  root.addEventListener('change',handleInput);
   root.addEventListener('keydown',handleKeydown);
 }
 

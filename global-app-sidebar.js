@@ -159,7 +159,8 @@ function syncUser(){
 }
 
 function syncActive(){
-  const active=document.querySelector('.page.active-page')?.id||'';
+  const page=document.querySelector('.page.active-page')?.id||'';
+  const active=page==='borrowerAccountPage'?'borrowersPage':page;
   document.querySelectorAll('#llGlobalSidebar .ll-global-nav-item[data-page]').forEach(btn=>btn.classList.toggle('active',btn.dataset.page===active));
 }
 
