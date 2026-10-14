@@ -2,7 +2,7 @@ import './admin-tools.js?v=4';
 import './batch-tools.js?v=3';
 import './menu-page-fix.js?v=2';
 import './loan-view-fix.js?v=6';
-import './partners-page-fix.js?v=6';
+import './partners-page-fix.js?v=7';
 import './settings-validation-fix.js?v=3';
 import './payment-management.js?v=7';
 import './activity-log.js?v=4';
@@ -17,7 +17,7 @@ import './loans-dashboard-boot.js?v=15';
 import './global-app-sidebar.js?v=5';
 import './loans-dashboard-global-shell.js?v=4';
 import './clients-management.js?v=3';
-import './client-profile-controller.js?v=6';
+import './client-profile-controller.js?v=7';
 import './app-design-system.js?v=2';
 
 const paymentManagementCss=document.getElementById('paymentManagementCss');
