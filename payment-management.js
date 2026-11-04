@@ -20,7 +20,7 @@ function ensurePaymentsStyle() {
 ensurePaymentsStyle();
 
 const qs = (id) => document.getElementById(id);
-const money = (n) => `$${Math.round(Number(n || 0)).toLocaleString("en-US")}`;
+const money = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(n || 0));
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 const initials = (name = "?") => String(name || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "?";
@@ -314,7 +314,7 @@ function registerDrawerHtml() {
       <div id="paymentBorrowerContext" class="ll-payment-borrower-context is-empty"><div class="ll-context-placeholder">Selecciona un cliente para ver el estado de su cuenta.</div></div>
       <div class="ll-payment-form-two">
         <label class="ll-payment-field"><span>Fecha</span><input id="acctPagePaidOn" type="date" value="${todayIso()}" /></label>
-        <label class="ll-payment-field"><span>Monto</span><div class="ll-payment-money-input"><input id="acctPageAmount" type="number" min="1" step="1" placeholder="0" /><b>$</b></div></label>
+        <label class="ll-payment-field"><span>Monto</span><div class="ll-payment-money-input"><input id="acctPageAmount" type="number" min="0.01" step="0.01" placeholder="0" /><b>$</b></div></label>
       </div>
       <div class="ll-payment-quick-block"><span>Sugerencias rápidas</span><div id="paymentQuickAmounts" class="ll-payment-quick-buttons"><button type="button" data-quick-payment="half" disabled>½ cuota</button><button type="button" data-quick-payment="one" disabled>1 cuota</button><button type="button" data-quick-payment="two" disabled>2 cuotas</button><button type="button" data-quick-payment="payoff" disabled>Saldar</button></div></div>
       <label class="ll-payment-field"><span>Tipo de pago</span><select id="acctPageType"><option value="INSTALLMENT">Pago de cuota / interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select></label>
@@ -343,12 +343,12 @@ function updateBorrowerContext() {
   host.innerHTML = `<div class="ll-context-client"><span>${esc(initials(account.full_name))}</span><div><strong>${esc(account.full_name || "Cliente")}</strong><small>${esc(accountStatus(account.account_status))}</small></div></div><div class="ll-context-stats"><div><strong>${money(account.principal_balance)}</strong><small>Balance actual</small></div><div><strong>${money(account.current_cycle_fee)}</strong><small>Cuota pendiente</small></div><div><strong>${esc(fmtDate(account.next_due_date))}</strong><small>Próxima fecha</small></div><div class="${Number(account.overdue_amount || 0) > 0 ? "danger" : ""}"><strong>${money(account.overdue_amount)}</strong><small>Atrasado</small></div></div>`;
   const fee = Number(account.current_cycle_fee || 0), balance = Number(account.principal_balance || 0);
   const values = { half: fee / 2, one: fee, two: fee * 2, payoff: balance };
-  buttons.forEach((button) => { const amount = values[button.dataset.quickPayment] || 0; button.disabled = amount <= 0; button.dataset.amount = String(Math.round(amount)); });
+  buttons.forEach((button) => { const amount = values[button.dataset.quickPayment] || 0; button.disabled = amount <= 0; button.dataset.amount = String(Number(Number(amount).toFixed(2))); });
 }
 function applyQuickAmount(kind, amount) {
   const input = qs("acctPageAmount");
   const type = qs("acctPageType");
-  if (input) input.value = String(Math.round(Number(amount || 0)));
+  if (input) input.value = String(Number(Number(amount || 0).toFixed(2)));
   if (type) type.value = kind === "payoff" ? "PAYOFF" : "INSTALLMENT";
   document.querySelectorAll("[data-quick-payment]").forEach((button) => button.classList.toggle("active", button.dataset.quickPayment === kind));
 }

@@ -19,7 +19,7 @@ const STYLE_FILES=[
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
   ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
-  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=2']
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=3']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -28,7 +28,9 @@ STYLE_FILES.forEach(([id,href])=>{
 });
 
 const CLIENT_RAIL_STORAGE='loanLedger.clientRailCollapsed';
-const money=value=>`$${Math.round(Number(value||0)).toLocaleString('en-US')}`;
+const money=value=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:2}).format(Number(value||0));
+const calendarMoney=money;
+const paymentAmount=value=>Number(Number(value||0).toFixed(2));
 const today=()=>new Date().toISOString().slice(0,10);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const initials=name=>String(name||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]?.toUpperCase()||'').join('')||'?';
@@ -147,13 +149,11 @@ async function currentUserId(){
 
 async function loadProfileData(borrowerId,{includeAccounts=false}={}){
   const range=cycleDatesAround(new Date(),12,18);
-  const startIso=toIso(range[0]);
   const endIso=toIso(range[range.length-1]);
   const jobs=[
     db.from('borrower_account_summary').select('*').eq('borrower_id',borrowerId).single(),
-    db.rpc('get_borrower_due_calendar',{p_borrower_id:borrowerId,p_start_date:startIso,p_end_date:endIso}),
+    db.rpc('get_borrower_calendar_workspace',{p_borrower_id:borrowerId,p_end_date:endIso}),
     db.from('borrower_disbursements_view').select('*').eq('borrower_id',borrowerId).order('start_date',{ascending:false}),
-    db.from('borrower_account_payments_view').select('*').eq('borrower_id',borrowerId).order('paid_on',{ascending:false}).order('created_at',{ascending:false}).limit(120),
     db.from('borrower_contact_log_view').select('*').eq('borrower_id',borrowerId).order('created_at',{ascending:false}).limit(80),
     db.from('borrower_followups_view').select('*').eq('borrower_id',borrowerId).order('due_date',{ascending:true}).limit(80),
     db.from('app_settings').select('setting_key,setting_value').in('setting_key',['loan_defaults','default_funding_split']),
@@ -163,7 +163,8 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
   if(includeAccounts)jobs.push(db.from('borrower_account_summary').select('*').order('full_name',{ascending:true}));
   const results=await Promise.all(jobs);
   for(const result of results)if(result.error)throw result.error;
-  const [summaryRes,calendarRes,disbRes,payRes,contactRes,followRes,settingsRes,fundingRes,profilesRes,accountsRes]=results;
+  const [summaryRes,calendarRes,disbRes,contactRes,followRes,settingsRes,fundingRes,profilesRes,accountsRes]=results;
+  if(!calendarRes.data)throw new Error('No se pudo consultar el calendario de esta cuenta.');
   const settings=Object.fromEntries((settingsRes.data||[]).map(row=>[row.setting_key,row.setting_value]));
   const profileNames=new Map((profilesRes.data||[]).map(row=>[row.user_id,row.full_name||row.role||'Socio']));
   const loanIds=new Set((disbRes.data||[]).map(row=>row.id));
@@ -174,9 +175,10 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
   });
   return {
     summary:summaryRes.data,
-    calendarRows:calendarRes.data||[],
+    calendarRows:calendarRes.data.rows||[],
+    calendarAsOf:calendarRes.data.as_of_date||today(),
     disbursements:(disbRes.data||[]).map(row=>({...row,funding:fundingByLoan.get(row.id)||[]})),
-    payments:payRes.data||[],
+    payments:calendarRes.data.payments||[],
     contacts:contactRes.data||[],
     followups:followRes.data||[],
     defaults:settings.loan_defaults||{default_total_monthly_rate:10,default_management_rate:3},
@@ -189,20 +191,43 @@ function calendarMap(data){return new Map((data.calendarRows||[]).map(row=>[row.
 function selectedCalendarRow(data,iso){
   const row=calendarMap(data).get(iso);
   if(row)return row;
-  return {due_date:iso,expected_total:Number(data.summary.current_cycle_fee||0),paid_total:0,amount_due:Number(data.summary.current_cycle_fee||0),principal_snapshot:Number(data.summary.principal_balance||0),timing_status:daysFromToday(iso)<0?'OVERDUE':daysFromToday(iso)===0?'DUE_TODAY':'UPCOMING',status:'DUE',is_virtual:true};
+  return {due_date:iso,expected_total:0,paid_total:0,amount_due:0,principal_snapshot:0,timing_status:'CANCELLED',status:'CANCELLED',is_virtual:true};
 }
 function nextDueRow(data){
   const rows=[...(data.calendarRows||[])].filter(row=>Number(row.amount_due||0)>0&&!['PAID','CANCELLED'].includes(dueStatus(row))).sort((a,b)=>String(a.due_date).localeCompare(String(b.due_date)));
   return rows.find(row=>daysFromToday(row.due_date)>=0)||rows[0]||(Number(data.summary.principal_balance||0)>0?selectedCalendarRow(data,nextCycleIso()):null);
 }
-function visibleCycleDates(){
-  const all=cycleDatesAround(new Date(),12,18);
-  const baseIso=selectedDueIso||nextCycleIso();
+function allCalendarDates(data=currentData){
+  const rows=data?.calendarRows||[];
+  return rows.length?[...new Set(rows.map(row=>row.due_date))].sort().map(parseIso):cycleDatesAround(new Date(),12,18);
+}
+function visibleCycleDates(data=currentData){
+  const all=allCalendarDates(data);
+  const baseIso=nextCycleIso();
   let baseIndex=all.findIndex(date=>toIso(date)===baseIso);
   if(baseIndex<0)baseIndex=all.findIndex(date=>date>=new Date());
   let start=Math.max(0,baseIndex-1+calendarOffset);
   start=Math.min(start,Math.max(0,all.length-6));
+  calendarOffset=start-Math.max(0,baseIndex-1);
   return all.slice(start,start+6);
+}
+function calendarBalance(data,iso){
+  const row=selectedCalendarRow(data,iso),asOf=data.calendarAsOf||today();
+  const arrears=(data.calendarRows||[]).filter(r=>r.due_date<iso&&r.due_date<asOf&&Number(r.amount_due)>0&&r.status!=='CANCELLED');
+  const overdue=Math.round(arrears.reduce((sum,r)=>sum+Number(r.amount_due),0)*100)/100;
+  return {row,arrears,overdue,total:Math.round((Number(row.amount_due||0)+overdue)*100)/100};
+}
+function calendarReceiptHtml(payment,iso){
+  const applied=(payment.due_applications||[]).filter(a=>a.due_date===iso).reduce((sum,a)=>sum+Number(a.applied_total||0),0);
+  const line=(label,value)=>`<div><span>${label}</span><strong>${calendarMoney(value)}</strong></div>`;
+  return `<details class="cp-calendar-receipt" data-payment-receipt="${esc(payment.id)}"><summary><span><strong>Pago del ${fmtDate(payment.paid_on)}</strong><small>${esc(paymentTypeLabel(payment.payment_type))} · Aplicado a esta cuota</small></span><strong>${calendarMoney(applied)}</strong>${svg('chevronDown')}</summary><div class="cp-receipt-body"><div class="cp-receipt-heading"><span>Importe del pago</span><strong>${calendarMoney(payment.amount)}</strong><span class="ll-status-pill ok">APLICADO</span></div><div class="cp-receipt-amounts">${line('Cuota / interés',payment.applied_interest)}${line('Capital',payment.applied_principal)}${line('Administración',payment.applied_mgmt)}${line('Socios',payment.applied_funders)}</div>${payment.notes?`<p class="cp-calendar-note">${esc(payment.notes)}</p>`:''}<h4>Cuotas afectadas</h4>${(payment.due_applications||[]).map(a=>`<div class="cp-calendar-line"><span>${fmtDate(a.due_date)}${a.due_date===iso?' · Esta cuota':''}</span><strong>${calendarMoney(a.applied_total)}</strong></div>`).join('')}<h4>Capital afectado</h4>${(payment.principal_applications||[]).map(a=>{const loan=currentData?.disbursements.find(l=>l.id===a.loan_id);return `<div class="cp-calendar-line"><span>Desembolso${loan?' del '+fmtDate(loan.start_date):' '+esc(String(a.loan_id).slice(0,8))}</span><strong>${calendarMoney(a.amount)}</strong></div>`;}).join('')||'<p class="cp-calendar-note">No afectó capital.</p>'}<h4>Distribuciones</h4>${(payment.allocations||[]).map(a=>`<div class="cp-calendar-line"><span>${esc(a.partner_name||'Socio')}<small>${String(a.allocation_type).includes('MANAGEMENT')?'Administración':'Ingreso de socio'}${a.is_voided?' · Anulada':''}</small></span><strong>${calendarMoney(a.amount)}</strong></div>`).join('')||'<p class="cp-calendar-note">No hay distribuciones vinculadas.</p>'}</div></details>`;
+}
+function calendarDetailHtml(data,iso){
+  const {row,arrears}=calendarBalance(data,iso);
+  const payments=(data.payments||[]).filter(p=>!p.is_voided&&(p.due_applications||[]).some(a=>a.due_date===iso&&Number(a.applied_total)>0));
+  const linked=payments.reduce((sum,p)=>sum+(p.due_applications||[]).filter(a=>a.due_date===iso).reduce((n,a)=>n+Number(a.applied_total||0),0),0);
+  const excess=Math.max(0,Math.round((Number(row.paid_total||0)-Number(row.expected_total||0))*100)/100);
+  return `<div class="cp-due-facts"><div><small>Capital base de esta fecha</small><strong>${calendarMoney(row.principal_snapshot)}</strong></div><div><small>Cuota original</small><strong>${calendarMoney(row.expected_total)}</strong></div><div><small>Pagado a esta cuota</small><strong>${calendarMoney(row.paid_total)}</strong></div></div><p class="cp-calendar-note">Calculada con el capital de esta fecha. Los saldos reflejan los pagos registrados; las cuotas futuras son una proyección.</p>${excess>0?`<p class="cp-calendar-alert">Hay ${calendarMoney(excess)} aplicados por encima del importe de esta cuota. Revisa los pagos vinculados.</p>`:''}<section class="cp-due-section"><h3>Atrasos anteriores <span>${arrears.length}</span></h3>${arrears.length?`<div class="cp-due-table-scroll"><table class="cp-due-table"><thead><tr><th>Cuota</th><th>Original</th><th>Pagado</th><th>Pendiente</th></tr></thead><tbody>${arrears.map(a=>`<tr><td><button type="button" class="cp-text-action" data-calendar-jump="${esc(a.due_date)}">${fmtDate(a.due_date)}</button></td><td>${calendarMoney(a.expected_total)}</td><td>${calendarMoney(a.paid_total)}</td><td><strong>${calendarMoney(a.amount_due)}</strong></td></tr>`).join('')}</tbody></table></div>`:'<p class="cp-calendar-note">No hay cuotas anteriores vencidas pendientes en esta fecha.</p>'}</section><section class="cp-due-section"><h3>Pagos aplicados a esta cuota</h3>${payments.map(p=>calendarReceiptHtml(p,iso)).join('')||'<p class="cp-calendar-note">No hay pagos vinculados a esta cuota.</p>'}${Number(row.paid_total||0)-linked>.005?'<p class="cp-calendar-note">Parte del abono procede de un registro histórico sin detalle de pago vinculado.</p>':''}</section>`;
 }
 function monthRangeTitle(dates){
   const f=new Intl.DateTimeFormat('es',{month:'long',year:'numeric'});
@@ -248,23 +273,26 @@ function calendarHtml(context,data){
   const dates=visibleCycleDates();
   if(!selectedDueIso||!dates.some(date=>toIso(date)===selectedDueIso))selectedDueIso=toIso(dates.find(date=>date>=parseIso(today()))||dates[1]||dates[0]);
   const selected=selectedCalendarRow(data,selectedDueIso);
+  const balance=calendarBalance(data,selectedDueIso);
   const selectedStatus=dueStatus(selected);
   return `<div class="ll-cycle-calendar" data-calendar-context="${context}">
     <div class="ll-cycle-calendar-head"><div><strong>Calendario de cuotas</strong><small>Día 15 y último día del mes</small></div><div class="ll-cycle-calendar-nav"><button type="button" data-calendar-move="-2" aria-label="Fechas anteriores">${svg('chevronLeft','ll-ref-svg',13)}</button><span>${esc(monthRangeTitle(dates))}</span><button type="button" data-calendar-move="2" aria-label="Fechas siguientes">${svg('chevronRight','ll-ref-svg',13)}</button></div></div>
     <div class="ll-cycle-date-row">${calendarDateButtonsHtml(dates,data)}</div>
     <div class="ll-cycle-detail ll-cycle-detail--compact">
-      <div><small>Monto esperado</small><strong class="ll-dynamic-value" data-calendar-slot="expected">${money(selected.expected_total)}</strong></div>
-      <div><small>Pagado</small><strong class="ll-dynamic-value" data-calendar-slot="paid">${money(selected.paid_total)}</strong></div>
-      <div><small>Pendiente</small><strong class="ll-dynamic-value" data-calendar-slot="pending">${money(selected.amount_due)}</strong></div>
-      <div><small>Estado</small><span class="ll-status-pill ${tone(selectedStatus)} ll-dynamic-value" data-calendar-slot="status">${statusLabel(selectedStatus)}</span></div>
-      <div><small>Días restantes</small><strong class="ll-dynamic-value" data-calendar-slot="timing">${dueTiming(selectedDueIso)}</strong></div>
+      <div><small>Monto total</small><strong class="ll-dynamic-value" data-calendar-slot="total">${calendarMoney(balance.total)}</strong></div>
+      <div><small>Cuota pendiente</small><strong class="ll-dynamic-value" data-calendar-slot="pending">${calendarMoney(selected.amount_due)}</strong></div>
+      <div><small>Monto atrasado</small><strong class="ll-dynamic-value" data-calendar-slot="arrears">${calendarMoney(balance.overdue)}</strong></div>
+      <div><small>Estado de la cuota</small><span class="ll-status-pill ${tone(selectedStatus)} ll-dynamic-value" data-calendar-slot="status">${statusLabel(selectedStatus)}</span></div>
+      <div><small>Vencimiento</small><strong class="ll-dynamic-value" data-calendar-slot="timing">${dueTiming(selectedDueIso)}</strong></div>
     </div>
+    <p class="cp-calendar-note cp-calendar-equation">Monto total = cuota pendiente + atrasos anteriores vencidos.</p>
+    <details class="cp-due-details"><summary><span>Ver detalle de la cuota <time data-calendar-detail-date>${fmtDate(selectedDueIso)}</time></span>${svg('chevronDown')}</summary><div data-calendar-detail-body>${calendarDetailHtml(data,selectedDueIso)}</div></details>
   </div>`;
 }
 function calendarDateButtonsHtml(dates,data){
   return dates.map(date=>{
     const iso=toIso(date),row=selectedCalendarRow(data,iso),status=dueStatus(row);
-    return `<button type="button" class="ll-cycle-date ${iso===selectedDueIso?'selected':''} ${tone(status)}" data-calendar-date="${iso}" aria-pressed="${iso===selectedDueIso?'true':'false'}" aria-label="${esc(fmtDate(iso)+' · '+statusLabel(status)+' · Pendiente '+money(row.amount_due))}"><span>${date.toLocaleDateString('es',{weekday:'short'}).replace('.','')}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('es',{month:'short'}).replace('.','').toUpperCase()}</small></button>`;
+    return `<button type="button" class="ll-cycle-date ${iso===selectedDueIso?'selected':''} ${tone(status)}" data-calendar-date="${iso}" aria-pressed="${iso===selectedDueIso?'true':'false'}" aria-label="${esc(fmtDate(iso)+' · '+statusLabel(status)+' · Pendiente '+calendarMoney(row.amount_due))}"><span>${date.toLocaleDateString('es',{weekday:'short'}).replace('.','')}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('es',{month:'short'}).replace('.','').toUpperCase()}</small></button>`;
   }).join('');
 }
 
@@ -328,7 +356,7 @@ function composerHtml(data){
   return `<div class="cp-composer-overlay" data-close-composer hidden></div><aside class="cp-composer" role="dialog" aria-modal="true" aria-labelledby="cpComposerTitle" hidden>
     <header class="cp-composer-head"><div><p>Cuenta de <strong data-slot="composer-name">${esc(a.full_name)}</strong></p><h2 id="cpComposerTitle">Registrar pago</h2></div><button type="button" class="cp-close" data-close-composer aria-label="Cerrar panel">×</button></header>
     <div class="cp-composer-context"><span>Capital pendiente</span><strong data-slot="composer-balance">${money(a.principal_balance)}</strong></div><div class="cp-composer-body">
-      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="1" step="1" value="${suggested?Math.round(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select></label><label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
+      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select></label><label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
       <section data-composer-panel="disbursement" hidden><form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="1" step="1" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div class="ll-form-section-title">Distribución de inversión</div><div id="llProfileFundingRows">${fundingRowsHtml(data)}</div><div id="llProfileFundingTotal" class="ll-form-status"></div><p class="cp-form-help">El capital se agrega a la cuenta y se recalculan las cuotas futuras.</p><div id="llProfileDisbursementStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary" ${data.defaultFunding.length?'':'disabled'}>Guardar desembolso</button></div></form></section>
       <section data-composer-panel="note" hidden><form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><div id="llProfileContactStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar nota</button></div></form></section>
       <section data-composer-panel="followup" hidden><form id="llProfileFollowupForm" class="ll-profile-form"><div class="ll-form-two"><label>Fecha<input id="llProfileFollowupDate" type="date" value="${today()}" required></label><label>Prioridad<select id="llProfileFollowupPriority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label>Desembolso relacionado<select id="llProfileFollowupLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Motivo<textarea id="llProfileFollowupReason" rows="4" required placeholder="Motivo o recordatorio"></textarea></label><div id="llProfileFollowupStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Crear seguimiento</button></div></form></section>
@@ -366,7 +394,7 @@ function profileShellHtml(data,selectedId){
 
 function quickAmountButtons(suggested,count,summary){
   const values=count===4?[suggested/2,suggested,suggested*2,suggested*4]:[suggested/2,suggested,suggested*2];
-  return values.map((value,index)=>`<button type="button" class="ll-dynamic-value ${summary&&index===1?'active':''}" ${summary?'data-summary-amount':'data-profile-amount'}="${Math.round(value||0)}" ${value>0?'':'hidden'}>${money(value)}</button>`).join('');
+  return values.map((value,index)=>`<button type="button" class="ll-dynamic-value ${summary&&index===1?'active':''}" ${summary?'data-summary-amount':'data-profile-amount'}="${paymentAmount(value)}" ${value>0?'':'hidden'}>${money(value)}</button>`).join('');
 }
 function updateQuickAmounts(root,suggested,summary){
   const values=summary?[suggested/2,suggested,suggested*2,suggested*4]:[suggested/2,suggested,suggested*2];
@@ -374,7 +402,7 @@ function updateQuickAmounts(root,suggested,summary){
   [...root.querySelectorAll(selector)].forEach((button,index)=>{
     const value=values[index]||0;
     button.hidden=value<=0;
-    if(summary)button.dataset.summaryAmount=String(Math.round(value));else button.dataset.profileAmount=String(Math.round(value));
+    if(summary)button.dataset.summaryAmount=String(paymentAmount(value));else button.dataset.profileAmount=String(paymentAmount(value));
     transitionValue(button,money(value));
   });
 }
@@ -460,14 +488,21 @@ async function updateCalendars(root,data){
       btn.classList.toggle('selected',btn.dataset.calendarDate===selectedDueIso);
       btn.setAttribute('aria-pressed',btn.dataset.calendarDate===selectedDueIso?'true':'false');
     });
-    const row=selectedCalendarRow(data,selectedDueIso),key=dueStatus(row);
+    const {row,overdue,total}=calendarBalance(data,selectedDueIso),key=dueStatus(row);
     jobs.push(
-      transitionValue(calendar.querySelector('[data-calendar-slot="expected"]'),money(row.expected_total)),
-      transitionValue(calendar.querySelector('[data-calendar-slot="paid"]'),money(row.paid_total)),
-      transitionValue(calendar.querySelector('[data-calendar-slot="pending"]'),money(row.amount_due)),
+      transitionValue(calendar.querySelector('[data-calendar-slot="total"]'),calendarMoney(total)),
+      transitionValue(calendar.querySelector('[data-calendar-slot="pending"]'),calendarMoney(row.amount_due)),
+      transitionValue(calendar.querySelector('[data-calendar-slot="arrears"]'),calendarMoney(overdue)),
       transitionValue(calendar.querySelector('[data-calendar-slot="status"]'),statusLabel(key),`ll-status-pill ${tone(key)} ll-dynamic-value`),
       transitionValue(calendar.querySelector('[data-calendar-slot="timing"]'),dueTiming(selectedDueIso))
     );
+    const body=calendar.querySelector('[data-calendar-detail-body]'),nextHtml=calendarDetailHtml(data,selectedDueIso);
+    if(body&&body.__calendarMarkup!==nextHtml){
+      const open=new Set([...body.querySelectorAll('[data-payment-receipt][open]')].map(p=>p.dataset.paymentReceipt));
+      body.innerHTML=nextHtml;body.__calendarMarkup=nextHtml;
+      body.querySelectorAll('[data-payment-receipt]').forEach(p=>p.toggleAttribute('open',open.has(p.dataset.paymentReceipt)));
+    }
+    const date=calendar.querySelector('[data-calendar-detail-date]');if(date)date.textContent=fmtDate(selectedDueIso);
   });
   await Promise.all(jobs);
 }
@@ -477,7 +512,15 @@ async function updateProfile(data,borrowerId){
   if(!root)return;
   const a=data.summary,next=nextDueRow(data),suggested=Number(a.current_cycle_fee||a.current_monthly_fee||0);
   const clientChanged=String(root.dataset.activeBorrower)!==String(borrowerId);
-  if(clientChanged){closeComposer(true,false);resetComposerForms(root,data);root.querySelectorAll('[data-history-search-input]').forEach(input=>input.value='');const filter=root.querySelector('[data-payment-state-filter]');if(filter)filter.value='all';const notice=root.querySelector('.cp-notice');if(notice)notice.hidden=true;}
+  if(clientChanged){closeComposer(true,false);resetComposerForms(root,data);root.querySelector('.cp-due-details')?.removeAttribute('open');root.querySelectorAll('[data-history-search-input]').forEach(input=>input.value='');const filter=root.querySelector('[data-payment-state-filter]');if(filter)filter.value='all';const notice=root.querySelector('.cp-notice');if(notice)notice.hidden=true;}
+  if(clientChanged){
+    calendarOffset=0;selectedDueIso=null;
+    const dates=visibleCycleDates(data);selectedDueIso=toIso(dates.find(date=>date>=parseIso(today()))||dates[1]||dates[0]);
+    root.querySelectorAll('.ll-cycle-calendar').forEach(calendar=>{
+      calendar.querySelector('.ll-cycle-date-row').innerHTML=calendarDateButtonsHtml(dates,data);
+      calendar.querySelector('.ll-cycle-calendar-nav span').textContent=monthRangeTitle(dates);
+    });
+  }
   root.dataset.activeBorrower=String(borrowerId);
   root.dataset.overdue=Number(a.overdue_amount)>0?'1':'0';
   const jobs=[
@@ -519,8 +562,8 @@ async function updateProfile(data,borrowerId){
 
   updateQuickAmounts(root,suggested,true);
   updateQuickAmounts(root,suggested,false);
-  const quickInput=root.querySelector('#llSummaryPayAmount');if(quickInput)quickInput.value=suggested?Math.round(suggested):'';
-  const payInput=root.querySelector('#llProfilePayAmount');if(payInput&&(clientChanged||payInput.closest('form')?.dataset.dirty!=='1'))payInput.value=suggested?Math.round(suggested):'';
+  const quickInput=root.querySelector('#llSummaryPayAmount');if(quickInput)quickInput.value=suggested?paymentAmount(suggested):'';
+  const payInput=root.querySelector('#llProfilePayAmount');if(payInput&&(clientChanged||payInput.closest('form')?.dataset.dirty!=='1'))payInput.value=suggested?paymentAmount(suggested):'';
   const options=loanOptionsHtml(data.disbursements);
   [root.querySelector('#llProfileContactLoan'),root.querySelector('#llProfileFollowupLoan')].forEach(select=>{if(!select)return;const value=select.value;select.innerHTML=options;if([...select.options].some(option=>option.value===value))select.value=value;});
 
@@ -654,7 +697,7 @@ function resetComposerForms(root,data,form=null){
   const defaults={'#llProfilePayType':'INSTALLMENT','#llProfileContactType':'NOTE','#llProfileContactLoan':'','#llProfileFollowupLoan':'','#llProfileFollowupPriority':'NORMAL'};
   Object.entries(defaults).forEach(([selector,value])=>{const input=scope.querySelector(selector);if(input)input.value=value;});
   for(const [id,value] of [['llProfileTotalRate',data.defaults.default_total_monthly_rate??10],['llProfileMgmtRate',data.defaults.default_management_rate??3]]){const input=scope.querySelector(`#${id}`);if(input)input.value=Number(value).toFixed(2);}
-  const amount=scope.querySelector('#llProfilePayAmount'),suggested=Number(data.summary.current_cycle_fee||data.summary.current_monthly_fee||0);if(amount)amount.value=suggested?Math.round(suggested):'';
+  const amount=scope.querySelector('#llProfilePayAmount'),suggested=Number(data.summary.current_cycle_fee||data.summary.current_monthly_fee||0);if(amount)amount.value=suggested?paymentAmount(suggested):'';
   const funding=scope.querySelector('#llProfileFundingRows');if(funding)funding.innerHTML=fundingRowsHtml(data);
   const submit=scope.querySelector('#llProfileDisbursementForm button[type="submit"]');if(submit)submit.disabled=!data.defaultFunding.length;
   scope.querySelectorAll('.ll-form-status').forEach(status=>{status.textContent='';status.classList.remove('error');});
@@ -699,16 +742,12 @@ async function moveCalendar(direction){
   calendarOffset+=Number(direction||0);
   const dates=visibleCycleDates();
   if(!dates.some(date=>toIso(date)===selectedDueIso))selectedDueIso=toIso(dates.find(date=>date>=parseIso(today()))||dates[1]||dates[0]);
-  const dir=Number(direction)>0?'forward':'backward';
   const calendars=[...document.querySelectorAll('#borrowerAccountContent .ll-cycle-calendar')];
-  calendars.forEach(calendar=>calendar.querySelector('.ll-cycle-date-row')?.classList.add(`ll-carousel-out-${dir}`));
-  await new Promise(resolve=>setTimeout(resolve,220));
   calendars.forEach(calendar=>{
     const oldRow=calendar.querySelector('.ll-cycle-date-row');
-    const box=document.createElement('div');box.innerHTML=`<div class="ll-cycle-date-row ll-carousel-in-${dir}">${calendarDateButtonsHtml(dates,currentData)}</div>`;
+    const box=document.createElement('div');box.innerHTML=`<div class="ll-cycle-date-row">${calendarDateButtonsHtml(dates,currentData)}</div>`;
     const newRow=box.firstElementChild;oldRow?.replaceWith(newRow);
     const title=calendar.querySelector('.ll-cycle-calendar-nav span');if(title)title.textContent=monthRangeTitle(dates);
-    requestAnimationFrame(()=>requestAnimationFrame(()=>newRow.classList.remove(`ll-carousel-in-${dir}`)));
   });
   await updateCalendars(document.querySelector('#borrowerAccountContent .ll-account-shell'),currentData);
 }
@@ -716,6 +755,12 @@ async function chooseCalendarDate(iso){
   if(!currentData||!iso)return;
   selectedDueIso=iso;
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
+  if(!root?.querySelector(`[data-calendar-date="${iso}"]`)){
+    const all=allCalendarDates(),index=all.findIndex(date=>toIso(date)===iso),base=all.findIndex(date=>toIso(date)===nextCycleIso());
+    if(index<0)return;
+    calendarOffset=index-Math.max(0,base-1);
+    await moveCalendar(0);
+  }
   root?.querySelectorAll('[data-calendar-date]').forEach(btn=>btn.classList.toggle('selected',btn.dataset.calendarDate===iso));
   await updateCalendars(root,currentData);
 }
@@ -812,6 +857,7 @@ async function handleClick(event){
   if(event.target.closest('#llFocusPay')){showTab('payments');setTimeout(()=>focusProfileControl(root,'#llProfilePayAmount'),80);return;}
   const move=event.target.closest('[data-calendar-move]');if(move){event.preventDefault();moveCalendar(move.dataset.calendarMove);return;}
   const date=event.target.closest('[data-calendar-date]');if(date){event.preventDefault();chooseCalendarDate(date.dataset.calendarDate);return;}
+  const jump=event.target.closest('[data-calendar-jump]');if(jump){event.preventDefault();await chooseCalendarDate(jump.dataset.calendarJump);root.querySelector(`[data-calendar-date="${jump.dataset.calendarJump}"]`)?.focus({preventScroll:true});return;}
   const filter=event.target.closest('.ll-movement-filter');if(filter){applyMovementFilter(root,filter.dataset.filter);return;}
   const summaryAmount=event.target.closest('[data-summary-amount]');if(summaryAmount){root.querySelectorAll('[data-summary-amount]').forEach(btn=>btn.classList.remove('active'));summaryAmount.classList.add('active');const input=root.querySelector('#llSummaryPayAmount');if(input)input.value=summaryAmount.dataset.summaryAmount;return;}
   const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}return;}
