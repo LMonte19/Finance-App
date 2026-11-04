@@ -2,13 +2,15 @@ import { invalidatePageReads, readPageQuery, watchPage, isStalePageSession } fro
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { mixedPaymentMarkup, attachMixedPaymentSplit } from './mixed-payment-split.js?v=1';
+import { openFloatingPanel, closeFloatingPanel } from './floating-panel.js?v=1';
+import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=1';
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },
 });
 
 function ensurePaymentsStyle() {
-  const href = "./payment-management.css?v=3";
+  const href = "./payment-management.css?v=4";
   let link = document.getElementById("paymentManagementCss");
   if (!link) {
     link = document.createElement("link");
@@ -39,6 +41,7 @@ let drawerMode = "closed";
 let activeDetailId = null;
 let lastRefreshAt = 0;
 let paymentSaving = false;
+let paymentPanel = null;
 const PAGE_SIZE = 10;
 
 const ICONS = {
@@ -130,8 +133,6 @@ function ensurePaymentsDom() {
         </section>
       </main>
 
-      <div id="paymentDrawerBackdrop" class="ll-payment-drawer-backdrop"></div>
-      <aside id="paymentDrawer" class="ll-payment-drawer" aria-hidden="true"></aside>
     </div>
   `;
   wireWorkspace();
@@ -154,11 +155,14 @@ function wireWorkspace() {
   });
 }
 
+function readPaymentAccounts(force = false) {
+  return readPageQuery('payments-accounts', () => supabase.from("borrower_account_summary")
+      .select("borrower_id, full_name, principal_balance, current_cycle_fee, account_status, next_due_date, overdue_amount")
+      .order("full_name", { ascending: true }), {force, ttl:45000});
+}
 function readPaymentData(force = false) {
   return Promise.all([
-    readPageQuery('payments-accounts', () => supabase.from("borrower_account_summary")
-      .select("borrower_id, full_name, principal_balance, current_cycle_fee, account_status, next_due_date, overdue_amount")
-      .order("full_name", { ascending: true }), {force, ttl:45000}),
+    readPaymentAccounts(force),
     readPageQuery('payments-history', () => supabase.from("borrower_account_payments_view").select("*")
       .order("paid_on", { ascending: false }).order("created_at", { ascending: false }).limit(250), {force, ttl:45000})
   ]);
@@ -298,16 +302,31 @@ function paymentRowHtml(p) {
   </div>`;
 }
 
-function openRegisterDrawer() {
+function mountPaymentPanel(html, label, mode, detailId = null) {
+  const panel = openFloatingPanel({label,html:`<div id="paymentDrawer">${html}</div>`,canClose:()=>!paymentSaving,
+    onClose:()=>{drawerMode='closed';activeDetailId=null;paymentPanel=null;}});
+  if(!panel)return null;
+  paymentPanel=panel;drawerMode=mode;activeDetailId=detailId;
+  const root=qs('paymentDrawer');
+  root.addEventListener('click',handleWorkspaceClick);
+  root.addEventListener('change',handleWorkspaceChange);
+  root.addEventListener('input',handleWorkspaceInput);
+  return panel;
+}
+export async function openRegisterDrawer({borrowerId = '', accounts = null} = {}) {
   if(paymentSaving)return;
-  drawerMode = "register";
-  activeDetailId = null;
-  const drawer = qs("paymentDrawer");
-  if (!drawer) return;
-  drawer.innerHTML = registerDrawerHtml();
-  openDrawer();
-  populatePaymentBorrowers();
-  updateBorrowerContext();
+  const panel=mountPaymentPanel(registerDrawerHtml(),'Registrar pago','register');
+  if(!panel)return;
+  if(accounts)accountsCache=accounts;
+  if(accountsCache.length){populatePaymentBorrowers();if(borrowerId)qs('acctPaymentBorrower').value=borrowerId;updateBorrowerContext();}
+  try{
+    const result=await readPaymentAccounts();
+    if(!panel.isCurrent())return;
+    if(result.error)throw result.error;
+    accountsCache=result.data||[];populatePaymentBorrowers();
+    if(borrowerId)qs('acctPaymentBorrower').value=borrowerId;
+    updateBorrowerContext();
+  }catch(error){if(panel.isCurrent())qs('acctPagePaymentStatus').textContent=error.message||'No se pudieron consultar los clientes.';}
 }
 function registerDrawerHtml() {
   return `<div class="ll-payment-drawer-inner">
@@ -322,6 +341,7 @@ function registerDrawerHtml() {
       <div class="ll-payment-quick-block"><span>Sugerencias rápidas</span><div id="paymentQuickAmounts" class="ll-payment-quick-buttons"><button type="button" data-quick-payment="half" disabled>½ cuota</button><button type="button" data-quick-payment="one" disabled>1 cuota</button><button type="button" data-quick-payment="two" disabled>2 cuotas</button><button type="button" data-quick-payment="payoff" disabled>Saldar</button></div></div>
       <label class="ll-payment-field"><span>Tipo de pago</span><select id="acctPageType"><option value="INSTALLMENT">Pago de cuota / interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>
       ${mixedPaymentMarkup('acctMixed')}
+      ${paymentCalendarMarkup('acctPaymentCalendar')}
       <label class="ll-payment-field"><span>Notas del pago <small>(opcional)</small></span><textarea id="acctPageNotes" rows="4" placeholder="Escribe una nota o referencia..."></textarea></label>
       <div id="acctPagePaymentStatus" class="ll-payment-form-status"></div>
     </div>
@@ -343,6 +363,24 @@ function paymentsMixedSplit(){
     }
   });
 }
+function paymentsCalendar(){
+  return attachPaymentCalendar(qs('paymentDrawer')?.querySelector('[data-payment-calendar]'),{
+    readPayment:()=>({borrowerId:qs('acctPaymentBorrower')?.value,paidOn:qs('acctPagePaidOn')?.value,
+      amount:Number(qs('acctPageAmount')?.value||0),type:qs('acctPageType')?.value,
+      installment:Number(qs('acctMixedInstallment')?.value||0)}),
+    loadCalendar:async(borrowerId,paidOn,force)=>{
+      const end=paymentCalendarEnd(paidOn);
+      const {data,error}=await readPageQuery(`payment-calendar:${borrowerId}:${end}`,()=>supabase.rpc('get_borrower_calendar_workspace',
+        {p_borrower_id:borrowerId,p_end_date:end}),{force,ttl:45000});
+      if(error)throw error;if(!data)throw new Error('No se pudo consultar el calendario.');return data;
+    }
+  });
+}
+async function updatePaymentPreview(){
+  const panel=paymentPanel;
+  await paymentsMixedSplit()?.refresh();
+  if(panel?.isCurrent()&&drawerMode==='register')paymentsCalendar()?.refresh();
+}
 function updateBorrowerContext() {
   const account = selectedAccount();
   const host = qs("paymentBorrowerContext");
@@ -352,15 +390,15 @@ function updateBorrowerContext() {
     host.className = "ll-payment-borrower-context is-empty";
     host.innerHTML = `<div class="ll-context-placeholder">Selecciona un cliente para ver el estado de su cuenta.</div>`;
     buttons.forEach((button) => { button.disabled = true; delete button.dataset.amount; });
-    paymentsMixedSplit()?.refresh();
+    updatePaymentPreview();
     return;
   }
   host.className = "ll-payment-borrower-context";
-  host.innerHTML = `<div class="ll-context-client"><span>${esc(initials(account.full_name))}</span><div><strong>${esc(account.full_name || "Cliente")}</strong><small>${esc(accountStatus(account.account_status))}</small></div></div><div class="ll-context-stats"><div><strong>${money(account.principal_balance)}</strong><small>Balance actual</small></div><div><strong>${money(account.current_cycle_fee)}</strong><small>Cuota pendiente</small></div><div><strong>${esc(fmtDate(account.next_due_date))}</strong><small>Próxima fecha</small></div><div class="${Number(account.overdue_amount || 0) > 0 ? "danger" : ""}"><strong>${money(account.overdue_amount)}</strong><small>Atrasado</small></div></div>`;
+  host.innerHTML = `<div class="ll-context-client"><span>${esc(initials(account.full_name))}</span><div><strong>${esc(account.full_name || "Cliente")}</strong><small>${esc(accountStatus(account.account_status))}</small></div></div><div class="ll-context-stats"><div><strong>${money(account.principal_balance)}</strong><small>Balance actual</small></div><div><strong>${money(account.current_cycle_fee)}</strong><small>Cuota por ciclo</small></div><div><strong>${esc(fmtDate(account.next_due_date))}</strong><small>Próxima fecha</small></div><div class="${Number(account.overdue_amount || 0) > 0 ? "danger" : ""}"><strong>${money(account.overdue_amount)}</strong><small>Atrasado</small></div></div>`;
   const fee = Number(account.current_cycle_fee || 0), balance = Number(account.principal_balance || 0);
   const values = { half: fee / 2, one: fee, two: fee * 2, payoff: balance };
   buttons.forEach((button) => { const amount = values[button.dataset.quickPayment] || 0; button.disabled = amount <= 0; button.dataset.amount = String(Number(Number(amount).toFixed(2))); });
-  paymentsMixedSplit()?.refresh();
+  updatePaymentPreview();
 }
 function applyQuickAmount(kind, amount) {
   const input = qs("acctPageAmount");
@@ -368,11 +406,12 @@ function applyQuickAmount(kind, amount) {
   if (input) input.value = String(Number(Number(amount || 0).toFixed(2)));
   if (type) type.value = kind === "payoff" ? "PAYOFF" : "INSTALLMENT";
   document.querySelectorAll("[data-quick-payment]").forEach((button) => button.classList.toggle("active", button.dataset.quickPayment === kind));
-  paymentsMixedSplit()?.refresh();
+  updatePaymentPreview();
 }
 
 async function applyAccountPayment() {
   if(paymentSaving)return;
+  const submittedPanel=paymentPanel;
   const borrowerId = qs("acctPaymentBorrower")?.value;
   const paidOn = qs("acctPagePaidOn")?.value;
   const amount = Number(qs("acctPageAmount")?.value || 0);
@@ -391,34 +430,38 @@ async function applyAccountPayment() {
     if (error) throw error;
     if (status) { status.textContent = "Pago registrado correctamente."; status.classList.add("success"); }
     invalidatePageReads();
+    window.dispatchEvent(new CustomEvent('loan-ledger:account-changed',{detail:{borrowerId}}));
     accountsCache = [];
     paymentsCache = [];
     await refreshData(true);
-    setTimeout(() => { if (drawerMode === "register") closeDrawer(); }, 650);
+    setTimeout(() => { if (submittedPanel?.isCurrent() && drawerMode === "register") closeDrawer(); }, 650);
   } catch (error) {
     if (status) { status.textContent = error.message || String(error); status.classList.add("error"); }
   } finally { paymentSaving=false;if (submit) submit.disabled = false; }
 }
 
-async function openPaymentDetails(paymentId) {
-  drawerMode = "detail";
-  activeDetailId = paymentId;
-  const drawer = qs("paymentDrawer");
-  if (!drawer) return;
-  drawer.innerHTML = `<div class="ll-payment-drawer-inner"><header class="ll-payment-drawer-head"><div><h2>Detalle del pago</h2><p>Desglose y aplicaciones del movimiento.</p></div><button type="button" data-close-payment-drawer aria-label="Cerrar">${svg("close", 17)}</button></header><div class="ll-payment-detail-loading">Cargando detalle...</div></div>`;
-  openDrawer();
+export async function openPaymentDetails(paymentId, record = null) {
+  if(paymentSaving)return;
+  const cached=record&&Array.isArray(record.due_applications)&&Array.isArray(record.principal_applications)&&Array.isArray(record.allocations);
+  const initial=cached?detailDrawerHtml(record,record.due_applications.map(row=>({...row,borrower_due_events:{due_date:row.due_date,status:row.status}})),record.principal_applications,record.allocations):`<div class="ll-payment-drawer-inner"><header class="ll-payment-drawer-head"><div><h2>Detalle del pago</h2><p>${record?esc(fmtDate(record.paid_on)):'Desglose y aplicaciones del movimiento.'}</p></div><button type="button" data-close-payment-drawer aria-label="Cerrar">${svg("close", 17)}</button></header><div class="ll-payment-detail-loading">Consultando aplicaciones del pago…</div></div>`;
+  const panel=mountPaymentPanel(initial,'Detalle del pago','detail',paymentId);
+  if(!panel||cached)return;
+  const drawer=qs('paymentDrawer');
   try {
-    const [paymentRes, dueRes, principalRes, allocRes] = await Promise.all([
+    const [paymentRes, dueRes, principalRes, allocRes, legacyRes] = await Promise.all([
       supabase.from("borrower_account_payments_view").select("*").eq("id", paymentId).single(),
       supabase.from("payment_borrower_due_applications").select("applied_total, applied_mgmt, applied_funders, borrower_due_event_id, borrower_due_events(due_date,status)").eq("payment_id", paymentId),
       supabase.from("payment_principal_applications").select("amount, loan_id").eq("payment_id", paymentId),
       supabase.from("partner_allocation_details").select("partner_name, allocation_type, amount, is_voided").eq("payment_id", paymentId),
+      supabase.from("payment_due_applications").select("applied_total, applied_mgmt, applied_funders, loan_due_events(due_date,status)").eq("payment_id", paymentId),
     ]);
-    if (paymentRes.error) throw paymentRes.error;
-    if (drawerMode !== "detail" || activeDetailId !== paymentId) return;
-    drawer.innerHTML = detailDrawerHtml(paymentRes.data, dueRes.data || [], principalRes.data || [], allocRes.data || []);
+    for(const result of [paymentRes,dueRes,principalRes,allocRes,legacyRes])if(result.error)throw result.error;
+    if (!panel.isCurrent() || activeDetailId !== paymentId) return;
+    const dues=[...(dueRes.data||[]),...(legacyRes.data||[]).map(row=>({...row,borrower_due_events:row.loan_due_events}))].sort((a,b)=>String(a.borrower_due_events?.due_date).localeCompare(String(b.borrower_due_events?.due_date)));
+    const principals=principalRes.data?.length?principalRes.data:Number(paymentRes.data.applied_principal)>0?[{loan_id:paymentRes.data.loan_id,amount:paymentRes.data.applied_principal}]:[];
+    drawer.innerHTML = detailDrawerHtml(paymentRes.data, dues, principals, allocRes.data || []);
   } catch (error) {
-    if (drawerMode === "detail") drawer.innerHTML = `<div class="ll-payment-drawer-inner"><header class="ll-payment-drawer-head"><div><h2>Detalle del pago</h2></div><button type="button" data-close-payment-drawer>${svg("close", 17)}</button></header><div class="ll-payment-detail-loading error">${esc(error.message || error)}</div></div>`;
+    if (panel.isCurrent()) drawer.innerHTML = `<div class="ll-payment-drawer-inner"><header class="ll-payment-drawer-head"><div><h2>Detalle del pago</h2></div><button type="button" data-close-payment-drawer aria-label="Cerrar">${svg("close", 17)}</button></header><div class="ll-payment-detail-loading error">${esc(error.message || error)}</div></div>`;
   }
 }
 function detailDrawerHtml(p, dues, principals, allocs) {
@@ -430,42 +473,38 @@ function detailDrawerHtml(p, dues, principals, allocs) {
       <section class="ll-payment-detail-grid"><div><small>Cuota / interés</small><strong>${money(p.applied_interest)}</strong></div><div><small>Capital</small><strong>${money(p.applied_principal)}</strong></div><div><small>Administración</small><strong>${money(p.applied_mgmt)}</strong></div><div><small>Socios</small><strong>${money(p.applied_funders)}</strong></div></section>
       ${p.notes ? `<section class="ll-payment-detail-section"><h3>Notas</h3><p>${esc(p.notes)}</p></section>` : ""}
       ${p.void_reason ? `<section class="ll-payment-detail-section danger"><h3>Motivo de anulación</h3><p>${esc(p.void_reason)}</p></section>` : ""}
-      <section class="ll-payment-detail-section"><h3>Cuotas afectadas</h3>${dues.length ? dues.map((row) => `<div class="ll-detail-line"><span><strong>${esc(fmtDate(row.borrower_due_events?.due_date))}</strong><small>${esc(row.borrower_due_events?.status || "—")}</small></span><b>${money(row.applied_total)}</b></div>`).join("") : `<p class="ll-detail-empty">No afectó cuotas.</p>`}</section>
+      <section class="ll-payment-detail-section"><h3>Cuotas afectadas</h3>${dues.length ? dues.map((row) => `<div class="ll-detail-line"><span><strong>${esc(fmtDate(row.borrower_due_events?.due_date))}</strong><small>Monto aplicado a esta cuota</small></span><b>${money(row.applied_total)}</b></div>`).join("") : `<p class="ll-detail-empty">No afectó cuotas.</p>`}</section>
       <section class="ll-payment-detail-section"><h3>Capital afectado</h3>${principals.length ? principals.map((row) => `<div class="ll-detail-line"><span><strong>Abono a capital</strong><small>Desembolso ${esc(String(row.loan_id || "").slice(0, 8))}…</small></span><b>${money(row.amount)}</b></div>`).join("") : `<p class="ll-detail-empty">No afectó capital.</p>`}</section>
-      <section class="ll-payment-detail-section"><h3>Distribuciones</h3>${allocs.length ? allocs.map((row) => `<div class="ll-detail-line"><span><strong>${esc(row.partner_name || "Socio")}</strong><small>${esc(row.allocation_type || "Distribución")}${row.is_voided ? " · ANULADO" : ""}</small></span><b>${money(row.amount)}</b></div>`).join("") : `<p class="ll-detail-empty">No hay distribuciones.</p>`}</section>
+      <section class="ll-payment-detail-section"><h3>Distribuciones</h3>${allocs.length ? allocs.map((row) => `<div class="ll-detail-line"><span><strong>${esc(row.partner_name || "Socio")}</strong><small>${String(row.allocation_type).includes('MANAGEMENT')?'Administración':'Ingreso de socio'}${row.is_voided ? " · ANULADO" : ""}</small></span><b>${money(row.amount)}</b></div>`).join("") : `<p class="ll-detail-empty">No hay distribuciones.</p>`}</section>
       <div id="paymentActionStatus" class="ll-payment-form-status"></div>
     </div>
     <footer class="ll-payment-drawer-foot ll-detail-foot"><button id="btnVoidPaymentDetail" type="button" class="ll-payment-danger-btn" ${voided ? "disabled" : ""}>${voided ? "Pago anulado" : "Anular pago"}</button></footer>
   </div>`;
 }
 async function voidActivePayment() {
-  if (!activeDetailId) return;
+  if (!activeDetailId || paymentSaving) return;
   const reason = prompt("Motivo de anulación:", "Registrado incorrectamente");
   if (reason === null) return;
   if (!confirm("¿Anular este pago y revertir cuotas, capital y distribuciones?")) return;
-  const status = qs("paymentActionStatus");
-  if (status) status.textContent = "Anulando pago...";
-  const { error } = await supabase.rpc("void_payment", { p_payment_id: activeDetailId, p_reason: reason });
-  if (error) { if (status) { status.textContent = error.message; status.classList.add("error"); } return; }
-  invalidatePageReads();
-  accountsCache = [];
-  paymentsCache = [];
-  await refreshData(true);
-  await openPaymentDetails(activeDetailId);
+  const status = qs("paymentActionStatus"), button=qs('btnVoidPaymentDetail'), panel=paymentPanel, paymentId=activeDetailId;
+  paymentSaving=true;if(button)button.disabled=true;
+  let saved=false;
+  try{
+    if (status) status.textContent = "Anulando pago...";
+    const { error } = await supabase.rpc("void_payment", { p_payment_id: paymentId, p_reason: reason });
+    if (error) throw error;
+    invalidatePageReads();
+    window.dispatchEvent(new CustomEvent('loan-ledger:account-changed',{detail:{borrowerId:paymentsCache.find(row=>row.id===paymentId)?.borrower_id}}));
+    accountsCache = [];paymentsCache = [];
+    await refreshData(true);saved=true;
+  }catch(error){if(panel?.isCurrent()&&status){status.textContent=error.message||String(error);status.classList.add('error');}}
+  finally{paymentSaving=false;if(button)button.disabled=false;}
+  if(saved&&panel?.isCurrent())await openPaymentDetails(paymentId);
 }
 
-function openDrawer() {
-  const shell = qs("paymentsWorkspace"), drawer = qs("paymentDrawer");
-  shell?.classList.add("ll-drawer-open");
-  if (drawer) drawer.setAttribute("aria-hidden", "false");
-}
 function closeDrawer(force=false) {
   if(paymentSaving&&!force)return;
-  drawerMode = "closed";
-  activeDetailId = null;
-  const shell = qs("paymentsWorkspace"), drawer = qs("paymentDrawer");
-  shell?.classList.remove("ll-drawer-open");
-  if (drawer) drawer.setAttribute("aria-hidden", "true");
+  paymentPanel?.close(force);
 }
 
 function handleWorkspaceClick(event) {
@@ -477,6 +516,7 @@ function handleWorkspaceClick(event) {
   const quick = target.closest("[data-quick-payment]"); if (quick && !quick.disabled) { applyQuickAmount(quick.dataset.quickPayment, quick.dataset.amount); return; }
   if (target.closest("#acctPageApplyPayment")) { applyAccountPayment(); return; }
   if (target.closest("#btnVoidPaymentDetail")) { voidActivePayment(); return; }
+  if (target.closest('[data-split-reset]')) {updatePaymentPreview();return;}
   if (target.closest("#llPayPrev")) { pageNumber = Math.max(1, pageNumber - 1); renderPayments(); return; }
   if (target.closest("#llPayNext")) { pageNumber += 1; renderPayments(); return; }
 }
@@ -485,16 +525,17 @@ function handleWorkspaceChange(event) {
   if (event.target.id === "payFilterPeriod") { periodFilter = event.target.value; pageNumber = 1; renderPayments(); }
   if (event.target.id === "payFilterType") { typeFilter = event.target.value; pageNumber = 1; renderPayments(); }
   if (event.target.id === "acctPaymentBorrower") updateBorrowerContext();
-  if(['acctPageType','acctPagePaidOn'].includes(event.target.id))paymentsMixedSplit()?.refresh();
+  if(['acctPageType','acctPagePaidOn'].includes(event.target.id))updatePaymentPreview();
 }
 function handleWorkspaceInput(event) {
-  if(event.target.id==='acctPageAmount')paymentsMixedSplit()?.refresh();
+  if(event.target.id==='acctPageAmount'||event.target.matches('[data-split-part]'))updatePaymentPreview();
   if (event.target.id === "paySearch") { pageNumber = 1; renderPayments(); }
 }
 
 watchPage('paymentsPage', () => refreshData(false), {interval:45000, prefetch:() => readPaymentData(false), reset:() => {
   requestSequence++;accountsCache=[];paymentsCache=[];lastRefreshAt=0;pageNumber=1;
   closeDrawer(true);
+  closeFloatingPanel(true);
   setStableMarkup(qs('paymentKpis'), ['Pagado este mes','Cuota / interés','Capital recuperado','Pagos anulados'].map(kpiSkeleton).join(''));
   setStableMarkup(qs('accountPaymentList'), '<div class="ll-payment-loading">Cargando pagos...</div>');
   ['payFilterBorrower','acctPaymentBorrower'].forEach(id=>setStableMarkup(qs(id),''));

@@ -1,0 +1,42 @@
+#app :is(.ll-client-hub,#llFloatingPanel,#paymentsPage) .ll-payment-calendar{--pcal-muted:#667282;--pcal-good:#247a46;--pcal-good-bg:#eaf7ee;--pcal-bad:#b8353d;--pcal-bad-bg:#fff0f0;--pcal-warn:#8a5b05;--pcal-warn-bg:#fff7de;padding:17px;margin:18px 0;border:1px solid var(--ui-line);border-radius:13px;background:var(--ui-surface);color:var(--ui-ink);min-width:0;box-sizing:border-box}
+body[data-theme="night"] #app :is(.ll-client-hub,#llFloatingPanel,#paymentsPage) .ll-payment-calendar{--pcal-muted:#a0a9b6;--pcal-good:#8cdba7;--pcal-good-bg:#183b29;--pcal-bad:#ff9a9f;--pcal-bad-bg:#3c2228;--pcal-warn:#f3d17d;--pcal-warn-bg:#3a311d}
+#app .ll-payment-calendar .ll-pcal-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+#app .ll-payment-calendar h3{margin:0;font-size:16px;font-weight:750;line-height:1.4;color:var(--ui-ink)}
+#app .ll-payment-calendar [data-pcal-summary]{font-size:12px;color:var(--pcal-bad)}
+#app .ll-payment-calendar .ll-pcal-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+#app .ll-payment-calendar .ll-pcal-nav strong{font-size:14px;line-height:1.5;text-transform:capitalize;color:var(--ui-ink)}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-nav button{width:32px!important;min-height:32px!important;height:32px!important;padding:0!important;margin:0!important;border:1px solid var(--ui-line)!important;border-radius:8px!important;background:var(--ui-surface)!important;color:var(--ui-ink)!important;font-size:22px!important;line-height:1!important}
+#app .ll-payment-calendar :is(.ll-pcal-week,.ll-pcal-days){display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;text-align:center;align-items:center}
+#app .ll-payment-calendar .ll-pcal-week{font-size:11px;color:var(--pcal-muted);margin-bottom:8px}
+#app .ll-payment-calendar .ll-pcal-day{font-size:12px;padding:8px 0;color:var(--pcal-muted);opacity:.65}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-date{position:relative;min-width:0;width:100%!important;height:34px!important;min-height:34px!important;padding:3px!important;margin:0!important;border:1px solid transparent!important;border-radius:8px!important;font-size:13px!important;line-height:1.3!important;font-weight:750!important;box-shadow:none!important}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-date.paid{background:var(--pcal-good-bg)!important;color:var(--pcal-good)!important}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-date.overdue{background:var(--pcal-bad-bg)!important;color:var(--pcal-bad)!important}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-date.pending{background:var(--pcal-warn-bg)!important;color:var(--pcal-warn)!important}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-date.selected{outline:2px solid currentColor!important;outline-offset:1px!important}
+#app .ll-payment-calendar .ll-pcal-date i{position:absolute;bottom:3px;left:calc(50% - 2px);width:4px;height:4px;border-radius:50%;background:currentColor}
+#app .ll-payment-calendar .ll-pcal-legend{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;padding:16px 0;font-size:11px;border-bottom:1px solid var(--ui-line);color:var(--pcal-muted)}
+#app .ll-payment-calendar .ll-pcal-legend span{display:inline-flex;align-items:center;gap:5px}
+#app .ll-payment-calendar .ll-pcal-legend span::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+#app .ll-payment-calendar .paid{color:var(--pcal-good)}
+#app .ll-payment-calendar .overdue{color:var(--pcal-bad)}
+#app .ll-payment-calendar .pending{color:var(--pcal-warn)}
+#app .ll-payment-calendar .ll-pcal-selected{padding:16px 0;border-bottom:1px solid var(--ui-line)}
+#app .ll-payment-calendar .ll-pcal-selected>div{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;line-height:1.5;margin-bottom:10px}
+#app .ll-payment-calendar .ll-pcal-selected strong{font-size:13px;color:var(--ui-ink)}
+#app .ll-payment-calendar dl{display:grid;gap:7px;margin:0}
+#app .ll-payment-calendar dl>div{display:flex;justify-content:space-between;gap:12px;font-size:12px;line-height:1.5}
+#app .ll-payment-calendar dt{color:var(--pcal-muted)}
+#app .ll-payment-calendar dd{margin:0;font-weight:650;color:var(--ui-ink)}
+#app .ll-payment-calendar .ll-pcal-plan{padding-top:16px}
+#app .ll-payment-calendar h4{margin:0 0 9px;font-size:14px;font-weight:750;line-height:1.5;color:var(--ui-ink)}
+#app .ll-payment-calendar ul{list-style:none;padding:0;margin:10px 0}
+#app .ll-payment-calendar li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--ui-line);font-size:12px;line-height:1.5;color:var(--ui-ink)}
+#app .ll-payment-calendar li strong{font-size:12px;color:var(--ui-ink)}
+#app .ll-payment-calendar li small{display:block;color:var(--pcal-muted);font-size:11px;line-height:1.5;margin-top:3px}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-link{display:inline-block!important;width:auto!important;min-height:28px!important;padding:3px 0!important;margin:0!important;border:0!important;background:transparent!important;color:var(--cp-accent-text,var(--ui-purple))!important;font-size:12px!important;font-weight:650!important;cursor:pointer}
+#app .ll-payment-calendar details summary{font-size:12px;color:var(--pcal-muted);cursor:pointer;padding:7px 0}
+#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar .ll-pcal-help{font-size:12px;line-height:1.6;color:var(--pcal-muted);margin:12px 0 0}
+#app .ll-payment-calendar .ll-pcal-error{font-size:12px;line-height:1.6;color:var(--pcal-bad);margin:12px 0 0}
+#app .ll-payment-calendar button:focus-visible{outline:2px solid var(--ui-purple)!important;outline-offset:3px!important}
+@media(max-width:400px){#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar{padding:13px}#app .ll-payment-calendar :is(.ll-pcal-week,.ll-pcal-days){gap:4px}}

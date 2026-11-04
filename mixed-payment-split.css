@@ -1,17 +1,17 @@
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment{--ui-muted:#667282;margin:18px 0;padding:17px;border:1px solid var(--ui-line);border-radius:13px;background:var(--cp-raised,var(--night-raised,#f8f9fb));color:var(--ui-ink);box-sizing:border-box}
-body[data-theme="night"] #app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment{--ui-muted:#a0a9b6}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment[hidden]{display:none!important}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-head h3{margin:0;font-size:15px;line-height:1.4;font-weight:750;color:var(--ui-ink)}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-head button{width:auto!important;margin:0!important;padding:5px 0!important;min-height:28px!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--cp-accent-text,var(--ui-purple))!important;font-size:11.5px!important;line-height:1.4!important;cursor:pointer}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment .ll-mixed-reference{margin:0 0 15px;font-size:12px;line-height:1.5;color:var(--ui-muted)}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-fields label{display:flex;flex-direction:column;gap:8px;min-width:0;margin:0!important;font-size:12px!important;font-weight:600;color:var(--ui-muted)}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-fields input{width:100%;min-width:0;min-height:46px;box-sizing:border-box;padding:11px 12px;border:1px solid var(--ui-line);border-radius:10px;font:inherit;font-size:14px;font-variant-numeric:tabular-nums;background:var(--ui-surface);color:var(--ui-ink)}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-sum{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:13px;border-top:1px solid var(--ui-line);font-size:12px;color:var(--ui-muted)}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-sum strong{font-size:13px;font-variant-numeric:tabular-nums;font-weight:750;color:var(--ui-ink);overflow-wrap:anywhere}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment .ll-mixed-status{margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--cp-good,var(--night-green,#287d4b))}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment[data-invalid=true] .ll-mixed-status{color:var(--cp-danger,var(--night-red,#bf4545))}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment .ll-mixed-help{margin:9px 0 0;font-size:11.5px;line-height:1.5;color:var(--ui-muted)}
-#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment :is(button,input):focus-visible{outline:2px solid var(--ui-purple);outline-offset:3px}
-@media(max-width:400px){#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-payment{padding:13px}#app :is(#borrowerAccountContent,#paymentsPage) .ll-mixed-fields{grid-template-columns:1fr}}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment{--ui-muted:#667282;margin:18px 0;padding:17px;border:1px solid var(--ui-line);border-radius:13px;background:var(--cp-raised,var(--night-raised,#f8f9fb));color:var(--ui-ink);box-sizing:border-box}
+body[data-theme="night"] #app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment{--ui-muted:#a0a9b6}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment[hidden]{display:none!important}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-head h3{margin:0;font-size:15px;line-height:1.4;font-weight:750;color:var(--ui-ink)}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-head button{width:auto!important;margin:0!important;padding:5px 0!important;min-height:28px!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--cp-accent-text,var(--ui-purple))!important;font-size:11.5px!important;line-height:1.4!important;cursor:pointer}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment .ll-mixed-reference{margin:0 0 15px;font-size:12px;line-height:1.5;color:var(--ui-muted)}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-fields label{display:flex;flex-direction:column;gap:8px;min-width:0;margin:0!important;font-size:12px!important;font-weight:600;color:var(--ui-muted)}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-fields input{width:100%;min-width:0;min-height:46px;box-sizing:border-box;padding:11px 12px;border:1px solid var(--ui-line);border-radius:10px;font:inherit;font-size:14px;font-variant-numeric:tabular-nums;background:var(--ui-surface);color:var(--ui-ink)}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-sum{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:13px;border-top:1px solid var(--ui-line);font-size:12px;color:var(--ui-muted)}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-sum strong{font-size:13px;font-variant-numeric:tabular-nums;font-weight:750;color:var(--ui-ink);overflow-wrap:anywhere}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment .ll-mixed-status{margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--cp-good,var(--night-green,#287d4b))}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment[data-invalid=true] .ll-mixed-status{color:var(--cp-danger,var(--night-red,#bf4545))}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment .ll-mixed-help{margin:9px 0 0;font-size:11.5px;line-height:1.5;color:var(--ui-muted)}
+#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment :is(button,input):focus-visible{outline:2px solid var(--ui-purple);outline-offset:3px}
+@media(max-width:400px){#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-payment{padding:13px}#app :is(#borrowerAccountContent,#paymentsPage,#llFloatingPanel) .ll-mixed-fields{grid-template-columns:1fr}}

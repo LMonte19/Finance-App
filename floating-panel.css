@@ -1,0 +1,53 @@
+#app #llFloatingPanel{--panel-muted:#667282;--panel-raised:#f7f8fa;--panel-good:#247a46;--panel-good-bg:#eaf7ee;--panel-bad:#b8353d;--panel-bad-bg:#fff0f0;--panel-warn:#8a5b05;--panel-warn-bg:#fff7de;position:relative;z-index:1400;color:var(--ui-ink)}
+body[data-theme="night"] #app #llFloatingPanel{--panel-muted:#a0a9b6;--panel-raised:#1b2028;--panel-good:#8cdba7;--panel-good-bg:#183b29;--panel-bad:#ff9a9f;--panel-bad-bg:#3c2228;--panel-warn:#f3d17d;--panel-warn-bg:#3a311d}
+#app #llFloatingPanel[hidden]{display:none!important}
+#app #llFloatingPanel *{box-sizing:border-box}
+#app #llFloatingPanel .ll-floating-backdrop{position:fixed;inset:0;z-index:1400;background:rgba(8,12,18,.4);backdrop-filter:blur(2px)}
+#app #llFloatingPanel .ll-floating-dialog{position:fixed;inset:0 0 0 auto;z-index:1401;width:min(500px,100vw);height:100dvh;overflow:hidden;background:var(--ui-surface);color:var(--ui-ink);border:0;border-left:1px solid var(--ui-line);box-shadow:-14px 0 40px rgba(0,0,0,.18);animation:ll-panel-in .2s ease-out}
+#app #llFloatingPanel .ll-floating-content,#app #llFloatingPanel #paymentDrawer{height:100%;min-height:0;display:flex;flex-direction:column}
+#app #llFloatingPanel .ll-floating-head{position:static;flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:25px 24px 20px;background:var(--ui-surface);border-bottom:1px solid var(--ui-line)}
+#app #llFloatingPanel .ll-floating-head h2{margin:0;font-size:24px;line-height:1.2;letter-spacing:-.035em;color:var(--ui-ink)}
+#app #llFloatingPanel .ll-floating-head p{margin:0 0 8px;color:var(--panel-muted);font-size:14px;line-height:1.5}
+#app #llFloatingPanel .ll-floating-head>button{flex:none;width:36px;height:36px;min-height:36px;margin:0;padding:0;display:grid;place-items:center;border:1px solid var(--ui-line);border-radius:10px;background:var(--panel-raised);color:var(--panel-muted);font-size:25px;cursor:pointer}
+#app #llFloatingPanel .ll-floating-scroll{padding:23px 24px;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+#app #llFloatingPanel .ll-floating-form{display:grid;gap:18px;margin:0}
+#app #llFloatingPanel .ll-floating-form label{display:grid;gap:8px;font-size:14px;font-weight:600;line-height:1.4;color:var(--panel-muted);margin:0}
+#app #llFloatingPanel .ll-floating-form :is(input,select,textarea){width:100%;min-width:0;min-height:46px;margin:0;padding:11px 12px;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);font:inherit;font-size:15px;line-height:1.5}
+#app #llFloatingPanel .ll-floating-form textarea{min-height:108px;resize:vertical}
+#app #llFloatingPanel .ll-floating-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#app #llFloatingPanel .ll-floating-help{margin:0;color:var(--panel-muted);font-size:13px;line-height:1.6}
+#app #llFloatingPanel .ll-floating-status{font-size:14px;line-height:1.5;color:var(--panel-muted)}
+#app #llFloatingPanel .ll-floating-status.error{color:var(--panel-bad)}
+#app #llFloatingPanel .ll-floating-status.success{color:var(--panel-good)}
+#app #llFloatingPanel .ll-floating-actions{display:flex;gap:12px;padding-top:18px;border-top:1px solid var(--ui-line)}
+#app #llFloatingPanel .ll-floating-actions button{width:auto;min-height:46px;margin:0;padding:11px 18px;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);font-size:14px;font-weight:700;cursor:pointer}
+#app #llFloatingPanel .ll-floating-actions button[type="submit"]{flex:1;background:#c9f000;border-color:#c9f000;color:#192000}
+#app #llFloatingPanel button:disabled{opacity:.5;cursor:default}
+#app #llFloatingPanel :is(button,input,select,textarea):focus-visible{outline:2px solid var(--ui-purple);outline-offset:3px}
+#app #llFloatingPanel .ll-floating-funding{padding:16px;background:var(--panel-raised);border:1px solid var(--ui-line);border-radius:12px;display:grid;gap:13px}
+#app #llFloatingPanel .ll-floating-funding h3{margin:0;font-size:16px}
+#app #llFloatingPanel [data-quick-funding]{display:grid;gap:12px}
+#app #llFloatingPanel .ll-floating-funding label{display:grid;grid-template-columns:minmax(0,1fr) 100px;align-items:center}
+#app #llFloatingPanel .ll-floating-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 20px}
+#app #llFloatingPanel .ll-floating-facts>div{padding:15px;border:1px solid var(--ui-line);border-radius:12px;min-width:0}
+#app #llFloatingPanel .ll-floating-facts dt{color:var(--panel-muted);font-size:13px;line-height:1.5}
+#app #llFloatingPanel .ll-floating-facts dd{margin:6px 0 0;font-size:17px;line-height:1.4;font-weight:700;overflow-wrap:anywhere}
+#app #llFloatingPanel .ll-floating-section{padding:20px 0;border-top:1px solid var(--ui-line)}
+#app #llFloatingPanel .ll-floating-section h3{font-size:17px;margin:0 0 12px}
+#app #llFloatingPanel .ll-floating-section p{color:var(--panel-muted);font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+#app #llFloatingPanel .ll-floating-line{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:12px 0;border-bottom:1px solid var(--ui-line);font-size:14px;line-height:1.5}
+#app #llFloatingPanel .ll-floating-line small{display:block;color:var(--panel-muted)}
+#app #llFloatingPanel .ll-floating-section .cw-facts{margin:0;display:grid;gap:12px}
+#app #llFloatingPanel .ll-floating-section .cw-facts>div{display:grid;gap:4px}
+#app #llFloatingPanel .ll-floating-section dt{font-size:13px;color:var(--panel-muted)}
+#app #llFloatingPanel .ll-floating-section dd{margin:0;font-size:14px;overflow-wrap:anywhere}
+#app #llFloatingPanel .cw-change-table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.5}
+#app #llFloatingPanel .cw-change-table :is(th,td){padding:10px 8px;text-align:left;border-bottom:1px solid var(--ui-line);overflow-wrap:anywhere}
+#app #llFloatingPanel .cw-change-table thead{color:var(--panel-muted)}
+@keyframes ll-panel-in{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+@media(max-width:480px){#app #llFloatingPanel .ll-floating-head{padding:21px 18px 18px}#app #llFloatingPanel .ll-floating-scroll{padding:20px 18px}#app #llFloatingPanel .ll-floating-two{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){#app #llFloatingPanel .ll-floating-dialog{animation:none}}
+
+#app #loansDashboardHost button.ld-activity-item{display:flex;width:100%;margin:0;padding:12px 0;align-items:center;gap:10px;text-align:left;background:transparent!important;color:var(--ui-ink);border:0!important;border-bottom:1px solid var(--ui-line)!important;border-radius:0;box-shadow:none!important;cursor:pointer}
+#app #loansDashboardHost button.ld-activity-item:hover{background:var(--ui-purple-soft)!important}
+#app #loansDashboardHost button.ld-activity-item .ld-item-title,#app #loansDashboardHost button.ld-activity-item .ld-item-meta{display:block}

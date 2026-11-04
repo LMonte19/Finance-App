@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { readPageQuery, watchPage, invalidatePageReads, isStalePageSession, loadingRows } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
+import { openActivityDetails } from './activity-details.js?v=1';
 
 const db = createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',
@@ -182,8 +183,8 @@ async function loadData(force=false){
   for(const result of [accountsRes,paymentsRes,disbursementsRes])if(result.error)throw result.error;
   const accounts=accountsRes.data||[],payments=paymentsRes.data||[],disbursements=disbursementsRes.data||[];
   const activity=[
-    ...payments.map(row=>({borrower_id:row.borrower_id,name:row.borrower_name,type:'PAYMENT',date:row.paid_on,created_at:row.created_at,title:`Pago recibido de ${row.borrower_name}`,amount:Number(row.amount||0)})),
-    ...disbursements.map(row=>({borrower_id:row.borrower_id,name:row.borrower_name,type:'DISBURSEMENT',date:row.start_date,created_at:row.created_at,title:`Nuevo desembolso a ${row.borrower_name}`,amount:Number(row.principal_original||0)}))
+    ...payments.map(row=>({id:row.id,borrower_id:row.borrower_id,name:row.borrower_name,type:'PAYMENT',date:row.paid_on,created_at:row.created_at,title:`Pago recibido de ${row.borrower_name}`,amount:Number(row.amount||0)})),
+    ...disbursements.map(row=>({id:row.id,borrower_id:row.borrower_id,name:row.borrower_name,type:'DISBURSEMENT',date:row.start_date,created_at:row.created_at,title:`Nuevo desembolso a ${row.borrower_name}`,amount:Number(row.principal_original||0)}))
   ].sort((a,b)=>String(b.created_at||b.date).localeCompare(String(a.created_at||a.date)));
   const latestByBorrower=new Map();activity.forEach(item=>{if(!latestByBorrower.has(item.borrower_id))latestByBorrower.set(item.borrower_id,item);});
   return {accounts,payments,disbursements,activity,latestByBorrower,monthData,portfolio,period};
@@ -338,7 +339,7 @@ function upcomingHtml(data){
 }
 function activityHtml(data,limit=4){
   const rows=data.activity.slice(0,limit);if(!rows.length)return '<div class="ld-empty">No hay actividad reciente.</div>';
-  return rows.map(row=>`<div class="ld-activity-item"><span class="ld-mini-icon ${row.type==='PAYMENT'?'green':''}">${icon(row.type==='PAYMENT'?'dollar':'arrowDown')}</span><span><div class="ld-item-title">${esc(row.title)}</div><div class="ld-item-meta">${money(row.amount)} · ${dateLabel(row.date)}</div></span></div>`).join('');
+  return rows.map(row=>`<button type="button" class="ld-activity-item" data-loan-activity-id="${esc(row.id)}" data-loan-activity-kind="${row.type==='PAYMENT'?'payment':'disbursement'}" aria-label="${esc('Ver detalle: '+row.title)}"><span class="ld-mini-icon ${row.type==='PAYMENT'?'green':''}">${icon(row.type==='PAYMENT'?'dollar':'arrowDown')}</span><span><span class="ld-item-title">${esc(row.title)}</span><span class="ld-item-meta">${money(row.amount)} · ${dateLabel(row.date)}</span></span></button>`).join('');
 }
 
 const sortLabels={NAME:'Cliente',BALANCE:'Balance',CYCLE:'Cuota',NEXT_DUE:'Próxima cuota',STATUS:'Estado',ACTIVITY:'Última actividad'};
@@ -424,6 +425,8 @@ function wireDashboard(){
     if(event.target.id==='ldRecoveryPeriod')changePortfolioPeriod(event.target.value);
   });
   host.addEventListener('click',event=>{
+    const activity=event.target.closest?.('[data-loan-activity-id]');
+    if(activity){const kind=activity.dataset.loanActivityKind,id=activity.dataset.loanActivityId;openActivityDetails({kind,id,record:(kind==='payment'?state.data?.payments:state.data?.disbursements)?.find(row=>String(row.id)===id)});return;}
     if(event.target.closest?.('#ldNewClient')){openDrawer('client');return;}
     if(event.target.closest?.('#ldNewDisbursement')){openDrawer('disbursement');return;}
     const column=event.target.closest?.('[data-sort-col]');

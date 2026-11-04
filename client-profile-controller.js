@@ -1,6 +1,8 @@
 import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=1';
+import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=1';
+import { openActivityDetails } from './activity-details.js?v=1';
 
 const db=createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',
@@ -20,7 +22,7 @@ const STYLE_FILES=[
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
   ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
-  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=3']
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=4']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -91,8 +93,8 @@ function tone(value){
 }
 function dueStatus(row){
   if(row?.status==='PAID'||row?.timing_status==='PAID')return 'PAID';
-  if(row?.status==='PARTIAL')return 'PARTIAL';
   if(row?.timing_status==='OVERDUE')return 'OVERDUE';
+  if(row?.status==='PARTIAL')return 'PARTIAL';
   if(row?.timing_status==='DUE_TODAY')return 'DUE_TODAY';
   if(row?.status==='CANCELLED'||row?.timing_status==='CANCELLED')return 'CANCELLED';
   return row?.status||row?.timing_status||'UPCOMING';
@@ -279,6 +281,7 @@ function calendarHtml(context,data){
   return `<div class="ll-cycle-calendar" data-calendar-context="${context}">
     <div class="ll-cycle-calendar-head"><div><strong>Calendario de cuotas</strong><small>Día 15 y último día del mes</small></div><div class="ll-cycle-calendar-nav"><button type="button" data-calendar-move="-2" aria-label="Fechas anteriores">${svg('chevronLeft','ll-ref-svg',13)}</button><span>${esc(monthRangeTitle(dates))}</span><button type="button" data-calendar-move="2" aria-label="Fechas siguientes">${svg('chevronRight','ll-ref-svg',13)}</button></div></div>
     <div class="ll-cycle-date-row">${calendarDateButtonsHtml(dates,data)}</div>
+    <div class="cp-calendar-legend" aria-label="Estados de las cuotas"><span class="paid">Saldadas</span><span class="overdue">Atrasadas</span><span class="pending">Pendientes</span></div>
     <div class="ll-cycle-detail ll-cycle-detail--compact">
       <div><small>Monto total</small><strong class="ll-dynamic-value" data-calendar-slot="total">${calendarMoney(balance.total)}</strong></div>
       <div><small>Cuota pendiente</small><strong class="ll-dynamic-value" data-calendar-slot="pending">${calendarMoney(selected.amount_due)}</strong></div>
@@ -299,15 +302,15 @@ function calendarDateButtonsHtml(dates,data){
 
 function movementEvents(data){
   return [
-    ...data.payments.slice(0,5).map(row=>({date:row.paid_on,tab:'payments',title:`${row.is_voided?'Pago anulado':'Pago recibido'} por ${money(row.amount)}`,detail:paymentTypeLabel(row.payment_type),kind:'payment',filter:'pagos'})),
-    ...data.disbursements.slice(0,5).map(row=>({date:row.start_date,tab:'disbursements',title:`Capital agregado: ${money(row.principal_original)}`,detail:`Balance actual ${money(row.principal_outstanding)}`,kind:'disbursement',filter:'desembolsos'})),
-    ...data.contacts.slice(0,5).map(row=>({date:row.contact_date,tab:'followups',title:row.outcome||'Contacto registrado',detail:row.notes||row.contact_type||'',kind:'note',filter:'notas'}))
+    ...data.payments.slice(0,5).map(row=>({id:row.id,date:row.paid_on,title:`${row.is_voided?'Pago anulado':'Pago recibido'} por ${money(row.amount)}`,detail:paymentTypeLabel(row.payment_type),kind:'payment',filter:'pagos'})),
+    ...data.disbursements.slice(0,5).map(row=>({id:row.id,date:row.start_date,title:`Capital agregado: ${money(row.principal_original)}`,detail:`Balance actual ${money(row.principal_outstanding)}`,kind:'disbursement',filter:'desembolsos'})),
+    ...data.contacts.slice(0,5).map(row=>({id:row.id,date:row.contact_date,title:row.outcome||'Contacto registrado',detail:row.notes||row.contact_type||'',kind:'note',filter:'notas'}))
   ].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
 }
 function movementsHtml(data){
   const events=movementEvents(data).filter(event=>movementFilter==='todos'||event.filter===movementFilter).slice(0,6);
   if(!events.length)return emptyState('Todavía no hay actividad en esta cuenta.');
-  return `<div class="ll-activity-list ll-dynamic-list" data-list="movements">${events.map(event=>`<button type="button" data-open-tab="${event.tab}" data-movement-filter="${event.filter}" ${movementFilter!=='todos'&&movementFilter!==event.filter?'hidden':''}><span class="ll-activity-dot ll-movement-icon-${event.kind}">${svg(event.kind==='payment'?'payment':event.kind==='disbursement'?'disbursement':'note','ll-elegant-svg',16)}</span><span><strong>${esc(event.title)}</strong><small>${fmtDate(event.date)}</small>${event.detail?`<p>${esc(event.detail)}</p>`:''}</span><b>${svg('chevronRight','ll-elegant-svg',16)}</b></button>`).join('')}</div>`;
+  return `<div class="ll-activity-list ll-dynamic-list" data-list="movements">${events.map(event=>`<button type="button" data-activity-kind="${event.kind}" data-activity-record="${esc(event.id)}" data-movement-filter="${event.filter}" aria-label="${esc('Ver detalle: '+event.title)}" ${movementFilter!=='todos'&&movementFilter!==event.filter?'hidden':''}><span class="ll-activity-dot ll-movement-icon-${event.kind}">${svg(event.kind==='payment'?'payment':event.kind==='disbursement'?'disbursement':'note','ll-elegant-svg',16)}</span><span><strong>${esc(event.title)}</strong><small>${fmtDate(event.date)}</small>${event.detail?`<p>${esc(event.detail)}</p>`:''}</span><b>${svg('chevronRight','ll-elegant-svg',16)}</b></button>`).join('')}</div>`;
 }
 function movementFilterHtml(){return `<div class="ll-movement-filters">${[['todos','Todos'],['pagos','Pagos'],['desembolsos','Desembolsos'],['notas','Notas']].map(([key,label])=>`<button type="button" class="ll-movement-filter ${movementFilter===key?'active':''}" data-filter="${key}">${label}</button>`).join('')}</div>`;}
 
@@ -357,7 +360,7 @@ function composerHtml(data){
   return `<div class="cp-composer-overlay" data-close-composer hidden></div><aside class="cp-composer" role="dialog" aria-modal="true" aria-labelledby="cpComposerTitle" hidden>
     <header class="cp-composer-head"><div><p>Cuenta de <strong data-slot="composer-name">${esc(a.full_name)}</strong></p><h2 id="cpComposerTitle">Registrar pago</h2></div><button type="button" class="cp-close" data-close-composer aria-label="Cerrar panel">×</button></header>
     <div class="cp-composer-context"><span>Capital pendiente</span><strong data-slot="composer-balance">${money(a.principal_balance)}</strong></div><div class="cp-composer-body">
-      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>${mixedPaymentMarkup('llProfileMixed')}<label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
+      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>${mixedPaymentMarkup('llProfileMixed')}${paymentCalendarMarkup('llProfileCalendar')}<label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
       <section data-composer-panel="disbursement" hidden><form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="1" step="1" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div class="ll-form-section-title">Distribución de inversión</div><div id="llProfileFundingRows">${fundingRowsHtml(data)}</div><div id="llProfileFundingTotal" class="ll-form-status"></div><p class="cp-form-help">El capital se agrega a la cuenta y se recalculan las cuotas futuras.</p><div id="llProfileDisbursementStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary" ${data.defaultFunding.length?'':'disabled'}>Guardar desembolso</button></div></form></section>
       <section data-composer-panel="note" hidden><form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><div id="llProfileContactStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar nota</button></div></form></section>
       <section data-composer-panel="followup" hidden><form id="llProfileFollowupForm" class="ll-profile-form"><div class="ll-form-two"><label>Fecha<input id="llProfileFollowupDate" type="date" value="${today()}" required></label><label>Prioridad<select id="llProfileFollowupPriority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label>Desembolso relacionado<select id="llProfileFollowupLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Motivo<textarea id="llProfileFollowupReason" rows="4" required placeholder="Motivo o recordatorio"></textarea></label><div id="llProfileFollowupStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Crear seguimiento</button></div></form></section>
@@ -570,6 +573,7 @@ async function updateProfile(data,borrowerId){
 
   await Promise.all(jobs);
   profileMixedSplit()?.refresh({force:true});
+  if(!root.querySelector('.cp-composer')?.hidden&&!root.querySelector('[data-composer-panel="payment"]')?.hidden)profilePaymentCalendar()?.refresh({force:true});
   updateActiveRail(borrowerId,data.summary);
   applyMovementFilter(root,movementFilter);
   applyHistoryFilters(root);
@@ -719,6 +723,25 @@ function profileMixedSplit(){
     }
   });
 }
+function profilePaymentCalendar(){
+  const form=document.getElementById('llProfilePaymentForm');
+  return attachPaymentCalendar(form?.querySelector('[data-payment-calendar]'),{
+    readPayment:()=>({borrowerId:currentBorrowerId,paidOn:form.querySelector('#llProfilePayDate').value,
+      amount:Number(form.querySelector('#llProfilePayAmount').value||0),type:form.querySelector('#llProfilePayType').value,
+      installment:Number(form.querySelector('#llProfileMixedInstallment')?.value||0)}),
+    loadCalendar:async(borrowerId,paidOn)=>{
+      const end=paymentCalendarEnd(paidOn);
+      if(currentData&&borrowerId===String(currentBorrowerId)&&(currentData.calendarRows.at(-1)?.due_date||'')>=end)
+        return {rows:currentData.calendarRows,as_of_date:currentData.calendarAsOf};
+      const {data,error}=await db.rpc('get_borrower_calendar_workspace',{p_borrower_id:borrowerId,p_end_date:end});
+      if(error)throw error;return data;
+    }
+  });
+}
+async function updateProfilePaymentPreview({force=false}={}){
+  await profileMixedSplit()?.refresh({force});
+  profilePaymentCalendar()?.refresh({force});
+}
 function openComposer(kind,trigger=null){
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
   const drawer=root?.querySelector('.cp-composer'),panel=drawer?.querySelector(`[data-composer-panel="${kind}"]`);
@@ -735,7 +758,7 @@ function openComposer(kind,trigger=null){
   drawer.querySelector('.cp-composer-body').scrollTop=0;
   const focus={payment:'#llProfilePayAmount',disbursement:'#llProfilePrincipal',note:'#llProfileContactNotes',followup:'#llProfileFollowupReason'};
   panel.querySelector(focus[kind])?.focus({preventScroll:true});
-  if(kind==='payment')profileMixedSplit()?.refresh();
+  if(kind==='payment')updateProfilePaymentPreview({force:true});
 }
 function closeComposer(force=false,restoreFocus=true){
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell'),drawer=root?.querySelector('.cp-composer');
@@ -865,6 +888,13 @@ async function handleClick(event){
   }
   if(event.target.closest('[data-close-composer]')){event.preventDefault();closeComposer();return;}
   const composer=event.target.closest('[data-composer]');if(composer){event.preventDefault();openComposer(composer.dataset.composer,composer);return;}
+  const activity=event.target.closest('[data-activity-record]');
+  if(activity&&currentData){
+    event.preventDefault();
+    const kind=activity.dataset.activityKind,records={payment:currentData.payments,disbursement:currentData.disbursements,note:currentData.contacts};
+    openActivityDetails({kind,id:activity.dataset.activityRecord,record:records[kind]?.find(row=>String(row.id)===activity.dataset.activityRecord),borrowerName:currentData.summary.full_name});return;
+  }
+  if(event.target.closest('[data-split-reset]')){updateProfilePaymentPreview();return;}
   if(event.target.closest('[data-expand-client-rail]')){event.preventDefault();if(root.classList.contains('ll-client-rail-collapsed'))root.querySelector('#acctBack')?.click();root.querySelector('.ll-controller-search')?.click();return;}
   const client=event.target.closest('.ll-client-card[data-acct-borrower]');
   if(client){event.preventDefault();selectClient(client.dataset.acctBorrower);return;}
@@ -883,14 +913,14 @@ async function handleClick(event){
   const jump=event.target.closest('[data-calendar-jump]');if(jump){event.preventDefault();await chooseCalendarDate(jump.dataset.calendarJump);root.querySelector(`[data-calendar-date="${jump.dataset.calendarJump}"]`)?.focus({preventScroll:true});return;}
   const filter=event.target.closest('.ll-movement-filter');if(filter){applyMovementFilter(root,filter.dataset.filter);return;}
   const summaryAmount=event.target.closest('[data-summary-amount]');if(summaryAmount){root.querySelectorAll('[data-summary-amount]').forEach(btn=>btn.classList.remove('active'));summaryAmount.classList.add('active');const input=root.querySelector('#llSummaryPayAmount');if(input)input.value=summaryAmount.dataset.summaryAmount;return;}
-  const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}profileMixedSplit()?.refresh();return;}
+  const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}updateProfilePaymentPreview();return;}
   const complete=event.target.closest('[data-complete-followup]');if(complete){const note=prompt('Nota de finalización (opcional):','');if(note===null)return;const {error}=await db.rpc('complete_followup',{p_followup_id:complete.dataset.completeFollowup,p_completed_notes:note.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
   const voidButton=event.target.closest('[data-void-payment]');if(voidButton){const reason=prompt('Motivo de anulación (opcional):','');if(reason===null)return;if(!confirm('¿Seguro que quieres anular este pago? Se revertirán las aplicaciones de cuota, capital y distribuciones.'))return;const {error}=await db.rpc('void_payment',{p_payment_id:voidButton.dataset.voidPayment,p_reason:reason.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
   const search=event.target.closest('.ll-controller-search');if(search){const wrap=root.querySelector('.ll-client-search-wrap');if(wrap){wrap.hidden=!wrap.hidden;if(!wrap.hidden)setTimeout(()=>focusProfileControl(root,'.ll-client-search-input'),0);}return;}
 }
 function handleInput(event){
   const form=event.target.closest('.cp-composer form');if(form)form.dataset.dirty='1';
-  if(['llProfilePayAmount','llProfilePayType','llProfilePayDate'].includes(event.target.id))profileMixedSplit()?.refresh();
+  if(['llProfilePayAmount','llProfilePayType','llProfilePayDate'].includes(event.target.id)||event.target.matches('[data-split-part]'))updateProfilePaymentPreview();
   if(event.target.matches('[data-history-search-input],[data-payment-state-filter]'))applyHistoryFilters(event.currentTarget);
   if(event.target.matches('.ll-client-search-input')){const q=event.target.value.trim().toLowerCase();document.querySelectorAll('#borrowerAccountContent .ll-client-card').forEach(card=>card.hidden=!!q&&!String(card.dataset.clientSearch||'').includes(q));}
   if(event.target.matches('[data-partner-user-id]'))updateFundingTotal();
@@ -943,6 +973,10 @@ window.addEventListener('click',event=>{
 window.addEventListener('loan-ledger:account-rendered',event=>{
   const id=event.detail?.borrowerId;
   if(id)selectClient(id,{initial:!mounted});
+});
+window.addEventListener('loan-ledger:account-changed',event=>{
+  const id=event.detail?.borrowerId;
+  if(mounted&&currentBorrowerId&&(!id||String(id)===String(currentBorrowerId)))refreshCurrent().catch(error=>{console.error('account refresh after action failed',error);showLoadingBadge(false);announceProfile('El movimiento se guardó. Actualiza la cuenta para ver el saldo más reciente.',true);});
 });
 
 const page=ensureAccountPage();

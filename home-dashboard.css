@@ -794,3 +794,8 @@
 @media(prefers-reduced-motion:reduce){
   #dashboardPage *{scroll-behavior:auto!important;transition:none!important;animation:none!important;}
 }
+
+#app #dashboardPage button.ll-activity-item{width:100%;margin:0;padding:15px 0;text-align:left;background:transparent!important;border:0!important;border-bottom:1px solid var(--ui-line)!important;border-radius:0;box-shadow:none!important;font:inherit;color:var(--ui-ink);cursor:pointer}
+#app #dashboardPage button.ll-activity-item:last-child{border-bottom:0!important}
+#app #dashboardPage button.ll-activity-item:hover{background:var(--ui-purple-soft)!important}
+#app #dashboardPage button.ll-activity-item:focus-visible{outline:2px solid var(--ui-purple);outline-offset:4px}

@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
+import { openQuickAction } from './quick-actions.js?v=1';
+import { openActivityDetails, openActivityEntry } from './activity-details.js?v=1';
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",
@@ -9,7 +11,7 @@ const supabase=createClient(
 );
 
 function ensureStyle(){
-  const href="./home-dashboard.css?v=20";
+  const href="./home-dashboard.css?v=21";
   let link=document.getElementById("homeDashboardCss");
   if(!link){link=document.createElement("link");link.id="homeDashboardCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;
@@ -113,7 +115,9 @@ function wire(){
     const client=event.target.closest("[data-home-client]")?.dataset.homeClient;
     if(client){window.dispatchEvent(new CustomEvent("loan-ledger:open-account",{detail:{borrowerId:client}}));return;}
     const payment=event.target.closest("[data-home-payment]")?.dataset.homePayment;
-    if(payment){goToPayments();return;}
+    if(payment){openActivityDetails({kind:'payment',id:payment,record:dataCache?.payments.find(row=>String(row.id)===payment)});return;}
+    const activity=event.target.closest('[data-home-activity]')?.dataset.homeActivity;
+    if(activity){const row=dataCache?.activity.find(row=>String(row.id)===activity);if(row)openActivityEntry(row);return;}
     const view=event.target.closest("[data-home-view]")?.dataset.homeView;
     if(view)openRelatedView(view);
   });
@@ -125,10 +129,7 @@ function activatePage(id){
 }
 function goToPayments(){activatePage("paymentsPage");}
 function runQuickAction(action){
-  if(action==="loan"){activatePage("loansPage");setTimeout(()=>qs("loanBorrower")?.focus(),80);return;}
-  if(action==="payment"){goToPayments();setTimeout(()=>qs("llOpenPaymentDrawer")?.click(),100);return;}
-  if(action==="followup"){qs("menuFollowups")?.click();setTimeout(()=>qs("followupBorrower")?.focus(),100);return;}
-  if(action==="contact"){qs("menuFollowups")?.click();setTimeout(()=>qs("contactBorrower")?.focus(),100);}
+  openQuickAction(action,{accounts:dataCache?.accounts||null});
 }
 function openRelatedView(view){
   if(view==="activity"){qs("menuActivity")?.click();return;}
@@ -298,7 +299,7 @@ function activitySub(row){
 function activityIcon(row){const key=String(row.action_type||"");if(key.includes("PAYMENT"))return ["purple","edit"];if(key.includes("PARTNER"))return ["lime","users"];if(key.includes("CLIENT"))return ["blue","users"];return ["purple","edit"];}
 function renderActivity(data){
   const host=qs("homeActivityFeed");if(!host)return;const rows=meaningfulActivity(data.activity).slice(0,3);
-  setStableMarkup(host,rows.length?rows.map(row=>{const [tone,icon]=activityIcon(row);return `<div class="ll-activity-item"><span class="${tone}">${svg(icon,18)}</span><div><strong>${esc(activityTitle(row))}</strong><small>${esc(activitySub(row))}</small></div><time>${esc(relativeDate(row.created_at))}</time></div>`;}).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`);
+  setStableMarkup(host,rows.length?rows.map(row=>{const [tone,icon]=activityIcon(row);return `<button type="button" class="ll-activity-item" data-home-activity="${esc(row.id)}" aria-label="${esc('Ver detalle: '+activityTitle(row))}"><span class="${tone}">${svg(icon,18)}</span><div><strong>${esc(activityTitle(row))}</strong><small>${esc(activitySub(row))}</small></div><time>${esc(relativeDate(row.created_at))}</time></button>`;}).join(""):`<div class="ll-home-empty">No hay actividad reciente.</div>`);
 }
 
 watchPage('dashboardPage',()=>refresh(false),{interval:REFRESH_MS,prefetch:()=>fetchData(false),reset:()=>{
