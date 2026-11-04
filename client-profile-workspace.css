@@ -314,7 +314,7 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-c
   #app #borrowerAccountContent .ll-client-hub .ll-client-rail{animation:none!important;transition:none!important}
 }
 
-/* A discreet status dot preserves the original tiles and purple selection. */
+/* Short status lines preserve the original tiles and purple selection. */
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.ok{--due-indicator:#247a46}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-indicator:#b8353d}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-indicator:#8a5b05}
@@ -322,10 +322,10 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-d
 body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-indicator:#ff9a9f}
 body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-indicator:#f3d17d}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending){position:relative!important}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending)::before{content:'';position:absolute;top:9px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--due-indicator);pointer-events:none}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending)::before{content:'';position:absolute;bottom:5px;left:calc(50% - 12px);width:24px;height:3px;border-radius:2px;background:var(--due-indicator);pointer-events:none}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend{display:flex;justify-content:center;flex-wrap:wrap;gap:18px;margin:14px 0 0;font-size:11px;line-height:1.5;color:var(--ui-muted)}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span{display:inline-flex;align-items:center;gap:6px}
-#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span::before{content:'';width:14px;height:3px;border-radius:2px;background:currentColor}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .paid{color:#247a46}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .overdue{color:#b8353d}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .pending{color:#8a5b05}

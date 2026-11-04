@@ -22,7 +22,7 @@ const STYLE_FILES=[
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
   ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
-  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=5']
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=6']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);

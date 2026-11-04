@@ -17,7 +17,7 @@ import './loans-dashboard-boot.js?v=16';
 import './global-app-sidebar.js?v=5';
 import './loans-dashboard-global-shell.js?v=4';
 import './clients-management.js?v=3';
-import './client-profile-controller.js?v=11';
+import './client-profile-controller.js?v=12';
 import './app-design-system.js?v=2';
 
 const paymentManagementCss=document.getElementById('paymentManagementCss');
