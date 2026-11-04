@@ -1,5 +1,6 @@
 import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=1';
 
 const db=createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',
@@ -356,7 +357,7 @@ function composerHtml(data){
   return `<div class="cp-composer-overlay" data-close-composer hidden></div><aside class="cp-composer" role="dialog" aria-modal="true" aria-labelledby="cpComposerTitle" hidden>
     <header class="cp-composer-head"><div><p>Cuenta de <strong data-slot="composer-name">${esc(a.full_name)}</strong></p><h2 id="cpComposerTitle">Registrar pago</h2></div><button type="button" class="cp-close" data-close-composer aria-label="Cerrar panel">×</button></header>
     <div class="cp-composer-context"><span>Capital pendiente</span><strong data-slot="composer-balance">${money(a.principal_balance)}</strong></div><div class="cp-composer-body">
-      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select></label><label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
+      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>${mixedPaymentMarkup('llProfileMixed')}<label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
       <section data-composer-panel="disbursement" hidden><form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="1" step="1" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div class="ll-form-section-title">Distribución de inversión</div><div id="llProfileFundingRows">${fundingRowsHtml(data)}</div><div id="llProfileFundingTotal" class="ll-form-status"></div><p class="cp-form-help">El capital se agrega a la cuenta y se recalculan las cuotas futuras.</p><div id="llProfileDisbursementStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary" ${data.defaultFunding.length?'':'disabled'}>Guardar desembolso</button></div></form></section>
       <section data-composer-panel="note" hidden><form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><div id="llProfileContactStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar nota</button></div></form></section>
       <section data-composer-panel="followup" hidden><form id="llProfileFollowupForm" class="ll-profile-form"><div class="ll-form-two"><label>Fecha<input id="llProfileFollowupDate" type="date" value="${today()}" required></label><label>Prioridad<select id="llProfileFollowupPriority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label>Desembolso relacionado<select id="llProfileFollowupLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Motivo<textarea id="llProfileFollowupReason" rows="4" required placeholder="Motivo o recordatorio"></textarea></label><div id="llProfileFollowupStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Crear seguimiento</button></div></form></section>
@@ -568,6 +569,7 @@ async function updateProfile(data,borrowerId){
   [root.querySelector('#llProfileContactLoan'),root.querySelector('#llProfileFollowupLoan')].forEach(select=>{if(!select)return;const value=select.value;select.innerHTML=options;if([...select.options].some(option=>option.value===value))select.value=value;});
 
   await Promise.all(jobs);
+  profileMixedSplit()?.refresh({force:true});
   updateActiveRail(borrowerId,data.summary);
   applyMovementFilter(root,movementFilter);
   applyHistoryFilters(root);
@@ -701,7 +703,21 @@ function resetComposerForms(root,data,form=null){
   const funding=scope.querySelector('#llProfileFundingRows');if(funding)funding.innerHTML=fundingRowsHtml(data);
   const submit=scope.querySelector('#llProfileDisbursementForm button[type="submit"]');if(submit)submit.disabled=!data.defaultFunding.length;
   scope.querySelectorAll('.ll-form-status').forEach(status=>{status.textContent='';status.classList.remove('error');});
+  if(scope.querySelector('[data-mixed-payment]'))profileMixedSplit()?.reset();
   updateFundingTotal();
+}
+function profileMixedSplit(){
+  const form=document.getElementById('llProfilePaymentForm'),host=form?.querySelector('[data-mixed-payment]');
+  return attachMixedPaymentSplit(host,{
+    readPayment:()=>({borrowerId:currentBorrowerId,paidOn:form.querySelector('#llProfilePayDate').value,
+      amount:Number(form.querySelector('#llProfilePayAmount').value||0),type:form.querySelector('#llProfilePayType').value}),
+    loadContext:async(borrowerId,paidOn)=>{
+      const local=String(borrowerId)===String(currentBorrowerId)?mixedContextFromCalendar(currentData,paidOn):null;
+      if(local)return local;
+      const {data,error}=await db.rpc('get_borrower_mixed_payment_context',{p_borrower_id:borrowerId,p_paid_on:paidOn});
+      if(error)throw error;return data;
+    }
+  });
 }
 function openComposer(kind,trigger=null){
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
@@ -719,6 +735,7 @@ function openComposer(kind,trigger=null){
   drawer.querySelector('.cp-composer-body').scrollTop=0;
   const focus={payment:'#llProfilePayAmount',disbursement:'#llProfilePrincipal',note:'#llProfileContactNotes',followup:'#llProfileFollowupReason'};
   panel.querySelector(focus[kind])?.focus({preventScroll:true});
+  if(kind==='payment')profileMixedSplit()?.refresh();
 }
 function closeComposer(force=false,restoreFocus=true){
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell'),drawer=root?.querySelector('.cp-composer');
@@ -792,7 +809,13 @@ async function handleSubmit(event){
       const statusId=summary?'llSummaryPayStatus':'llProfilePayStatus';
       if(!amount||!paid_on)return setStatus(statusId,'Fecha y monto son requeridos.',true);
       setStatus(statusId,'Aplicando pago...');
-      const {error}=await db.rpc('apply_borrower_payment',{p_borrower_id:currentBorrowerId,p_paid_on:paid_on,p_amount:amount,p_payment_type:payment_type,p_notes:notes});
+      let parts;
+      if(payment_type==='MIXED'){
+        try{parts=await profileMixedSplit().values();}catch(error){return setStatus(statusId,error.message||String(error),true);}
+      }
+      const {error}=await db.rpc(parts?'apply_borrower_mixed_payment':'apply_borrower_payment',parts?
+        {p_borrower_id:currentBorrowerId,p_paid_on:paid_on,p_amount:amount,p_installment_amount:parts.installment,p_principal_amount:parts.principal,p_notes:notes}:
+        {p_borrower_id:currentBorrowerId,p_paid_on:paid_on,p_amount:amount,p_payment_type:payment_type,p_notes:notes});
       if(error)return setStatus(statusId,error.message,true);
       setStatus(statusId,'Pago registrado correctamente.');
     }else if(form.id==='llProfileContactForm'){
@@ -860,13 +883,14 @@ async function handleClick(event){
   const jump=event.target.closest('[data-calendar-jump]');if(jump){event.preventDefault();await chooseCalendarDate(jump.dataset.calendarJump);root.querySelector(`[data-calendar-date="${jump.dataset.calendarJump}"]`)?.focus({preventScroll:true});return;}
   const filter=event.target.closest('.ll-movement-filter');if(filter){applyMovementFilter(root,filter.dataset.filter);return;}
   const summaryAmount=event.target.closest('[data-summary-amount]');if(summaryAmount){root.querySelectorAll('[data-summary-amount]').forEach(btn=>btn.classList.remove('active'));summaryAmount.classList.add('active');const input=root.querySelector('#llSummaryPayAmount');if(input)input.value=summaryAmount.dataset.summaryAmount;return;}
-  const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}return;}
+  const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}profileMixedSplit()?.refresh();return;}
   const complete=event.target.closest('[data-complete-followup]');if(complete){const note=prompt('Nota de finalización (opcional):','');if(note===null)return;const {error}=await db.rpc('complete_followup',{p_followup_id:complete.dataset.completeFollowup,p_completed_notes:note.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
   const voidButton=event.target.closest('[data-void-payment]');if(voidButton){const reason=prompt('Motivo de anulación (opcional):','');if(reason===null)return;if(!confirm('¿Seguro que quieres anular este pago? Se revertirán las aplicaciones de cuota, capital y distribuciones.'))return;const {error}=await db.rpc('void_payment',{p_payment_id:voidButton.dataset.voidPayment,p_reason:reason.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
   const search=event.target.closest('.ll-controller-search');if(search){const wrap=root.querySelector('.ll-client-search-wrap');if(wrap){wrap.hidden=!wrap.hidden;if(!wrap.hidden)setTimeout(()=>focusProfileControl(root,'.ll-client-search-input'),0);}return;}
 }
 function handleInput(event){
   const form=event.target.closest('.cp-composer form');if(form)form.dataset.dirty='1';
+  if(['llProfilePayAmount','llProfilePayType','llProfilePayDate'].includes(event.target.id))profileMixedSplit()?.refresh();
   if(event.target.matches('[data-history-search-input],[data-payment-state-filter]'))applyHistoryFilters(event.currentTarget);
   if(event.target.matches('.ll-client-search-input')){const q=event.target.value.trim().toLowerCase();document.querySelectorAll('#borrowerAccountContent .ll-client-card').forEach(card=>card.hidden=!!q&&!String(card.dataset.clientSearch||'').includes(q));}
   if(event.target.matches('[data-partner-user-id]'))updateFundingTotal();

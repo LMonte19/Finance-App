@@ -1,6 +1,7 @@
 import { invalidatePageReads, readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { mixedPaymentMarkup, attachMixedPaymentSplit } from './mixed-payment-split.js?v=1';
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },
@@ -37,6 +38,7 @@ let pageNumber = 1;
 let drawerMode = "closed";
 let activeDetailId = null;
 let lastRefreshAt = 0;
+let paymentSaving = false;
 const PAGE_SIZE = 10;
 
 const ICONS = {
@@ -297,6 +299,7 @@ function paymentRowHtml(p) {
 }
 
 function openRegisterDrawer() {
+  if(paymentSaving)return;
   drawerMode = "register";
   activeDetailId = null;
   const drawer = qs("paymentDrawer");
@@ -317,7 +320,8 @@ function registerDrawerHtml() {
         <label class="ll-payment-field"><span>Monto</span><div class="ll-payment-money-input"><input id="acctPageAmount" type="number" min="0.01" step="0.01" placeholder="0" /><b>$</b></div></label>
       </div>
       <div class="ll-payment-quick-block"><span>Sugerencias rápidas</span><div id="paymentQuickAmounts" class="ll-payment-quick-buttons"><button type="button" data-quick-payment="half" disabled>½ cuota</button><button type="button" data-quick-payment="one" disabled>1 cuota</button><button type="button" data-quick-payment="two" disabled>2 cuotas</button><button type="button" data-quick-payment="payoff" disabled>Saldar</button></div></div>
-      <label class="ll-payment-field"><span>Tipo de pago</span><select id="acctPageType"><option value="INSTALLMENT">Pago de cuota / interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota y sobrante a capital</option><option value="PAYOFF">Saldar capital</option></select></label>
+      <label class="ll-payment-field"><span>Tipo de pago</span><select id="acctPageType"><option value="INSTALLMENT">Pago de cuota / interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>
+      ${mixedPaymentMarkup('acctMixed')}
       <label class="ll-payment-field"><span>Notas del pago <small>(opcional)</small></span><textarea id="acctPageNotes" rows="4" placeholder="Escribe una nota o referencia..."></textarea></label>
       <div id="acctPagePaymentStatus" class="ll-payment-form-status"></div>
     </div>
@@ -328,6 +332,17 @@ function selectedAccount() {
   const id = qs("acctPaymentBorrower")?.value;
   return accountsCache.find((account) => String(account.borrower_id) === String(id));
 }
+function paymentsMixedSplit(){
+  const host=qs('paymentDrawer')?.querySelector('[data-mixed-payment]');
+  return attachMixedPaymentSplit(host,{
+    readPayment:()=>({borrowerId:qs('acctPaymentBorrower')?.value,paidOn:qs('acctPagePaidOn')?.value,
+      amount:Number(qs('acctPageAmount')?.value||0),type:qs('acctPageType')?.value}),
+    loadContext:async(borrowerId,paidOn)=>{
+      const {data,error}=await supabase.rpc('get_borrower_mixed_payment_context',{p_borrower_id:borrowerId,p_paid_on:paidOn});
+      if(error)throw error;return data;
+    }
+  });
+}
 function updateBorrowerContext() {
   const account = selectedAccount();
   const host = qs("paymentBorrowerContext");
@@ -337,6 +352,7 @@ function updateBorrowerContext() {
     host.className = "ll-payment-borrower-context is-empty";
     host.innerHTML = `<div class="ll-context-placeholder">Selecciona un cliente para ver el estado de su cuenta.</div>`;
     buttons.forEach((button) => { button.disabled = true; delete button.dataset.amount; });
+    paymentsMixedSplit()?.refresh();
     return;
   }
   host.className = "ll-payment-borrower-context";
@@ -344,6 +360,7 @@ function updateBorrowerContext() {
   const fee = Number(account.current_cycle_fee || 0), balance = Number(account.principal_balance || 0);
   const values = { half: fee / 2, one: fee, two: fee * 2, payoff: balance };
   buttons.forEach((button) => { const amount = values[button.dataset.quickPayment] || 0; button.disabled = amount <= 0; button.dataset.amount = String(Number(Number(amount).toFixed(2))); });
+  paymentsMixedSplit()?.refresh();
 }
 function applyQuickAmount(kind, amount) {
   const input = qs("acctPageAmount");
@@ -351,9 +368,11 @@ function applyQuickAmount(kind, amount) {
   if (input) input.value = String(Number(Number(amount || 0).toFixed(2)));
   if (type) type.value = kind === "payoff" ? "PAYOFF" : "INSTALLMENT";
   document.querySelectorAll("[data-quick-payment]").forEach((button) => button.classList.toggle("active", button.dataset.quickPayment === kind));
+  paymentsMixedSplit()?.refresh();
 }
 
 async function applyAccountPayment() {
+  if(paymentSaving)return;
   const borrowerId = qs("acctPaymentBorrower")?.value;
   const paidOn = qs("acctPagePaidOn")?.value;
   const amount = Number(qs("acctPageAmount")?.value || 0);
@@ -362,10 +381,13 @@ async function applyAccountPayment() {
   const status = qs("acctPagePaymentStatus");
   const submit = qs("acctPageApplyPayment");
   if (!borrowerId || !paidOn || !amount) { if (status) status.textContent = "Cliente, fecha y monto son requeridos."; return; }
-  if (submit) submit.disabled = true;
+  paymentSaving=true;if (submit) submit.disabled = true;
   if (status) { status.textContent = "Aplicando pago..."; status.className = "ll-payment-form-status"; }
   try {
-    const { error } = await supabase.rpc("apply_borrower_payment", { p_borrower_id: borrowerId, p_paid_on: paidOn, p_amount: amount, p_payment_type: paymentType, p_notes: notes });
+    const parts=paymentType==='MIXED'?await paymentsMixedSplit().values():null;
+    const { error } = await supabase.rpc(parts?'apply_borrower_mixed_payment':'apply_borrower_payment',parts?
+      {p_borrower_id:borrowerId,p_paid_on:paidOn,p_amount:amount,p_installment_amount:parts.installment,p_principal_amount:parts.principal,p_notes:notes}:
+      {p_borrower_id:borrowerId,p_paid_on:paidOn,p_amount:amount,p_payment_type:paymentType,p_notes:notes});
     if (error) throw error;
     if (status) { status.textContent = "Pago registrado correctamente."; status.classList.add("success"); }
     invalidatePageReads();
@@ -375,7 +397,7 @@ async function applyAccountPayment() {
     setTimeout(() => { if (drawerMode === "register") closeDrawer(); }, 650);
   } catch (error) {
     if (status) { status.textContent = error.message || String(error); status.classList.add("error"); }
-  } finally { if (submit) submit.disabled = false; }
+  } finally { paymentSaving=false;if (submit) submit.disabled = false; }
 }
 
 async function openPaymentDetails(paymentId) {
@@ -437,7 +459,8 @@ function openDrawer() {
   shell?.classList.add("ll-drawer-open");
   if (drawer) drawer.setAttribute("aria-hidden", "false");
 }
-function closeDrawer() {
+function closeDrawer(force=false) {
+  if(paymentSaving&&!force)return;
   drawerMode = "closed";
   activeDetailId = null;
   const shell = qs("paymentsWorkspace"), drawer = qs("paymentDrawer");
@@ -462,14 +485,16 @@ function handleWorkspaceChange(event) {
   if (event.target.id === "payFilterPeriod") { periodFilter = event.target.value; pageNumber = 1; renderPayments(); }
   if (event.target.id === "payFilterType") { typeFilter = event.target.value; pageNumber = 1; renderPayments(); }
   if (event.target.id === "acctPaymentBorrower") updateBorrowerContext();
+  if(['acctPageType','acctPagePaidOn'].includes(event.target.id))paymentsMixedSplit()?.refresh();
 }
 function handleWorkspaceInput(event) {
+  if(event.target.id==='acctPageAmount')paymentsMixedSplit()?.refresh();
   if (event.target.id === "paySearch") { pageNumber = 1; renderPayments(); }
 }
 
 watchPage('paymentsPage', () => refreshData(false), {interval:45000, prefetch:() => readPaymentData(false), reset:() => {
   requestSequence++;accountsCache=[];paymentsCache=[];lastRefreshAt=0;pageNumber=1;
-  closeDrawer();
+  closeDrawer(true);
   setStableMarkup(qs('paymentKpis'), ['Pagado este mes','Cuota / interés','Capital recuperado','Pagos anulados'].map(kpiSkeleton).join(''));
   setStableMarkup(qs('accountPaymentList'), '<div class="ll-payment-loading">Cargando pagos...</div>');
   ['payFilterBorrower','acctPaymentBorrower'].forEach(id=>setStableMarkup(qs(id),''));
