@@ -314,16 +314,15 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-c
   #app #borrowerAccountContent .ll-client-hub .ll-client-rail{animation:none!important;transition:none!important}
 }
 
-/* Keep the status visible on selected dates as well as in both calendars. */
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.ok{--due-ink:#247a46;--due-bg:#eaf7ee}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-ink:#b8353d;--due-bg:#fff0f0}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-ink:#8a5b05;--due-bg:#fff7de}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.ok{--due-ink:#8cdba7;--due-bg:#183b29}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-ink:#ff9a9f;--due-bg:#3c2228}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-ink:#f3d17d;--due-bg:#3a311d}
-body[data-theme] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending){background:var(--due-bg)!important;color:var(--due-ink)!important;border-color:transparent!important}
-body[data-theme] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending) :is(strong,small){color:var(--due-ink)!important}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.selected{outline:2px solid var(--ui-purple)!important;outline-offset:2px!important}
+/* A discreet status dot preserves the original tiles and purple selection. */
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.ok{--due-indicator:#247a46}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-indicator:#b8353d}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-indicator:#8a5b05}
+body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.ok{--due-indicator:#8cdba7}
+body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-indicator:#ff9a9f}
+body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-indicator:#f3d17d}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending){position:relative!important}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending)::before{content:'';position:absolute;top:9px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--due-indicator);pointer-events:none}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend{display:flex;justify-content:center;flex-wrap:wrap;gap:18px;margin:14px 0 0;font-size:11px;line-height:1.5;color:var(--ui-muted)}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span{display:inline-flex;align-items:center;gap:6px}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
