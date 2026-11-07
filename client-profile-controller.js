@@ -22,7 +22,7 @@ const STYLE_FILES=[
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
   ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
-  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=6']
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=7']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -279,9 +279,8 @@ function calendarHtml(context,data){
   const balance=calendarBalance(data,selectedDueIso);
   const selectedStatus=dueStatus(selected);
   return `<div class="ll-cycle-calendar" data-calendar-context="${context}">
-    <div class="ll-cycle-calendar-head"><div><strong>Calendario de cuotas</strong><small>Día 15 y último día del mes</small></div><div class="ll-cycle-calendar-nav"><button type="button" data-calendar-move="-2" aria-label="Fechas anteriores">${svg('chevronLeft','ll-ref-svg',13)}</button><span>${esc(monthRangeTitle(dates))}</span><button type="button" data-calendar-move="2" aria-label="Fechas siguientes">${svg('chevronRight','ll-ref-svg',13)}</button></div></div>
+    <div class="ll-cycle-calendar-head"><div><h2 id="cpCalendarTitle">Calendario de cuotas</h2><small>Día 15 y último día del mes</small></div><div class="cp-calendar-tools"><div class="ll-cycle-calendar-nav"><button type="button" data-calendar-move="-2" aria-label="Fechas anteriores">${svg('chevronLeft','ll-ref-svg',13)}</button><span>${esc(monthRangeTitle(dates))}</span><button type="button" data-calendar-move="2" aria-label="Fechas siguientes">${svg('chevronRight','ll-ref-svg',13)}</button></div><div class="cp-calendar-legend" aria-label="Estados de las cuotas"><span class="paid">Saldadas</span><span class="overdue">Atrasadas</span><span class="pending">Pendientes</span></div></div></div>
     <div class="ll-cycle-date-row">${calendarDateButtonsHtml(dates,data)}</div>
-    <div class="cp-calendar-legend" aria-label="Estados de las cuotas"><span class="paid">Saldadas</span><span class="overdue">Atrasadas</span><span class="pending">Pendientes</span></div>
     <div class="ll-cycle-detail ll-cycle-detail--compact">
       <div><small>Monto total</small><strong class="ll-dynamic-value" data-calendar-slot="total">${calendarMoney(balance.total)}</strong></div>
       <div><small>Cuota pendiente</small><strong class="ll-dynamic-value" data-calendar-slot="pending">${calendarMoney(selected.amount_due)}</strong></div>
@@ -293,10 +292,15 @@ function calendarHtml(context,data){
     <details class="cp-due-details"><summary><span>Ver detalle de la cuota <time data-calendar-detail-date>${fmtDate(selectedDueIso)}</time></span>${svg('chevronDown')}</summary><div data-calendar-detail-body>${calendarDetailHtml(data,selectedDueIso)}</div></details>
   </div>`;
 }
+function calendarDatePresentation(iso,row){
+  const status=dueStatus(row),state=tone(status);
+  const label={PAID:'Saldada',OVERDUE:'Atrasada',ATRASADO:'Atrasada',DUE_TODAY:'Vence hoy',PARTIAL:'Parcial',CANCELLED:'Cancelada'}[status]||(state==='closed'?'Cerrada':'Pendiente');
+  return {label,style:state==='ok'&&status!=='PAID'?'pending':state,description:`${fmtDate(iso)} · ${label} · Saldo de la cuota ${calendarMoney(row.amount_due)}`};
+}
 function calendarDateButtonsHtml(dates,data){
   return dates.map(date=>{
-    const iso=toIso(date),row=selectedCalendarRow(data,iso),status=dueStatus(row);
-    return `<button type="button" class="ll-cycle-date ${iso===selectedDueIso?'selected':''} ${tone(status)}" data-calendar-date="${iso}" aria-pressed="${iso===selectedDueIso?'true':'false'}" aria-label="${esc(fmtDate(iso)+' · '+statusLabel(status)+' · Pendiente '+calendarMoney(row.amount_due))}"><span>${date.toLocaleDateString('es',{weekday:'short'}).replace('.','')}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('es',{month:'short'}).replace('.','').toUpperCase()}</small></button>`;
+    const iso=toIso(date),{label,style,description}=calendarDatePresentation(iso,selectedCalendarRow(data,iso));
+    return `<button type="button" class="ll-cycle-date ${iso===selectedDueIso?'selected':''} ${style}" data-calendar-date="${iso}" aria-pressed="${iso===selectedDueIso?'true':'false'}" aria-label="${esc(description)}"><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('es',{month:'short'}).replace('.','').toUpperCase()}</small><span class="cp-date-status" aria-hidden="true">${label}</span></button>`;
   }).join('');
 }
 
@@ -385,9 +389,9 @@ function profileShellHtml(data,selectedId){
       </div>
       <nav class="ll-tabs" role="tablist" aria-label="Información del cliente"><button type="button" class="ll-tab active" role="tab" aria-controls="cpSummaryPanel" data-profile-tab="summary">Resumen</button><button type="button" class="ll-tab" role="tab" aria-controls="cpPaymentsPanel" data-profile-tab="payments">Pagos <span class="cp-tab-count" data-slot="payments-count">${data.payments.length}</span></button><button type="button" class="ll-tab" role="tab" aria-controls="cpDisbursementsPanel" data-profile-tab="disbursements">Desembolsos <span class="cp-tab-count" data-slot="disbursements-count">${data.disbursements.length}</span></button><button type="button" class="ll-tab" role="tab" aria-controls="cpFollowupsPanel" data-profile-tab="followups">Notas y seguimientos <span class="cp-tab-count" data-slot="followups-count">${pending}</span></button></nav></div>
       <div class="cp-notice" role="status" hidden></div><div class="ll-profile-tabs-host cp-content" data-refinement-version="4">
-        <section id="cpSummaryPanel" class="ll-profile-panel active" role="tabpanel" data-profile-panel="summary"><div class="cp-panel cp-overview"><div class="cp-overview-main">
-          <section class="cp-section cp-calendar">${calendarHtml('summary',data)}</section><section class="cp-section"><div class="cp-section-heading"><h2>Actividad reciente</h2>${movementFilterHtml()}</div><div class="ll-list-host" data-list-host="movements">${movementsHtml(data)}</div></section>
-        </div><aside class="cp-overview-side"><section class="cp-section"><div class="cp-section-heading"><h2>Información de la cuenta</h2></div><dl class="cp-account-facts"><div><dt>Total desembolsado</dt><dd data-slot="total-disbursed">${money(a.total_disbursed)}</dd></div><div><dt>Capital abonado</dt><dd data-slot="principal-paid">${money(a.total_principal_paid)}</dd></div><div><dt>Cuota mensual</dt><dd data-slot="monthly-fee">${money(a.current_monthly_fee)}</dd></div><div><dt>Desembolsos</dt><dd data-slot="disbursement-count">${a.disbursement_count||0}</dd></div></dl><button type="button" class="cp-text-action" data-open-tab="disbursements">Ver detalle de desembolsos ${svg('chevronRight')}</button></section><section class="cp-section"><div class="cp-section-heading"><h2>Próximo seguimiento</h2></div><div class="ll-next-action-host" data-list-host="next-action">${nextActionBodyHtml(data)}</div></section></aside></div></section>
+        <section id="cpSummaryPanel" class="ll-profile-panel active" role="tabpanel" data-profile-panel="summary"><div class="cp-overview"><div class="cp-overview-main">
+          <section class="cp-panel cp-section cp-calendar" aria-labelledby="cpCalendarTitle">${calendarHtml('summary',data)}</section><section class="cp-panel cp-section"><div class="cp-section-heading"><h2>Actividad reciente</h2>${movementFilterHtml()}</div><div class="ll-list-host" data-list-host="movements">${movementsHtml(data)}</div></section>
+        </div><aside class="cp-overview-side"><section class="cp-panel cp-section"><div class="cp-section-heading"><h2>Información de la cuenta</h2></div><dl class="cp-account-facts"><div><dt>Total desembolsado</dt><dd data-slot="total-disbursed">${money(a.total_disbursed)}</dd></div><div><dt>Capital abonado</dt><dd data-slot="principal-paid">${money(a.total_principal_paid)}</dd></div><div><dt>Cuota mensual</dt><dd data-slot="monthly-fee">${money(a.current_monthly_fee)}</dd></div><div><dt>Desembolsos</dt><dd data-slot="disbursement-count">${a.disbursement_count||0}</dd></div></dl><button type="button" class="cp-text-action" data-open-tab="disbursements">Ver detalle de desembolsos ${svg('chevronRight')}</button></section><section class="cp-panel cp-section"><div class="cp-section-heading"><h2>Próximo seguimiento</h2></div><div class="ll-next-action-host" data-list-host="next-action">${nextActionBodyHtml(data)}</div></section></aside></div></section>
         <section id="cpPaymentsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="payments"><div class="cp-panel cp-history-panel">${historyToolbar('payments','Historial de pagos','Consulta capital, intereses y distribución de cada pago.','payment','Registrar pago')}<div class="ll-list-host" data-list-host="payments">${paymentRowsHtml(data.payments)}</div><div class="cp-filter-empty" data-history-empty="payments" hidden>No hay pagos que coincidan con la búsqueda.</div></div></section>
         <section id="cpDisbursementsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="disbursements"><div class="cp-panel cp-history-panel">${historyToolbar('disbursements','Desembolsos','Capital, saldo y condiciones de cada desembolso.','disbursement','Nuevo desembolso')}<div class="ll-list-host" data-list-host="disbursements">${disbursementRowsHtml(data.disbursements)}</div><div class="cp-filter-empty" data-history-empty="disbursements" hidden>No hay desembolsos que coincidan con la búsqueda.</div></div></section>
         <section id="cpFollowupsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="followups"><div class="cp-panel cp-followup-panel"><div class="cp-panel-heading"><div><h2>Notas y seguimientos</h2><p>Recordatorios pendientes e historial de contacto.</p></div><div class="cp-toolbar-actions"><button type="button" class="cp-action" data-composer="note">Agregar nota</button><button type="button" class="cp-action" data-composer="followup">Programar seguimiento</button></div></div><section class="cp-section"><div class="cp-section-heading"><h3>Seguimientos</h3><span class="cp-result-count" data-slot="pending-followups">${pending} pendientes</span></div><div class="ll-list-host" data-list-host="followups">${followupRowsHtml(data.followups)}</div></section><section class="cp-section"><div class="cp-section-heading"><h3>Notas y contactos</h3><span class="cp-result-count" data-slot="contacts-count">${data.contacts.length} registros</span></div><div class="ll-list-host" data-list-host="contacts">${contactRowsHtml(data.contacts)}</div></section></div></section>
@@ -486,11 +490,14 @@ async function updateCalendars(root,data){
     const buttons=[...calendar.querySelectorAll('[data-calendar-date]')];
     if(!selectedDueIso||!buttons.some(btn=>btn.dataset.calendarDate===selectedDueIso))selectedDueIso=buttons.find(btn=>daysFromToday(btn.dataset.calendarDate)>=0)?.dataset.calendarDate||buttons[0]?.dataset.calendarDate;
     buttons.forEach(btn=>{
-      const key=dueStatus(selectedCalendarRow(data,btn.dataset.calendarDate));
+      const {label,style,description}=calendarDatePresentation(btn.dataset.calendarDate,selectedCalendarRow(data,btn.dataset.calendarDate));
       btn.classList.remove('ok','pending','danger','closed');
-      btn.classList.add(tone(key));
+      btn.classList.add(style);
       btn.classList.toggle('selected',btn.dataset.calendarDate===selectedDueIso);
       btn.setAttribute('aria-pressed',btn.dataset.calendarDate===selectedDueIso?'true':'false');
+      btn.setAttribute('aria-label',description);
+      const badge=btn.querySelector('.cp-date-status');
+      if(badge&&badge.textContent!==label)badge.textContent=label;
     });
     const {row,overdue,total}=calendarBalance(data,selectedDueIso),key=dueStatus(row);
     jobs.push(

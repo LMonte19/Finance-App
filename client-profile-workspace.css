@@ -85,9 +85,8 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub{
 #app #borrowerAccountContent .ll-client-hub .cp-content{min-width:0!important;padding:18px 0 22px!important;box-sizing:border-box!important;scrollbar-width:thin;scrollbar-color:var(--ui-line) transparent;overflow-anchor:none;overscroll-behavior:contain}
 #app #borrowerAccountContent .ll-client-hub .ll-profile-panel{margin:0!important;padding:0!important}
 #app #borrowerAccountContent .ll-client-hub .cp-panel{border:1px solid var(--ui-line);border-radius:18px;background:var(--ui-surface);box-shadow:var(--ui-shadow);overflow:hidden;min-width:0}
-#app #borrowerAccountContent .ll-client-hub .cp-overview{display:grid;grid-template-columns:minmax(0,1fr) 300px}
-#app #borrowerAccountContent .ll-client-hub .cp-overview-main{min-width:0}
-#app #borrowerAccountContent .ll-client-hub .cp-overview-side{min-width:0;border-left:1px solid var(--ui-line);background:var(--cp-raised)}
+#app #borrowerAccountContent .ll-client-hub .cp-overview{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+#app #borrowerAccountContent .ll-client-hub :is(.cp-overview-main,.cp-overview-side){display:grid;align-content:start;gap:18px;min-width:0}
 #app #borrowerAccountContent .ll-client-hub .cp-section{padding:20px;min-width:0}
 #app #borrowerAccountContent .ll-client-hub .cp-section+.cp-section{border-top:1px solid var(--ui-line)}
 #app #borrowerAccountContent .ll-client-hub .cp-section-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:15px}
@@ -105,12 +104,14 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub{
 /* One smaller calendar, shared through the summary tab. */
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar{padding:0!important;border:0!important;background:transparent!important}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin-bottom:16px!important;flex-wrap:wrap}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-head strong{font-size:18px!important;color:var(--ui-ink)!important;font-weight:750!important}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar{container-type:inline-size;container-name:client-calendar}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-head small{font-size:12px!important;color:var(--ui-muted)!important;margin-top:5px!important;line-height:1.4!important}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-tools{display:grid;justify-items:end;gap:8px;min-width:0;max-width:100%}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav{font-size:12px!important;color:var(--ui-muted)!important;gap:7px!important}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav button{flex:none}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav span{min-width:0;text-align:center;line-height:1.4}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date-row{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:8px!important}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date{min-height:66px!important;padding:9px 5px!important;margin:0!important;border-radius:10px!important;background:var(--cp-raised)!important;border:1px solid var(--ui-line)!important;box-shadow:none!important}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date span{display:none!important}
+#app #borrowerAccountContent .ll-client-hub .ll-cycle-date{min-height:92px!important;padding:10px 5px!important;margin:0!important;border-radius:10px!important;background:var(--cp-raised)!important;border:1px solid var(--ui-line)!important;box-shadow:none!important}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date strong{font-size:20px!important;color:var(--ui-ink)!important;line-height:1.2!important}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date small{font-size:11px!important;color:var(--ui-muted)!important}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.selected{background:var(--ui-purple-soft)!important;border-color:var(--ui-purple)!important;color:var(--ui-purple)!important}
@@ -255,8 +256,7 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-c
   #app #borrowerAccountContent .ll-client-hub .ll-summary-stat-grid.cp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   #app #borrowerAccountContent .ll-client-hub .ll-summary-stat-grid.cp-kpis>div{min-height:116px!important}
   #app #borrowerAccountContent .ll-client-hub .cp-overview{grid-template-columns:1fr}
-  #app #borrowerAccountContent .ll-client-hub .cp-overview-side{border-left:0;border-top:1px solid var(--ui-line);display:grid;grid-template-columns:1fr 1fr}
-  #app #borrowerAccountContent .ll-client-hub .cp-overview-side .cp-section+.cp-section{border-top:0;border-left:1px solid var(--ui-line)}
+  #app #borrowerAccountContent .ll-client-hub .cp-overview-side{grid-template-columns:repeat(2,minmax(0,1fr))}
   #app #borrowerAccountContent .ll-client-hub .cp-ledger-head{display:none}
   #app #borrowerAccountContent .ll-client-hub .cp-record>summary:is(.cp-payment-columns,.cp-loan-columns){grid-template-columns:1fr 1fr auto;gap:7px 14px}
   #app #borrowerAccountContent .ll-client-hub .cp-record>summary strong{grid-column:2;grid-row:1;justify-self:end}
@@ -279,7 +279,6 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-c
   #app #borrowerAccountContent .ll-client-hub .cp-due-facts strong{margin-top:0;font-size:14px}
   #app #borrowerAccountContent .ll-client-hub [data-calendar-detail-body]{padding:13px}
   #app #borrowerAccountContent .ll-client-hub .cp-overview-side{grid-template-columns:1fr}
-  #app #borrowerAccountContent .ll-client-hub .cp-overview-side .cp-section+.cp-section{border-left:0;border-top:1px solid var(--ui-line)}
   #app #borrowerAccountContent .ll-client-hub .ll-summary-kpi-main::after{display:none}
   #app #borrowerAccountContent .ll-client-hub .ll-summary-stat-grid.cp-kpis .ll-summary-kpi-main{grid-template-columns:1fr!important;gap:5px!important}
   #app #borrowerAccountContent .ll-client-hub .ll-summary-stat-grid.cp-kpis .ll-elegant-metric-icon{display:none!important}
@@ -314,21 +313,26 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-c
   #app #borrowerAccountContent .ll-client-hub .ll-client-rail{animation:none!important;transition:none!important}
 }
 
-/* Short status lines preserve the original tiles and purple selection. */
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.ok{--due-indicator:#247a46}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-indicator:#b8353d}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-indicator:#8a5b05}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.ok{--due-indicator:#8cdba7}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.danger{--due-indicator:#ff9a9f}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-date.pending{--due-indicator:#f3d17d}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending){position:relative!important}
-#app #borrowerAccountContent .ll-client-hub .ll-cycle-date:is(.ok,.danger,.pending)::before{content:'';position:absolute;bottom:5px;left:calc(50% - 12px);width:24px;height:3px;border-radius:2px;background:var(--due-indicator);pointer-events:none}
-#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend{display:flex;justify-content:center;flex-wrap:wrap;gap:18px;margin:14px 0 0;font-size:11px;line-height:1.5;color:var(--ui-muted)}
-#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span{display:inline-flex;align-items:center;gap:6px}
-#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span::before{content:'';width:14px;height:3px;border-radius:2px;background:currentColor}
-#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .paid{color:#247a46}
-#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .overdue{color:#b8353d}
-#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .pending{color:#8a5b05}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .paid{color:#8cdba7}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .overdue{color:#ff9a9f}
-body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend .pending{color:#f3d17d}
+/* Name the status inside the tile while keeping the tile and selection colors. */
+#app #borrowerAccountContent .ll-client-hub .cp-calendar :is(.ll-cycle-date.ok,.cp-calendar-legend .paid){--due-status-ink:var(--night-green,#22643c);--due-status-bg:var(--night-green-bg,#e8f5eb)}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar :is(.ll-cycle-date.danger,.cp-calendar-legend .overdue){--due-status-ink:var(--night-red,#a32d3b);--due-status-bg:var(--night-red-bg,#ffedef)}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar :is(.ll-cycle-date.pending,.cp-calendar-legend .pending){--due-status-ink:var(--night-amber,#795000);--due-status-bg:var(--night-amber-bg,#fff2d3)}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar .ll-cycle-date>.cp-date-status{
+  display:inline-flex!important;align-items:center;justify-content:center;min-height:22px;
+  margin-top:4px;padding:3px 8px;border-radius:999px;box-sizing:border-box;
+  background:var(--due-status-bg,var(--ui-line))!important;color:var(--due-status-ink,var(--ui-muted))!important;
+  font-size:11.5px!important;font-weight:700;line-height:1.35;white-space:nowrap;text-transform:none;
+}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:4px 14px;font-size:11px;line-height:1.45;font-weight:650}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span{color:var(--due-status-ink,var(--ui-muted))}
+@container client-calendar (max-width:600px){
+  #app #borrowerAccountContent .ll-client-hub .cp-calendar .ll-cycle-date-row{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@container client-calendar (max-width:420px){
+  #app #borrowerAccountContent .ll-client-hub .cp-calendar-tools{width:100%;justify-items:start}
+  #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav{width:100%;justify-content:space-between}
+  #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend{justify-content:flex-start}
+}
+@container client-calendar (max-width:252px){
+  #app #borrowerAccountContent .ll-client-hub .cp-calendar .ll-cycle-date-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
