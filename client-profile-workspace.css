@@ -23,6 +23,12 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub{
 #app #borrowerAccountContent .ll-client-hub .ll-title-row{gap:10px!important}
 #app #borrowerAccountContent .ll-client-hub .ll-client-meta{margin-top:6px!important;gap:14px!important;align-items:center!important;font-size:13px!important;color:var(--ui-muted)!important}
 #app #borrowerAccountContent .ll-client-hub .ll-client-meta b{font-weight:550;color:var(--ui-muted)!important}
+#app #borrowerAccountContent .ll-client-hub .ll-client-header-copy{min-width:0}
+#app #borrowerAccountContent .ll-client-hub .cp-client-notes{
+  margin-top:6px;font-size:13px;line-height:1.45;color:var(--ui-muted);
+  white-space:pre-wrap;overflow-wrap:anywhere;max-height:5.8em;overflow-y:auto;
+}
+#app #borrowerAccountContent .ll-client-hub .cp-client-notes strong{font-weight:650}
 #app #borrowerAccountContent .ll-client-hub .ll-action-row{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important}
 #app #borrowerAccountContent .ll-client-hub .cp-action{
   width:auto!important;min-height:40px!important;margin:0!important;padding:10px 14px!important;

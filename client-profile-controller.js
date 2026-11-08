@@ -22,7 +22,7 @@ const STYLE_FILES=[
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
   ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
-  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=7']
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=8']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -164,7 +164,7 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
     db.from('profiles').select('user_id,full_name,role')
   ];
   if(includeAccounts)jobs.push(db.from('borrower_account_summary').select('*').order('full_name',{ascending:true}));
-  const results=await Promise.all(jobs);
+  const [results,userRes]=await Promise.all([Promise.all(jobs),db.auth.getUser()]);
   for(const result of results)if(result.error)throw result.error;
   const [summaryRes,calendarRes,disbRes,contactRes,followRes,settingsRes,fundingRes,profilesRes,accountsRes]=results;
   if(!calendarRes.data)throw new Error('No se pudo consultar el calendario de esta cuenta.');
@@ -178,6 +178,7 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
   });
   return {
     summary:summaryRes.data,
+    canEditClient:['ADMIN','AGENT'].includes(profilesRes.data?.find(row=>row.user_id===userRes.data?.user?.id)?.role),
     calendarRows:calendarRes.data.rows||[],
     calendarAsOf:calendarRes.data.as_of_date||today(),
     disbursements:(disbRes.data||[]).map(row=>({...row,funding:fundingByLoan.get(row.id)||[]})),
@@ -364,6 +365,13 @@ function composerHtml(data){
   return `<div class="cp-composer-overlay" data-close-composer hidden></div><aside class="cp-composer" role="dialog" aria-modal="true" aria-labelledby="cpComposerTitle" hidden>
     <header class="cp-composer-head"><div><p>Cuenta de <strong data-slot="composer-name">${esc(a.full_name)}</strong></p><h2 id="cpComposerTitle">Registrar pago</h2></div><button type="button" class="cp-close" data-close-composer aria-label="Cerrar panel">×</button></header>
     <div class="cp-composer-context"><span>Capital pendiente</span><strong data-slot="composer-balance">${money(a.principal_balance)}</strong></div><div class="cp-composer-body">
+      <section data-composer-panel="client" hidden><form id="llProfileClientForm" class="ll-profile-form">
+        <label>Nombre completo<input id="llProfileClientName" type="text" required></label>
+        <label>Teléfono<input id="llProfileClientPhone" type="tel"></label>
+        <label>Notas del cliente<textarea id="llProfileClientNotes" rows="4"></textarea></label>
+        <div id="llProfileClientStatus" class="ll-form-status" role="status"></div>
+        <div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar cambios</button></div>
+      </form></section>
       <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>${mixedPaymentMarkup('llProfileMixed')}${paymentCalendarMarkup('llProfileCalendar')}<label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
       <section data-composer-panel="disbursement" hidden><form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="1" step="1" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div class="ll-form-section-title">Distribución de inversión</div><div id="llProfileFundingRows">${fundingRowsHtml(data)}</div><div id="llProfileFundingTotal" class="ll-form-status"></div><p class="cp-form-help">El capital se agrega a la cuenta y se recalculan las cuotas futuras.</p><div id="llProfileDisbursementStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary" ${data.defaultFunding.length?'':'disabled'}>Guardar desembolso</button></div></form></section>
       <section data-composer-panel="note" hidden><form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><div id="llProfileContactStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar nota</button></div></form></section>
@@ -378,7 +386,7 @@ function profileShellHtml(data,selectedId){
       <div class="ll-controller-loading-badge" aria-live="polite"><span class="ll-controller-loading-dot"></span><strong>Cargando...</strong></div>
       <div class="cp-masthead"><section class="ll-client-header">
         <div class="ll-avatar-xl ll-dynamic-value" data-slot="header-avatar">${esc(initials(a.full_name))}</div>
-        <div class="ll-client-header-copy"><div class="ll-title-row"><h1 class="ll-client-title ll-dynamic-value" data-slot="header-name">${esc(a.full_name||'Cuenta del cliente')}</h1><span class="ll-status-pill ${tone(a.account_status)} ll-dynamic-value" data-slot="header-status">${esc(statusLabel(a.account_status))}</span></div><div class="ll-client-meta"><span>Teléfono: <b class="ll-dynamic-value" data-slot="header-phone">${esc(a.phone||'Sin teléfono')}</b></span><button type="button" class="cp-text-action" data-top-action="whatsapp">WhatsApp</button></div></div>
+        <div class="ll-client-header-copy"><div class="ll-title-row"><h1 class="ll-client-title ll-dynamic-value" data-slot="header-name">${esc(a.full_name||'Cuenta del cliente')}</h1><span class="ll-status-pill ${tone(a.account_status)} ll-dynamic-value" data-slot="header-status">${esc(statusLabel(a.account_status))}</span></div><div class="ll-client-meta"><span>Teléfono: <b class="ll-dynamic-value" data-slot="header-phone">${esc(a.phone||'Sin teléfono')}</b></span><button type="button" class="cp-text-action" data-top-action="whatsapp">WhatsApp</button><button type="button" class="cp-text-action" data-composer="client"${data.canEditClient?'':' hidden'}>Editar cliente</button></div><div class="cp-client-notes" tabindex="0"${a.notes?.trim()?'':' hidden'}><strong>Notas del cliente:</strong> <span data-slot="header-notes">${esc(a.notes||'')}</span></div></div>
         <div class="ll-action-row"><button class="ll-primary-btn cp-action cp-primary" type="button" id="llFocusPay" data-composer="payment">${svg('payment')} Registrar pago</button><button class="cp-action" type="button" data-composer="disbursement">Nuevo desembolso</button><details class="ll-more-actions"><summary aria-label="Más acciones">${svg('more')}</summary><div class="ll-more-menu"><button type="button" data-composer="note">Agregar nota o contacto</button><button type="button" data-composer="followup">Programar seguimiento</button></div></details></div>
       </section>
       <div class="ll-summary-stat-grid cp-kpis" aria-label="Resumen de la cuenta">
@@ -599,6 +607,12 @@ function updateActiveRail(borrowerId,summary=null){
   });
   const card=root.querySelector(`.ll-client-card[data-acct-borrower="${CSS.escape(String(borrowerId))}"]`);
   if(card&&summary){
+    const name=summary.full_name||'Sin nombre';
+    card.setAttribute('aria-label',name);
+    card.title=name;
+    card.dataset.clientSearch=name.toLowerCase();
+    transitionValue(card.querySelector('.ll-client-name'),name);
+    transitionValue(card.querySelector('.ll-client-initials'),initials(name));
     transitionValue(card.querySelector('.ll-client-balance'),money(summary.principal_balance));
     const badge=card.querySelector('.ll-rail-badge');
     if(badge){
@@ -698,6 +712,14 @@ function applyHistoryFilters(root){
 function syncContactAction(root,data){
   const action=root?.querySelector('[data-top-action="whatsapp"]');
   if(action)action.hidden=!String(data?.summary?.phone||'').replace(/\D/g,'');
+  const edit=root?.querySelector('[data-composer="client"]');
+  if(edit)edit.hidden=!data?.canEditClient;
+  const notes=root&&slot(root,'header-notes');
+  if(notes){
+    const value=data?.summary?.notes||'';
+    notes.textContent=value;
+    notes.parentElement.hidden=!value.trim();
+  }
 }
 function resetComposerForms(root,data,form=null){
   const scope=form||root.querySelector('.cp-composer');
@@ -754,7 +776,16 @@ function openComposer(kind,trigger=null){
   const drawer=root?.querySelector('.cp-composer'),panel=drawer?.querySelector(`[data-composer-panel="${kind}"]`);
   if(!drawer||!panel||root.querySelector('.ll-controller-loading-badge.visible'))return;
   if(panel.querySelector('form')?.dataset.saving==='1')return;
-  const titles={payment:'Registrar pago',disbursement:'Nuevo desembolso',note:'Agregar nota o contacto',followup:'Programar seguimiento'};
+  if(kind==='client'){
+    if(!currentData?.canEditClient)return;
+    const {full_name,phone,notes}=currentData.summary;
+    panel.querySelector('#llProfileClientName').value=full_name||'';
+    panel.querySelector('#llProfileClientPhone').value=phone||'';
+    panel.querySelector('#llProfileClientNotes').value=notes||'';
+    setStatus('llProfileClientStatus','');
+  }
+  drawer.querySelector('.cp-composer-context').hidden=kind==='client';
+  const titles={client:'Editar cliente',payment:'Registrar pago',disbursement:'Nuevo desembolso',note:'Agregar nota o contacto',followup:'Programar seguimiento'};
   drawer.querySelector('#cpComposerTitle').textContent=titles[kind];
   drawer.querySelectorAll('[data-composer-panel]').forEach(item=>item.hidden=item!==panel);
   root.querySelectorAll('.ll-more-actions').forEach(menu=>menu.removeAttribute('open'));
@@ -763,7 +794,7 @@ function openComposer(kind,trigger=null){
   const backgrounds=[root.querySelector('.ll-workspace'),root.querySelector('.ll-client-rail'),document.getElementById('llGlobalSidebar')].filter(Boolean);
   if(!composerBackgrounds.length){composerBackgrounds=backgrounds.map(node=>({node,inert:node.hasAttribute('inert')}));backgrounds.forEach(node=>node.setAttribute('inert',''));}
   drawer.querySelector('.cp-composer-body').scrollTop=0;
-  const focus={payment:'#llProfilePayAmount',disbursement:'#llProfilePrincipal',note:'#llProfileContactNotes',followup:'#llProfileFollowupReason'};
+  const focus={client:'#llProfileClientName',payment:'#llProfilePayAmount',disbursement:'#llProfilePrincipal',note:'#llProfileContactNotes',followup:'#llProfileFollowupReason'};
   panel.querySelector(focus[kind])?.focus({preventScroll:true});
   if(kind==='payment')updateProfilePaymentPreview({force:true});
 }
@@ -824,12 +855,43 @@ async function refreshCurrent(){
 async function handleSubmit(event){
   const form=event.target.closest('form');
   if(!form||!form.closest('#borrowerAccountContent .ll-account-shell'))return;
-  if(!['llSummaryQuickPayForm','llProfilePaymentForm','llProfileContactForm','llProfileFollowupForm','llProfileDisbursementForm'].includes(form.id))return;
+  if(!['llProfileClientForm','llSummaryQuickPayForm','llProfilePaymentForm','llProfileContactForm','llProfileFollowupForm','llProfileDisbursementForm'].includes(form.id))return;
   event.preventDefault();
   if(form.dataset.saving==='1')return;
   const submit=form.querySelector('button[type="submit"]'),wasDisabled=submit?.disabled;
   form.dataset.saving='1';form.setAttribute('aria-busy','true');if(submit)submit.disabled=true;
   try{
+    if(form.id==='llProfileClientForm'){
+      const root=form.closest('.ll-account-shell'),borrowerId=currentBorrowerId;
+      if(!borrowerId||!currentData?.canEditClient||root.dataset.activeBorrower!==String(borrowerId))return;
+      const full_name=form.querySelector('#llProfileClientName').value.trim();
+      const phone=form.querySelector('#llProfileClientPhone').value.trim()||null;
+      const notes=form.querySelector('#llProfileClientNotes').value.trim()||null;
+      const status='llProfileClientStatus';
+      if(!full_name)return setStatus(status,'Escribe el nombre del cliente.',true);
+      setStatus(status,'Guardando cambios…');
+      const {data:saved,error}=await db.from('borrowers').update({full_name,phone,notes}).eq('id',borrowerId).select('full_name,phone,notes').single();
+      if(error||!saved){
+        if(String(currentBorrowerId)===String(borrowerId))setStatus(status,'No se pudo guardar la información del cliente.',true);
+        return;
+      }
+      accounts=accounts.map(account=>String(account.borrower_id)===String(borrowerId)?{...account,...saved}:account);
+      invalidatePageReads();
+      window.dispatchEvent(new CustomEvent('loan-ledger:client-details-updated'));
+      if(String(currentBorrowerId)===String(borrowerId)&&root.isConnected&&!root.querySelector('.cp-composer').hidden){
+        currentData={...currentData,summary:{...currentData.summary,...saved}};
+        const summary=currentData.summary;
+        transitionValue(slot(root,'header-name'),summary.full_name);
+        transitionValue(slot(root,'header-avatar'),initials(summary.full_name));
+        transitionValue(slot(root,'header-phone'),summary.phone||'Sin teléfono');
+        transitionValue(slot(root,'composer-name'),summary.full_name);
+        syncContactAction(root,currentData);
+        updateActiveRail(borrowerId,summary);
+        closeComposer(true);
+        announceProfile('Información del cliente actualizada.');
+      }
+      return;
+    }
     if(form.id==='llSummaryQuickPayForm'||form.id==='llProfilePaymentForm'){
       const summary=form.id==='llSummaryQuickPayForm';
       const amount=Number(form.querySelector(summary?'#llSummaryPayAmount':'#llProfilePayAmount')?.value||0);
@@ -881,7 +943,11 @@ async function handleSubmit(event){
     try{await refreshCurrent();}catch(error){console.error('saved profile refresh failed',error);announceProfile('El registro se guardó, pero no se pudo actualizar la cuenta.',true);showLoadingBadge(false);}
     const root=document.querySelector('#borrowerAccountContent .ll-account-shell');if(root&&currentData)resetComposerForms(root,currentData,form);
     closeComposer(true);
-  }catch(error){console.error('client profile action failed',error);alert(error.message||error);}
+  }catch(error){
+    console.error('client profile action failed',error);
+    if(form.id==='llProfileClientForm')setStatus('llProfileClientStatus','No se pudo guardar la información del cliente.',true);
+    else alert(error.message||error);
+  }
   finally{delete form.dataset.saving;form.removeAttribute('aria-busy');if(submit)submit.disabled=!!wasDisabled;}
 }
 

@@ -282,6 +282,8 @@ async function addClient(event){
   }
 }
 
+window.addEventListener("loan-ledger:client-details-updated",()=>{lastLoadAt=0;if(isClientsPage())loadData(true);});
+
 function tick(){ensureClientsDom();if(isClientsPage())loadData(false);}
 const pageNode=qs("borrowersPage");
 if(pageNode)new MutationObserver(()=>setTimeout(tick,40)).observe(pageNode,{attributes:true,attributeFilter:["class"]});
