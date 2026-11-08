@@ -11,7 +11,7 @@ const supabase=createClient(
 );
 
 function ensureStyle(){
-  const href="./home-dashboard.css?v=21";
+  const href="./home-dashboard.css?v=22";
   let link=document.getElementById("homeDashboardCss");
   if(!link){link=document.createElement("link");link.id="homeDashboardCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;

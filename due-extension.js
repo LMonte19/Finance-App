@@ -8,7 +8,7 @@ import './payment-management.js?v=10';
 import './activity-log.js?v=4';
 import './followups.js?v=2';
 import './loan-health.js?v=2';
-import './home-dashboard.js?v=22';
+import './home-dashboard.js?v=23';
 import './role-security.js?v=2';
 import './system-check.js?v=2';
 import './language-toggle.js?v=4';
@@ -24,7 +24,7 @@ const paymentManagementCss=document.getElementById('paymentManagementCss');
 if(paymentManagementCss) paymentManagementCss.href='./payment-management.css?v=4';
 
 const homeDashboardCss=document.getElementById('homeDashboardCss');
-if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=21';
+if(homeDashboardCss) homeDashboardCss.href='./home-dashboard.css?v=22';
 
 let homeDashboardKpiCss=document.getElementById('homeDashboardKpiCss');
 if(!homeDashboardKpiCss){

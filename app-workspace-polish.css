@@ -1,23 +1,25 @@
-/* Shared KPI composition, based on the Home summary. */
+/* Shared KPI composition across the portfolio workspaces. */
 #app :is(#dashboardPage .ll-home-kpi,#loansDashboardHost .ld-metric-card,#paymentsPage .ll-payment-kpi){
   display:flex!important;flex-direction:column!important;justify-content:flex-start!important;
   min-width:0!important;min-height:176px!important;padding:20px 20px 17px!important;
   border-radius:20px!important;box-sizing:border-box!important;
 }
 #app :is(#dashboardPage .ll-home-kpi-main,#loansDashboardHost .ld-metric-main,#paymentsPage .ll-payment-kpi-main){
-  display:grid!important;grid-template-columns:50px minmax(0,max-content) 50px!important;
-  align-items:center!important;justify-content:center!important;gap:12px!important;
+  display:grid!important;
+  grid-template-columns:var(--kpi-icon-size,50px) minmax(0,max-content) var(--kpi-icon-size,50px)!important;
+  align-items:center!important;justify-content:center!important;gap:var(--kpi-icon-gap,12px)!important;
   width:100%!important;min-width:0!important;min-height:76px!important;flex:0 0 auto!important;
 }
 #app :is(#dashboardPage .ll-home-kpi-main,#loansDashboardHost .ld-metric-main,#paymentsPage .ll-payment-kpi-main)::after{
-  content:"";display:block;width:50px;height:1px;grid-column:3;
+  content:"";display:block;width:var(--kpi-icon-size,50px);height:1px;grid-column:3;
 }
 #app :is(#dashboardPage .ll-home-kpi-copy,#loansDashboardHost .ld-metric-copy,#paymentsPage .ll-payment-kpi-copy){
   grid-column:2!important;min-width:0!important;max-width:100%!important;text-align:left!important;
 }
 #app :is(#dashboardPage .ll-home-kpi-icon,#loansDashboardHost .ld-metric-icon,#paymentsPage .ll-payment-kpi-icon){
   position:static!important;grid-column:1!important;transform:none!important;margin:0!important;
-  width:50px!important;height:50px!important;border-radius:50%!important;align-self:center!important;
+  width:var(--kpi-icon-size,50px)!important;height:var(--kpi-icon-size,50px)!important;
+  border-radius:50%!important;align-self:center!important;
 }
 #app :is(#dashboardPage .ll-home-kpi-change,#loansDashboardHost .ld-metric-change,#paymentsPage .ll-kpi-trend){
   display:flex!important;align-items:center!important;justify-content:center!important;flex-wrap:wrap!important;
@@ -26,8 +28,31 @@
   border-top:1px solid var(--ui-line)!important;text-align:center!important;white-space:normal!important;
   line-height:1.35!important;flex:1 1 auto!important;
 }
-#app #dashboardPage .ll-home-kpi-change{font-size:12px!important}
-#app #loansDashboardHost .ld-metric-change{font-size:11.5px!important}
+
+/* Match the scale of the client profile's KPIs on Home and Loans. */
+#app :is(#dashboardPage .ll-home-kpi,#loansDashboardHost .ld-metric-card){
+  --kpi-icon-size:28px;--kpi-icon-gap:8px;
+  min-height:130px!important;height:auto!important;padding:14px 14px 12px!important;border-radius:16px!important;
+}
+#app :is(#dashboardPage .ll-home-kpi-main,#loansDashboardHost .ld-metric-main){
+  min-height:62px!important;flex:1 0 auto!important;
+}
+#app :is(#dashboardPage .ll-home-kpi-copy,#loansDashboardHost .ld-metric-copy){width:auto;text-align:center!important}
+#app :is(#dashboardPage .ll-home-kpi-icon,#loansDashboardHost .ld-metric-icon) svg{width:14px;height:14px}
+#app :is(#dashboardPage .ll-home-kpi-copy>small,#loansDashboardHost .ld-metric-label){font-size:13px!important;line-height:1.3!important}
+#app :is(#dashboardPage .ll-home-kpi-copy>strong,#loansDashboardHost .ld-metric-value){
+  margin:4px 0 0!important;font-size:22px!important;line-height:1.2!important;
+  white-space:normal!important;overflow-wrap:anywhere!important;
+}
+#app :is(#dashboardPage .ll-home-kpi-copy>p,#loansDashboardHost .ld-metric-note){
+  margin:3px 0 0!important;min-height:0!important;font-size:12px!important;line-height:1.3!important;white-space:normal!important;
+}
+#app :is(#dashboardPage .ll-home-kpi-change,#loansDashboardHost .ld-metric-change){
+  min-height:30px!important;margin:10px 0 0!important;padding:12px 0 0!important;
+  font-size:12px!important;flex:0 0 auto!important;
+}
+#app :is(#dashboardPage .ll-home-kpi-change b,#loansDashboardHost .ld-metric-change strong){font-size:inherit!important}
+
 #app #paymentsPage .ll-payment-kpi-copy{display:flex!important;flex-direction:column!important}
 #app #paymentsPage .ll-payment-kpi-copy>span{font-size:13px!important;color:var(--ui-muted)!important}
 #app #paymentsPage .ll-payment-kpi-copy>small{border:0!important;padding:0!important;margin-top:7px!important}
@@ -129,7 +154,7 @@
   #app #loansDashboardHost .ld-dashboard-main .ld-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 @media(min-width:641px) and (max-width:1550px){
-  #app :is(#dashboardPage .ll-home-kpis,#paymentsPage .ll-payment-kpis){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #app #paymentsPage .ll-payment-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 @media(min-width:1221px){
   #app #paymentsPage .ll-payments-shell.ll-drawer-open .ll-payment-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
@@ -140,11 +165,8 @@
   #app #loansDashboardHost .ld-dashboard-side{display:grid!important;grid-template-columns:1fr!important;gap:20px!important}
 }
 @media(max-width:640px){
-  #app :is(#dashboardPage .ll-home-kpis,#loansDashboardHost .ld-metric-grid,#paymentsPage .ll-payment-kpis){grid-template-columns:1fr!important}
-  #app :is(#dashboardPage .ll-home-kpi,#loansDashboardHost .ld-metric-card,#paymentsPage .ll-payment-kpi){min-height:170px!important;padding:19px 18px 16px!important}
-  #app #dashboardPage .ll-home-kpi :is(small,p){font-size:12px!important}
-  #app #dashboardPage .ll-home-kpi strong{font-size:22px!important}
-  #app #dashboardPage .ll-home-kpi-change :is(span,b,em){font-size:11.5px!important}
+  #app :is(#loansDashboardHost .ld-metric-grid,#paymentsPage .ll-payment-kpis){grid-template-columns:1fr!important}
+  #app #paymentsPage .ll-payment-kpi{min-height:170px!important;padding:19px 18px 16px!important}
   #app #loansDashboardHost #ldClientPanel.grid-mode .ld-client-list{grid-template-columns:1fr!important}
   #app #loansDashboardHost #ldClientPanel.grid-mode .ld-client-row{padding:20px!important}
 }
