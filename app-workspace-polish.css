@@ -150,8 +150,28 @@
   #app #loansDashboardHost .ld-dashboard-side{position:sticky;top:0;max-height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;overscroll-behavior:contain}
   #app #loansDashboardHost :is(.ld-dashboard-main,.ld-dashboard-side)>*{flex-shrink:0}
 }
-@media(min-width:641px) and (max-width:1650px){
-  #app #loansDashboardHost .ld-dashboard-main .ld-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+/* The loan summary follows the width left by the navigation and portfolio panel. */
+#app #loansDashboardHost .ld-dashboard-main{container:loan-summary / inline-size}
+#app #loansDashboardHost .ld-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+@container loan-summary (min-width:640px){
+  #app #loansDashboardHost .ld-metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@container loan-summary (min-width:640px) and (max-width:1010px){
+  /* Put the icon by the label to give the amount the full width of a narrow card. */
+  #app #loansDashboardHost .ld-metric-card{padding-inline:8px!important}
+  #app #loansDashboardHost .ld-metric-main{
+    grid-template-columns:20px minmax(0,max-content)!important;gap:0 5px!important;align-content:center;
+  }
+  #app #loansDashboardHost .ld-metric-main::after{content:none}
+  #app #loansDashboardHost .ld-metric-copy{display:contents}
+  #app #loansDashboardHost .ld-metric-icon{--kpi-icon-size:20px;grid-row:1}
+  #app #loansDashboardHost .ld-metric-label{grid-column:2;grid-row:1;text-align:left}
+  #app #loansDashboardHost :is(.ld-metric-value,.ld-metric-note){grid-column:1/-1;text-align:center}
+  #app #loansDashboardHost .ld-metric-change{gap:2px 5px!important;align-content:center}
+}
+@container loan-summary (min-width:640px) and (max-width:800px){
+  #app #loansDashboardHost .ld-metric-label{font-size:12px!important}
+  #app #loansDashboardHost .ld-metric-change{min-height:44px!important;padding-top:9px!important;font-size:11.5px!important}
 }
 @media(min-width:641px) and (max-width:1550px){
   #app #paymentsPage .ll-payment-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
