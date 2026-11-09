@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
 import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
 import { openActivityDetails } from './activity-details.js?v=3';
+import { openClientInstallmentPicker } from './client-installment-picker.js?v=1';
 
 const db=createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',
@@ -27,7 +28,7 @@ const STYLE_FILES=[
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
   ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
-  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=9']
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=10']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -51,6 +52,7 @@ let requestSequence=0;
 let activeTab='summary';
 let calendarOffset=0;
 let selectedDueIso=null;
+let profileCalendarPanel=null;
 let movementFilter='todos';
 const profileListTemplates=new WeakMap();
 const fundingEditors=new WeakMap();
@@ -146,7 +148,10 @@ function showAccountPage(){
 function syncFixedMode(){
   const page=document.getElementById('borrowerAccountPage');
   document.body.classList.toggle('ll-client-detail-fixed',!!page?.classList.contains('active-page')&&mounted);
-  if(!page?.classList.contains('active-page'))closeComposer(true,false);
+  if(!page?.classList.contains('active-page')){
+    profileCalendarPanel?.close(true,false);
+    closeComposer(true,false);
+  }
 }
 
 async function currentUserId(){
@@ -211,19 +216,25 @@ function nextDueRow(data){
   const rows=[...(data.calendarRows||[])].filter(row=>Number(row.amount_due||0)>0&&!['PAID','CANCELLED'].includes(dueStatus(row))).sort((a,b)=>String(a.due_date).localeCompare(String(b.due_date)));
   return rows.find(row=>daysFromToday(row.due_date)>=0)||rows[0]||(Number(data.summary.principal_balance||0)>0?selectedCalendarRow(data,nextCycleIso()):null);
 }
-function allCalendarDates(data=currentData){
-  const rows=data?.calendarRows||[];
-  return rows.length?[...new Set(rows.map(row=>row.due_date))].sort().map(parseIso):cycleDatesAround(new Date(),12,18);
+const CALENDAR_WINDOW_SIZE=6;
+function calendarRange(data){
+  const asOf=data.calendarAsOf||toIso(new Date());
+  const all=data.calendarRows.length?[...new Set(data.calendarRows.map(row=>row.due_date))].sort():cycleDatesAround(parseIso(asOf),12,18).map(toIso);
+  const upcoming=all.findIndex(iso=>iso>=asOf), currentIndex=upcoming<0?all.length-1:upcoming;
+  const lastStart=Math.max(0,all.length-CALENDAR_WINDOW_SIZE);
+  return {asOf,all,currentIso:all[currentIndex],baseStart:Math.min(lastStart,Math.max(0,currentIndex-1)),lastStart};
 }
-function visibleCycleDates(data=currentData){
-  const all=allCalendarDates(data);
-  const baseIso=nextCycleIso();
-  let baseIndex=all.findIndex(date=>toIso(date)===baseIso);
-  if(baseIndex<0)baseIndex=all.findIndex(date=>date>=new Date());
-  let start=Math.max(0,baseIndex-1+calendarOffset);
-  start=Math.min(start,Math.max(0,all.length-6));
-  calendarOffset=start-Math.max(0,baseIndex-1);
-  return all.slice(start,start+6);
+function calendarWindow(range){
+  const start=Math.min(range.lastStart,Math.max(0,range.baseStart+calendarOffset));
+  return {start,dates:range.all.slice(start,start+CALENDAR_WINDOW_SIZE)};
+}
+function selectVisibleDate(range,dates){
+  if(!dates.includes(selectedDueIso)){
+    selectedDueIso=dates.includes(range.currentIso)?range.currentIso:dates.find(iso=>iso>=range.asOf)||dates[1]||dates[0];
+  }
+}
+function calendarAtCurrent(range,start){
+  return start===range.baseStart&&selectedDueIso===range.currentIso;
 }
 function calendarBalance(data,iso){
   const row=selectedCalendarRow(data,iso),asOf=data.calendarAsOf||today();
@@ -247,8 +258,8 @@ function calendarDetailHtml(data,iso){
 }
 function monthRangeTitle(dates){
   const f=new Intl.DateTimeFormat('es',{month:'long',year:'numeric'});
-  const first=f.format(dates[0]);
-  const last=f.format(dates[dates.length-1]);
+  const first=f.format(parseIso(dates[0]));
+  const last=f.format(parseIso(dates.at(-1)));
   return first===last?first:`${first} – ${last}`;
 }
 
@@ -286,14 +297,30 @@ function clientRowHtml(a,selectedId){
 }
 
 function calendarHtml(context,data){
-  const dates=visibleCycleDates();
-  if(!selectedDueIso||!dates.some(date=>toIso(date)===selectedDueIso))selectedDueIso=toIso(dates.find(date=>date>=parseIso(today()))||dates[1]||dates[0]);
+  const range=calendarRange(data),{start,dates}=calendarWindow(range);
+  selectVisibleDate(range,dates);
   const selected=selectedCalendarRow(data,selectedDueIso);
   const balance=calendarBalance(data,selectedDueIso);
   const selectedStatus=dueStatus(selected);
   return `<div class="ll-cycle-calendar" data-calendar-context="${context}">
-    <div class="ll-cycle-calendar-head"><div><h2 id="cpCalendarTitle">Calendario de cuotas</h2><small>Día 15 y último día del mes</small></div><div class="cp-calendar-tools"><div class="ll-cycle-calendar-nav"><button type="button" data-calendar-move="-2" aria-label="Fechas anteriores">${svg('chevronLeft','ll-ref-svg',13)}</button><span>${esc(monthRangeTitle(dates))}</span><button type="button" data-calendar-move="2" aria-label="Fechas siguientes">${svg('chevronRight','ll-ref-svg',13)}</button></div><div class="cp-calendar-legend" aria-label="Estados de las cuotas"><span class="paid">Saldadas</span><span class="overdue">Atrasadas</span><span class="pending">Pendientes</span></div></div></div>
-    <div class="ll-cycle-date-row">${calendarDateButtonsHtml(dates,data)}</div>
+    <div class="ll-cycle-calendar-head">
+      <div><h2 id="cpCalendarTitle">Calendario de cuotas</h2><small>Día 15 y último día del mes</small></div>
+      <div class="cp-calendar-tools">
+        <div class="cp-calendar-navigation">
+          <div class="cp-calendar-actions">
+            <button type="button" class="cp-action cp-quiet" data-open-installment-picker aria-haspopup="dialog">${svg('calendar')} Ver calendario</button>
+            <button type="button" class="cp-action cp-quiet" data-calendar-current title="Volver al ${fmtDate(range.currentIso)}" ${calendarAtCurrent(range,start)?'disabled':''}>Cuota actual</button>
+          </div>
+          <div class="ll-cycle-calendar-nav">
+            <button type="button" data-calendar-move="-2" aria-label="Fechas anteriores" ${start===0?'disabled':''}>${svg('chevronLeft','ll-ref-svg',13)}</button>
+            <span data-calendar-range>${esc(monthRangeTitle(dates))}</span>
+            <button type="button" data-calendar-move="2" aria-label="Fechas siguientes" ${start===range.lastStart?'disabled':''}>${svg('chevronRight','ll-ref-svg',13)}</button>
+          </div>
+        </div>
+        <div class="cp-calendar-legend" aria-label="Estados de las cuotas"><span class="paid">Saldadas</span><span class="overdue">Atrasadas</span><span class="pending">Pendientes</span></div>
+      </div>
+    </div>
+    <div class="ll-cycle-date-row" data-calendar-window="${dates.join(',')}">${calendarDateButtonsHtml(dates,data)}</div>
     <div class="ll-cycle-detail ll-cycle-detail--compact">
       <div><small>Monto total</small><strong class="ll-dynamic-value" data-calendar-slot="total">${calendarMoney(balance.total)}</strong></div>
       <div><small>Cuota pendiente</small><strong class="ll-dynamic-value" data-calendar-slot="pending">${calendarMoney(selected.amount_due)}</strong></div>
@@ -302,7 +329,7 @@ function calendarHtml(context,data){
       <div><small>Vencimiento</small><strong class="ll-dynamic-value" data-calendar-slot="timing">${dueTiming(selectedDueIso)}</strong></div>
     </div>
     <p class="cp-calendar-note cp-calendar-equation">Monto total = cuota pendiente + atrasos anteriores vencidos.</p>
-    <details class="cp-due-details"><summary><span>Ver detalle de la cuota <time data-calendar-detail-date>${fmtDate(selectedDueIso)}</time></span>${svg('chevronDown')}</summary><div data-calendar-detail-body>${calendarDetailHtml(data,selectedDueIso)}</div></details>
+    <details class="cp-due-details"><summary><span>Ver detalle de la cuota <time data-calendar-detail-date datetime="${selectedDueIso}">${fmtDate(selectedDueIso)}</time></span>${svg('chevronDown')}</summary><div data-calendar-detail-body>${calendarDetailHtml(data,selectedDueIso)}</div></details>
   </div>`;
 }
 function calendarDatePresentation(iso,row){
@@ -311,8 +338,8 @@ function calendarDatePresentation(iso,row){
   return {label,style:state==='ok'&&status!=='PAID'?'pending':state,description:`${fmtDate(iso)} · ${label} · Saldo de la cuota ${calendarMoney(row.amount_due)}`};
 }
 function calendarDateButtonsHtml(dates,data){
-  return dates.map(date=>{
-    const iso=toIso(date),{label,style,description}=calendarDatePresentation(iso,selectedCalendarRow(data,iso));
+  return dates.map(iso=>{
+    const date=parseIso(iso),{label,style,description}=calendarDatePresentation(iso,selectedCalendarRow(data,iso));
     return `<button type="button" class="ll-cycle-date ${iso===selectedDueIso?'selected':''} ${style}" data-calendar-date="${iso}" aria-pressed="${iso===selectedDueIso?'true':'false'}" aria-label="${esc(description)}"><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('es',{month:'short'}).replace('.','').toUpperCase()}</small><span class="cp-date-status" aria-hidden="true">${label}</span></button>`;
   }).join('');
 }
@@ -518,10 +545,25 @@ function transitionList(host,nextHtml){
 function slot(root,name){return root.querySelector(`[data-slot="${name}"]`);}
 
 async function updateCalendars(root,data){
+  if(!root)return;
+  const range=calendarRange(data),{start,dates}=calendarWindow(range);
+  calendarOffset=start-range.baseStart;
+  selectVisibleDate(range,dates);
   const jobs=[];
   root.querySelectorAll('.ll-cycle-calendar').forEach(calendar=>{
+    const rowHost=calendar.querySelector('.ll-cycle-date-row'), windowKey=dates.join(',');
+    if(rowHost.dataset.calendarWindow!==windowKey){
+      rowHost.innerHTML=calendarDateButtonsHtml(dates,data);
+      rowHost.dataset.calendarWindow=windowKey;
+    }
+    const title=calendar.querySelector('[data-calendar-range]'), monthRange=monthRangeTitle(dates);
+    if(title.textContent!==monthRange)title.textContent=monthRange;
+    calendar.querySelector('[data-calendar-move="-2"]').disabled=start===0;
+    calendar.querySelector('[data-calendar-move="2"]').disabled=start===range.lastStart;
+    const current=calendar.querySelector('[data-calendar-current]');
+    current.disabled=calendarAtCurrent(range,start);
+    current.title=`Volver al ${fmtDate(range.currentIso)}`;
     const buttons=[...calendar.querySelectorAll('[data-calendar-date]')];
-    if(!selectedDueIso||!buttons.some(btn=>btn.dataset.calendarDate===selectedDueIso))selectedDueIso=buttons.find(btn=>daysFromToday(btn.dataset.calendarDate)>=0)?.dataset.calendarDate||buttons[0]?.dataset.calendarDate;
     buttons.forEach(btn=>{
       const {label,style,description}=calendarDatePresentation(btn.dataset.calendarDate,selectedCalendarRow(data,btn.dataset.calendarDate));
       btn.classList.remove('ok','pending','danger','closed');
@@ -546,7 +588,7 @@ async function updateCalendars(root,data){
       body.innerHTML=nextHtml;body.__calendarMarkup=nextHtml;
       body.querySelectorAll('[data-payment-receipt]').forEach(p=>p.toggleAttribute('open',open.has(p.dataset.paymentReceipt)));
     }
-    const date=calendar.querySelector('[data-calendar-detail-date]');if(date)date.textContent=fmtDate(selectedDueIso);
+    const date=calendar.querySelector('[data-calendar-detail-date]');if(date){date.dateTime=selectedDueIso;date.textContent=fmtDate(selectedDueIso);}
   });
   await Promise.all(jobs);
 }
@@ -557,14 +599,7 @@ async function updateProfile(data,borrowerId){
   const a=data.summary,next=nextDueRow(data),suggested=Number(a.current_cycle_fee||a.current_monthly_fee||0);
   const clientChanged=String(root.dataset.activeBorrower)!==String(borrowerId);
   if(clientChanged){closeComposer(true,false);resetComposerForms(root,data);root.querySelector('.cp-due-details')?.removeAttribute('open');root.querySelectorAll('[data-history-search-input]').forEach(input=>input.value='');const filter=root.querySelector('[data-payment-state-filter]');if(filter)filter.value='all';const notice=root.querySelector('.cp-notice');if(notice)notice.hidden=true;}
-  if(clientChanged){
-    calendarOffset=0;selectedDueIso=null;
-    const dates=visibleCycleDates(data);selectedDueIso=toIso(dates.find(date=>date>=parseIso(today()))||dates[1]||dates[0]);
-    root.querySelectorAll('.ll-cycle-calendar').forEach(calendar=>{
-      calendar.querySelector('.ll-cycle-date-row').innerHTML=calendarDateButtonsHtml(dates,data);
-      calendar.querySelector('.ll-cycle-calendar-nav span').textContent=monthRangeTitle(dates);
-    });
-  }
+  if(clientChanged){calendarOffset=0;selectedDueIso=null;}
   root.dataset.activeBorrower=String(borrowerId);
   root.dataset.overdue=Number(a.overdue_amount)>0?'1':'0';
   const jobs=[
@@ -675,6 +710,7 @@ async function selectClient(borrowerId,{initial=false}={}){
     return;
   }
   if(String(currentBorrowerId)===String(borrowerId)&&!initial){syncFixedMode();return;}
+  profileCalendarPanel?.close(true,false);
   closeComposer(true,false);
   updateActiveRail(borrowerId);
   showLoadingBadge(true);
@@ -709,7 +745,7 @@ function focusProfileControl(root,selector){
   if(!control)return;
   const fixed=window.matchMedia('(min-width:900px)').matches;
   control.focus({preventScroll:fixed});
-  const workspace=control.closest('.ll-workspace');
+  const workspace=control.closest('.cp-content,.ll-workspace');
   if(!fixed||!workspace)return;
   const target=control.getBoundingClientRect(),viewport=workspace.getBoundingClientRect();
   if(target.top<viewport.top||target.bottom>viewport.bottom)workspace.scrollTop+=target.top-viewport.top-24;
@@ -862,29 +898,34 @@ function announceProfile(message,retry=false){
 async function moveCalendar(direction){
   if(!currentData)return;
   calendarOffset+=Number(direction||0);
-  const dates=visibleCycleDates();
-  if(!dates.some(date=>toIso(date)===selectedDueIso))selectedDueIso=toIso(dates.find(date=>date>=parseIso(today()))||dates[1]||dates[0]);
-  const calendars=[...document.querySelectorAll('#borrowerAccountContent .ll-cycle-calendar')];
-  calendars.forEach(calendar=>{
-    const oldRow=calendar.querySelector('.ll-cycle-date-row');
-    const box=document.createElement('div');box.innerHTML=`<div class="ll-cycle-date-row">${calendarDateButtonsHtml(dates,currentData)}</div>`;
-    const newRow=box.firstElementChild;oldRow?.replaceWith(newRow);
-    const title=calendar.querySelector('.ll-cycle-calendar-nav span');if(title)title.textContent=monthRangeTitle(dates);
-  });
   await updateCalendars(document.querySelector('#borrowerAccountContent .ll-account-shell'),currentData);
 }
-async function chooseCalendarDate(iso){
-  if(!currentData||!iso)return;
-  selectedDueIso=iso;
+async function chooseCalendarDate(iso,{current=false}={}){
+  if(!currentData)return;
   const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
-  if(!root?.querySelector(`[data-calendar-date="${iso}"]`)){
-    const all=allCalendarDates(),index=all.findIndex(date=>toIso(date)===iso),base=all.findIndex(date=>toIso(date)===nextCycleIso());
-    if(index<0)return;
-    calendarOffset=index-Math.max(0,base-1);
-    await moveCalendar(0);
+  const range=calendarRange(currentData),target=current?range.currentIso:iso,index=range.all.indexOf(target);
+  if(!root||index<0)return;
+  if(current)calendarOffset=0;
+  else if(!calendarWindow(range).dates.includes(target)){
+    calendarOffset=Math.max(0,index-1)-range.baseStart;
   }
-  root?.querySelectorAll('[data-calendar-date]').forEach(btn=>btn.classList.toggle('selected',btn.dataset.calendarDate===iso));
+  selectedDueIso=target;
   await updateCalendars(root,currentData);
+  return target;
+}
+async function jumpCalendar(root,iso,options){
+  const target=await chooseCalendarDate(iso,options);
+  if(target)focusProfileControl(root,`[data-calendar-date="${target}"]`);
+}
+function openProfileCalendar(root,trigger){
+  if(!currentData)return;
+  const borrowerId=currentBorrowerId;
+  profileCalendarPanel=openClientInstallmentPicker({
+    rows:currentData.calendarRows, selectedIso: selectedDueIso, asOf: calendarRange(currentData).asOf,
+    borrowerName:currentData.summary.full_name||'Cuenta del cliente', describeDate:calendarDatePresentation, trigger,
+    onClose:()=>{profileCalendarPanel=null;},
+    onSelect:iso=>{if(currentBorrowerId===borrowerId)jumpCalendar(root,iso);}
+  });
 }
 
 function setStatus(id,message,error=false){const el=document.getElementById(id);if(el){el.textContent=message;el.classList.toggle('error',error);}}
@@ -1037,9 +1078,11 @@ async function handleClick(event){
     return;
   }
   if(event.target.closest('#llFocusPay')){showTab('payments');setTimeout(()=>focusProfileControl(root,'#llProfilePayAmount'),80);return;}
+  const calendarPicker=event.target.closest('[data-open-installment-picker]');if(calendarPicker){openProfileCalendar(root,calendarPicker);return;}
+  if(event.target.closest('[data-calendar-current]')){await jumpCalendar(root,null,{current:true});return;}
   const move=event.target.closest('[data-calendar-move]');if(move){event.preventDefault();moveCalendar(move.dataset.calendarMove);return;}
   const date=event.target.closest('[data-calendar-date]');if(date){event.preventDefault();chooseCalendarDate(date.dataset.calendarDate);return;}
-  const jump=event.target.closest('[data-calendar-jump]');if(jump){event.preventDefault();await chooseCalendarDate(jump.dataset.calendarJump);root.querySelector(`[data-calendar-date="${jump.dataset.calendarJump}"]`)?.focus({preventScroll:true});return;}
+  const jump=event.target.closest('[data-calendar-jump]');if(jump){event.preventDefault();await jumpCalendar(root,jump.dataset.calendarJump);return;}
   const filter=event.target.closest('.ll-movement-filter');if(filter){applyMovementFilter(root,filter.dataset.filter);return;}
   const summaryAmount=event.target.closest('[data-summary-amount]');if(summaryAmount){root.querySelectorAll('[data-summary-amount]').forEach(btn=>btn.classList.remove('active'));summaryAmount.classList.add('active');const input=root.querySelector('#llSummaryPayAmount');if(input)input.value=summaryAmount.dataset.summaryAmount;return;}
   const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}updateProfilePaymentPreview();return;}

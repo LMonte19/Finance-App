@@ -113,6 +113,10 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub{
 #app #borrowerAccountContent .ll-client-hub .cp-calendar{container-type:inline-size;container-name:client-calendar}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-head small{font-size:12px!important;color:var(--ui-muted)!important;margin-top:5px!important;line-height:1.4!important}
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-tools{display:grid;justify-items:end;gap:8px;min-width:0;max-width:100%}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-navigation{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px 14px;min-width:0}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-actions .cp-action{font-size:12px!important}
+#app #borrowerAccountContent .ll-client-hub .cp-calendar-actions [data-open-installment-picker] svg{color:var(--cp-accent-text)}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav{font-size:12px!important;color:var(--ui-muted)!important;gap:7px!important}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav button{flex:none}
 #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav span{min-width:0;text-align:center;line-height:1.4}
@@ -333,12 +337,54 @@ body[data-theme="night"] #app #borrowerAccountContent .ll-client-hub .ll-cycle-c
 #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend span{color:var(--due-status-ink,var(--ui-muted))}
 @container client-calendar (max-width:600px){
   #app #borrowerAccountContent .ll-client-hub .cp-calendar .ll-cycle-date-row{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  #app #borrowerAccountContent .ll-client-hub .cp-calendar-tools{width:100%;justify-items:start}
+  #app #borrowerAccountContent .ll-client-hub .cp-calendar-navigation{width:100%;justify-content:space-between}
 }
 @container client-calendar (max-width:420px){
-  #app #borrowerAccountContent .ll-client-hub .cp-calendar-tools{width:100%;justify-items:start}
   #app #borrowerAccountContent .ll-client-hub .ll-cycle-calendar-nav{width:100%;justify-content:space-between}
   #app #borrowerAccountContent .ll-client-hub .cp-calendar-legend{justify-content:flex-start}
 }
 @container client-calendar (max-width:252px){
   #app #borrowerAccountContent .ll-client-hub .cp-calendar .ll-cycle-date-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+
+/* Full installment calendar in the shared floating panel. */
+#app #llFloatingPanel .cp-installment-picker .cp-picker-navigation{
+  display:grid;grid-template-columns:38px minmax(0,1fr) minmax(66px,.5fr) 38px;gap:8px;margin-bottom:16px;
+}
+#app #llFloatingPanel .cp-picker-navigation :is(button,select){
+  width:100%;min-width:0;min-height:42px;margin:0;padding:0 10px;
+  border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);
+  font-family:inherit;font-size:14px;
+}
+#app #llFloatingPanel .cp-picker-navigation button{padding:0;font-size:22px;line-height:1}
+#app #llFloatingPanel .cp-picker-navigation button:not(:disabled):hover{background:var(--panel-raised)}
+#app #llFloatingPanel .cp-picker-navigation select:disabled{opacity:1;color:var(--panel-muted)}
+#app #llFloatingPanel .cp-picker-calendar{
+  padding:12px;border:1px solid var(--ui-line);border-radius:14px;background:var(--panel-raised);
+}
+#app #llFloatingPanel :is(.cp-picker-week,.cp-picker-days){display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+#app #llFloatingPanel .cp-picker-week{
+  padding-bottom:10px;border-bottom:1px solid var(--ui-line);margin-bottom:6px;
+  color:var(--panel-muted);font-size:11px;font-weight:650;text-align:center;
+}
+#app #llFloatingPanel .cp-picker-days>*{
+  display:grid;place-items:center;width:100%;min-width:0;min-height:42px;margin:0;padding:0;
+  color:var(--panel-muted);font-size:14px;line-height:1;font-variant-numeric:tabular-nums;
+}
+#app #llFloatingPanel .cp-installment-picker .ok{--picker-ink:var(--panel-good);--picker-bg:var(--panel-good-bg)}
+#app #llFloatingPanel .cp-installment-picker .danger{--picker-ink:var(--panel-bad);--picker-bg:var(--panel-bad-bg)}
+#app #llFloatingPanel .cp-installment-picker .pending{--picker-ink:var(--panel-warn);--picker-bg:var(--panel-warn-bg)}
+#app #llFloatingPanel .cp-picker-days .cp-picker-date{
+  border:1px solid transparent;border-radius:9px;background:var(--picker-bg,var(--ui-surface));
+  color:var(--picker-ink,var(--ui-ink));font-family:inherit;font-weight:750;
+}
+#app #llFloatingPanel .cp-picker-date.closed{border-color:var(--ui-line);color:var(--panel-muted)}
+#app #llFloatingPanel .cp-picker-days .cp-picker-date:is(:hover,[aria-pressed="true"]){border-color:var(--ui-purple)}
+#app #llFloatingPanel .cp-picker-legend{display:flex;justify-content:center;gap:5px 14px;flex-wrap:wrap;margin:14px 0;font-size:12px;font-weight:650}
+#app #llFloatingPanel .cp-picker-legend span{color:var(--picker-ink)}
+#app #llFloatingPanel .cp-installment-picker [data-picker-hint]{text-align:center}
+@media(max-width:420px){
+  #app #llFloatingPanel .cp-picker-calendar{padding:8px}
+  #app #llFloatingPanel .cp-picker-days>*{min-height:38px}
 }
