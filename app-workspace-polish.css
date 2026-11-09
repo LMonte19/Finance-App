@@ -93,10 +93,25 @@
 #app #loansDashboardHost .ld-filter-pills{gap:10px!important}
 #app #loansDashboardHost .ld-table-head{padding-top:4px!important;padding-bottom:16px!important}
 #app #loansDashboardHost .ld-search input{min-height:46px!important}
-#app #loansDashboardHost .ld-table-scroll{min-width:0}
-@media(min-width:900px){
-  #app #loansDashboardHost #ldClientPanel:not(.grid-mode) .ld-table-scroll{overflow-x:auto;scrollbar-width:thin}
-  #app #loansDashboardHost #ldClientPanel:not(.grid-mode) :is(.ld-table-head,.ld-client-list){min-width:845px}
+#app #loansDashboardHost .ld-table-scroll{min-width:0;container:loan-clients / inline-size}
+#app #loansDashboardHost #ldClientPanel:not(.grid-mode) :is(.ld-table-head,.ld-client-row){
+  grid-template-columns:minmax(0,1.5fr) minmax(0,.95fr) minmax(0,1.05fr) minmax(0,.92fr) minmax(0,.88fr) minmax(0,1.15fr) 16px!important;
+  gap:8px!important;
+}
+#app #loansDashboardHost #ldClientPanel:not(.grid-mode) .ld-client-row:hover{transform:none!important}
+#app #loansDashboardHost #ldClientPanel:not(.grid-mode) :is(.ld-client-ident,.ld-client-identity,.ld-cell,.ld-cell-status,.ld-th-content){min-width:0}
+#app #loansDashboardHost #ldClientPanel:not(.grid-mode) :is(.ld-client-name,.ld-cell strong,.ld-cell small,.ld-th-content){overflow-wrap:anywhere;white-space:normal!important}
+#app #loansDashboardHost .ld-cell-overdue[data-is-overdue="true"] strong{color:var(--night-red,#b74444)}
+@container loan-clients (max-width:639px){
+  #app #loansDashboardHost #ldClientPanel:not(.grid-mode) .ld-table-head{display:none!important}
+  #app #loansDashboardHost #ldClientPanel:not(.grid-mode) .ld-client-row{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;position:relative!important;
+  }
+  #app #loansDashboardHost #ldClientPanel:not(.grid-mode) :is(.ld-client-ident,.ld-cell-activity){grid-column:1/-1}
+  #app #loansDashboardHost #ldClientPanel:not(.grid-mode) [data-cell-label]::before{
+    content:attr(data-cell-label);display:block;margin-bottom:4px;font-size:11px;color:var(--ui-muted);
+  }
+  #app #loansDashboardHost #ldClientPanel:not(.grid-mode) .ld-arrow{position:absolute;right:12px;top:16px}
 }
 
 /* Client cards: identity and status, balance, two details, then activity. */

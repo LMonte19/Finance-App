@@ -128,7 +128,7 @@
 }
 @media(max-width:980px){
   #borrowersPage .ll-clients-layout{grid-template-columns:1fr}
-  #borrowersPage .ll-clients-side{display:grid;grid-template-columns:1fr 1fr}
+  #borrowersPage .ll-clients-side{display:grid;grid-template-columns:minmax(0,1fr)}
 }
 @media(max-width:760px){
   #borrowersPage{padding:16px!important}

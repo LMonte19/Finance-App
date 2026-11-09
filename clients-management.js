@@ -1,4 +1,5 @@
-import { invalidatePageReads } from './page-read-runtime.js?v=1';
+import { CLIENT_CHANGED, CLIENT_FIELDS } from './client-directory.js?v=1';
+import { openNewClientPanel } from './client-form.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -9,7 +10,7 @@ const supabase=createClient(
 );
 
 function ensureStyle(){
-  const href="./clients-management.css?v=1";
+  const href="./clients-management.css?v=2";
   let link=document.getElementById("clientsManagementCss");
   if(!link){link=document.createElement("link");link.id="clientsManagementCss";link.rel="stylesheet";document.head.appendChild(link);}
   link.href=href;
@@ -30,6 +31,7 @@ let view="list";
 let page=1;
 let loading=false;
 let lastLoadAt=0;
+let clientRevision=0;
 
 const ICONS={
   plus:'<path d="M12 5v14M5 12h14"/>',
@@ -84,7 +86,7 @@ function ensureClientsDom(){
         <section class="ll-clients-list-card">
           <div class="ll-clients-card-head"><h2>Lista de clientes</h2></div>
           <div class="ll-clients-toolbar">
-            <label class="ll-clients-search">${svg("search",15)}<input id="clientsSearch" type="search" placeholder="Buscar cliente por nombre, teléfono o nota..." /></label>
+            <label class="ll-clients-search">${svg("search",15)}<input id="clientsSearch" type="search" placeholder="Buscar por nombre, teléfono, correo o nota..." /></label>
             <select id="clientsSort" aria-label="Ordenar clientes">
               <option value="name">Ordenar por: Nombre</option>
               <option value="recent">Más recientes</option>
@@ -107,17 +109,6 @@ function ensureClientsDom(){
         </section>
 
         <aside class="ll-clients-side">
-          <section class="ll-client-add-card">
-            <div class="ll-clients-card-head"><h2>Agregar cliente</h2><span class="ll-client-add-icon">${svg("user",16)}</span></div>
-            <form id="clientsAddForm" class="ll-client-add-form">
-              <label><span>Nombre completo del cliente</span><input id="clientsNewName" autocomplete="off" placeholder="Ej. Juan Pérez" required /></label>
-              <label><span>Teléfono <small>(opcional)</small></span><input id="clientsNewPhone" autocomplete="off" placeholder="Ej. 809-555-1234" /></label>
-              <label><span>Notas</span><textarea id="clientsNewNotes" rows="4" placeholder="Información adicional sobre el cliente..."></textarea></label>
-              <button class="ll-client-add-submit" type="submit">${svg("user",15)} Agregar cliente</button>
-              <div id="clientsAddStatus" class="ll-client-add-status"></div>
-            </form>
-          </section>
-
           <section class="ll-client-activity-card">
             <div class="ll-clients-card-head"><h2>Actividad reciente</h2><span class="ll-client-activity-icon">${svg("clock",16)}</span></div>
             <div id="clientsRecentActivity" class="ll-client-recent-activity"><div class="ll-clients-loading compact">Cargando...</div></div>
@@ -140,27 +131,28 @@ function wireClientsPage(){
     if(filterBtn){filter=filterBtn.dataset.clientFilter;page=1;renderClients();return;}
     const viewBtn=event.target.closest("[data-client-view]");
     if(viewBtn){view=viewBtn.dataset.clientView;renderClients();return;}
-    if(event.target.closest("#clientsFocusNew")){qs("clientsNewName")?.focus();return;}
+    const addButton=event.target.closest("#clientsFocusNew");
+    if(addButton){openNewClientPanel(supabase,{trigger:addButton});return;}
     if(event.target.closest("#clientsPrev")){if(page>1){page--;renderClients();}return;}
     if(event.target.closest("#clientsNext")){page++;renderClients();return;}
     if(event.target.closest("#clientsViewActivity")){qs("menuActivity")?.click();return;}
   });
   qs("clientsSearch").addEventListener("input",()=>{page=1;renderClients();});
   qs("clientsSort").addEventListener("change",event=>{sort=event.target.value;page=1;renderClients();});
-  qs("clientsAddForm").addEventListener("submit",addClient);
 }
 
 async function loadData(force=false){
   ensureClientsDom();
   if(!isClientsPage()||loading)return;
   if(!force&&Date.now()-lastLoadAt<15000&&borrowers.length){renderClients();renderRecentActivity();return;}
-  loading=true;
+  loading=true;const revision=clientRevision;
   try{
     const [borrowerRes,accountRes,activityRes]=await Promise.all([
-      supabase.from("borrowers").select("id,full_name,phone,notes,created_at").order("created_at",{ascending:false}),
+      supabase.from("borrowers").select(CLIENT_FIELDS).order("created_at",{ascending:false}),
       supabase.from("borrower_account_summary").select("borrower_id,account_status,principal_balance,last_payment_date"),
       supabase.from("activity_log_view").select("*").order("created_at",{ascending:false}).limit(250)
     ]);
+    if(revision!==clientRevision)return;
     if(borrowerRes.error)throw borrowerRes.error;
     if(accountRes.error)throw accountRes.error;
     if(activityRes.error)throw activityRes.error;
@@ -175,17 +167,18 @@ async function loadData(force=false){
   }catch(error){
     console.error("clients workspace load failed",error);
     if(qs("clientsList"))qs("clientsList").innerHTML=`<div class="ll-clients-empty">${esc(error.message||error)}</div>`;
-  }finally{loading=false;}
+  }finally{loading=false;if(revision!==clientRevision&&isClientsPage())loadData(true);}
 }
 
 function filteredBorrowers(){
   const term=String(qs("clientsSearch")?.value||"").trim().toLowerCase();
   const recentCutoff=Date.now()-30*86400000;
   let rows=borrowers.filter(b=>{
-    if(filter==="phone"&&!b.phone)return false;
-    if(filter==="no-phone"&&b.phone)return false;
+    const hasPhone=!!(b.phone||b.additional_phones?.length);
+    if(filter==="phone"&&!hasPhone)return false;
+    if(filter==="no-phone"&&hasPhone)return false;
     if(filter==="recent"&&(!latestActivityDate(b)||latestActivityDate(b).getTime()<recentCutoff))return false;
-    if(term){const hay=[b.full_name,b.phone,b.notes].map(v=>String(v||"").toLowerCase()).join(" ");if(!hay.includes(term))return false;}
+    if(term){const hay=[b.full_name,b.phone,b.notes,...(b.additional_phones||[]),...(b.emails||[])].map(v=>String(v||"").toLowerCase()).join(" ");if(!hay.includes(term))return false;}
     return true;
   });
   rows=[...rows].sort((a,b)=>{
@@ -254,35 +247,12 @@ function renderRecentActivity(){
   host.innerHTML=rows.length?rows.map(row=>`<button type="button" ${row.borrower_id?`data-client-id="${esc(row.borrower_id)}"`:""}><span class="ll-activity-bubble ${activityIcon(row.action_type)}">${svg(activityIcon(row.action_type),15)}</span><span><small>${esc(activityLabel(row.action_type))}</small><strong>${esc(row.borrower_name||row.entity_text||"Cliente")}</strong></span><time>${esc(fmtDate(row.created_at))}</time></button>`).join(""):`<div class="ll-clients-empty small">No hay actividad reciente.</div>`;
 }
 
-async function addClient(event){
-  event.preventDefault();
-  const status=qs("clientsAddStatus");
-  const name=qs("clientsNewName")?.value.trim();
-  const phone=qs("clientsNewPhone")?.value.trim()||null;
-  const notes=qs("clientsNewNotes")?.value.trim()||null;
-  if(!name){status.textContent="El nombre es requerido.";status.className="ll-client-add-status error";return;}
-  try{
-    status.textContent="Guardando cliente...";status.className="ll-client-add-status";
-    const {data:userData,error:userError}=await supabase.auth.getUser();
-    if(userError)throw userError;
-    const userId=userData.user?.id;if(!userId)throw new Error("No se encontró una sesión activa.");
-    const {data:profile,error:profileError}=await supabase.from("profiles").select("role").eq("user_id",userId).maybeSingle();
-    if(profileError)throw profileError;
-    if(!["ADMIN","AGENT"].includes(profile?.role))throw new Error("Solo Admin/Agente puede agregar clientes.");
-    const {error}=await supabase.from("borrowers").insert({full_name:name,phone,notes,created_by:userId});
-    if(error)throw error;
-    invalidatePageReads();
-    qs("clientsAddForm").reset();
-    status.textContent="Cliente agregado correctamente.";status.className="ll-client-add-status success";
-    borrowers=[];lastLoadAt=0;
-    await loadData(true);
-  }catch(error){
-    console.error("add client failed",error);
-    status.textContent=error.message||String(error);status.className="ll-client-add-status error";
-  }
-}
-
-window.addEventListener("loan-ledger:client-details-updated",()=>{lastLoadAt=0;if(isClientsPage())loadData(true);});
+window.addEventListener(CLIENT_CHANGED,event=>{
+  lastLoadAt=0;clientRevision++;
+  const client=event.detail?.client;
+  if(client)borrowers=[...borrowers.filter(row=>row.id!==client.id),client];
+  if(isClientsPage()){renderClients();loadData(true);}
+});
 
 function tick(){ensureClientsDom();if(isClientsPage())loadData(false);}
 const pageNode=qs("borrowersPage");

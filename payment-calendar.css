@@ -40,3 +40,13 @@ body[data-theme="night"] #app :is(.ll-client-hub,#llFloatingPanel,#paymentsPage)
 #app .ll-payment-calendar .ll-pcal-error{font-size:12px;line-height:1.6;color:var(--pcal-bad);margin:12px 0 0}
 #app .ll-payment-calendar button:focus-visible{outline:2px solid var(--ui-purple)!important;outline-offset:3px!important}
 @media(max-width:400px){#app :is(.ll-client-hub,#llFloatingPanel) .ll-payment-calendar{padding:13px}#app .ll-payment-calendar :is(.ll-pcal-week,.ll-pcal-days){gap:4px}}
+
+#app .ll-payment-calendar .ll-pcal-target{display:grid;gap:5px;margin:9px 0 12px;color:var(--ui-ink);font-size:13px;font-weight:650}
+#app .ll-payment-calendar .ll-pcal-target[hidden]{display:none!important}
+#app .ll-payment-calendar .ll-pcal-target select{width:100%;margin:0;background:var(--ui-surface);color:var(--ui-ink);border:1px solid var(--ui-line)}
+#app .ll-payment-calendar .ll-pcal-targets{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 10px}
+#app .ll-payment-calendar .ll-pcal-targets button{
+  width:auto!important;min-height:29px!important;padding:3px 8px!important;margin:0!important;background:var(--ui-purple-soft)!important;
+  border:1px solid var(--ui-line)!important;color:var(--ui-ink)!important;border-radius:999px!important;font-size:12px!important
+}
+#app .ll-payment-calendar .ll-pcal-date.is-targeted{box-shadow:inset 0 0 0 2px var(--ui-purple)}

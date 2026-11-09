@@ -1,3 +1,5 @@
+import { CLIENT_CHANGED, escapeText as esc, fillClientSelect } from './client-directory.js?v=1';
+import { installmentLinksMarkup, attachInstallmentLinks, borrowerInstallmentRows, readInstallmentLinkFields, describeInstallmentLinks } from './installment-links.js?v=1';
 import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, invalidatePageReads, loadingRows } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -79,7 +81,7 @@ function followupsPageHtml() {
         <select id="followupLoan"><option value="">Optional loan</option></select>
       </div>
       <div class="row">
-        <input id="followupDueDate" type="date" />
+        <label>Fecha de seguimiento<input id="followupDueDate" type="date" /></label>
         <select id="followupPriority">
           <option value="NORMAL">Normal</option>
           <option value="LOW">Low</option>
@@ -88,6 +90,7 @@ function followupsPageHtml() {
         </select>
       </div>
       <input id="followupReason" placeholder="Reason / reminder note (e.g., promised to pay Friday)" />
+      <div id="followupInstallmentFields">${installmentLinksMarkup()}</div>
       <button id="btnAddFollowup" type="button">Add Follow-up</button>
     </div>
 
@@ -111,6 +114,7 @@ function followupsPageHtml() {
       </div>
       <input id="contactOutcome" placeholder="Outcome (optional, e.g. no answer, promised payment)" />
       <input id="contactNotes" placeholder="Contact notes" />
+      <div id="contactInstallmentFields">${installmentLinksMarkup()}</div>
       <button id="btnAddContactLog" type="button">Save Contact Note</button>
     </div>
 
@@ -211,7 +215,11 @@ function bindFollowupControls() {
   borrowerSelects.forEach((sel) => {
     if (sel && sel.dataset.bound !== "true") {
       sel.dataset.bound = "true";
-      sel.onchange = () => populateLoanDropdownForBorrower(sel.id === "followupBorrower" ? "followupLoan" : "contactLoan", sel.value);
+      sel.onchange=()=>{
+        const followup=sel.id==="followupBorrower";
+        populateLoanDropdownForBorrower(followup?"followupLoan":"contactLoan",sel.value);
+        linksWidget(followup?"followupInstallmentFields":"contactInstallmentFields")?.set(sel.value);
+      };
     }
   });
 
@@ -231,24 +239,24 @@ function bindFollowupControls() {
   }
 }
 
+function linksWidget(id){
+  return attachInstallmentLinks(qs(id)?.querySelector('[data-installment-links]'),{load:borrowerId=>borrowerInstallmentRows(supabase,borrowerId)});
+}
+function resetLinks(id){
+  const host=qs(id),date=host?.querySelector('[name="execution_date"]');
+  if(date)date.value='';
+  linksWidget(id)?.reset();
+}
 async function populateBorrowerDropdowns() {
-  const selects = [qs("followupBorrower"), qs("contactBorrower"), qs("borrowerDetailFollowupLoanBorrower")].filter(Boolean);
-  if (!selects.length) return;
-  if (qs("followupBorrower")?.dataset.loaded === "true") return;
-
-  const { data, error } = await readPageQuery("followup-borrowers", () => supabase
-    .from("borrowers")
-    .select("id, full_name, phone")
-    .order("full_name", { ascending: true }));
-
-  if (error) throw error;
-
-  const options = `<option value="">Select borrower</option>${(data || []).map((b) => `<option value="${b.id}">${b.full_name}${b.phone ? ` (${b.phone})` : ""}</option>`).join("")}`;
-
-  if (qs("followupBorrower")) qs("followupBorrower").innerHTML = options;
-  if (qs("contactBorrower")) qs("contactBorrower").innerHTML = options;
-
-  if (qs("followupBorrower")) qs("followupBorrower").dataset.loaded = "true";
+  const selects=[qs("followupBorrower"),qs("contactBorrower")].filter(Boolean);
+  if(!selects.length)return;
+  const {data,error}=await readPageQuery("followup-borrowers",()=>supabase
+    .from("borrowers").select("id, full_name, phone").order("full_name",{ascending:true}));
+  if(error)throw error;
+  selects.forEach(sel=>{
+    fillClientSelect(sel,data||[]);
+    linksWidget(sel.id==="followupBorrower"?"followupInstallmentFields":"contactInstallmentFields")?.set(sel.value);
+  });
 }
 
 async function populateLoanDropdownForBorrower(selectId, borrowerId, selectedLoanId = "") {
@@ -321,16 +329,17 @@ function renderFollowupRow(row) {
   return card(`
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
       <div>
-        <strong>${row.borrower_name || "Unknown"}</strong><br>
-        <span class="muted">${row.borrower_phone || "No phone"}</span>
+        <strong>${esc(row.borrower_name || "Unknown")}</strong><br>
+        <span class="muted">${esc(row.borrower_phone || "No phone")}</span>
       </div>
       <span class="pill ${timingClass(row)}">${statusLabel}</span>
     </div>
     <div style="margin-top:8px;">
       <strong>Due:</strong> ${row.due_date} | <strong>Priority:</strong> ${row.priority}<br>
-      <span class="muted">${row.reason || "—"}</span><br>
+      <span class="muted">${esc(row.reason || "—")}</span><br>
       <span class="muted">Loan: ${row.loan_start_date || "—"} ${row.loan_status ? `| ${row.loan_status}` : ""}</span>
-      ${row.completed_notes ? `<br><span class="muted">Done note: ${row.completed_notes}</span>` : ""}
+      ${describeInstallmentLinks(row)?`<br><span class="muted">${esc(describeInstallmentLinks(row))}</span>`:''}
+      ${row.completed_notes ? `<br><span class="muted">Done note: ${esc(row.completed_notes)}</span>` : ""}
     </div>
     ${doneButton}
   `);
@@ -385,9 +394,9 @@ async function renderFollowups(force = false) {
 
     qs("recentContactList").innerHTML = (contactsRes.data || []).length
       ? contactsRes.data.map((c) => card(`
-          <strong>${c.borrower_name}</strong> — ${c.contact_type} <span class="muted">${c.contact_date}</span><br>
-          <span class="muted">${c.outcome || "—"}</span><br>
-          <span>${c.notes || ""}</span>
+          <strong>${esc(c.borrower_name)}</strong> — ${esc(c.contact_type)} <span class="muted">${esc(c.contact_date)}</span><br>
+          <span class="muted">${esc(c.outcome || "—")}</span><br>
+          <span>${esc(c.notes || "")}</span>${describeInstallmentLinks(c)?`<br><span class="muted">${esc(describeInstallmentLinks(c))}</span>`:''}
         `)).join("")
       : "No contact notes yet.";
   } catch (error) {
@@ -416,10 +425,11 @@ async function addFollowup() {
   if (!borrower_id || !due_date || !reason) return alert("Borrower, due date, and reason are required.");
 
   const created_by = await currentUserId();
-  const { error } = await supabase.from("borrower_followups").insert({ borrower_id, loan_id, due_date, priority, reason, created_by });
+  const { error } = await supabase.from("borrower_followups").insert({ borrower_id, loan_id, due_date, priority, reason, created_by, ...readInstallmentLinkFields(qs("followupInstallmentFields")) });
   if (error) return alert(error.message);
 
   qs("followupReason").value = "";
+  resetLinks("followupInstallmentFields");
   lastFollowupHtml = "";
   invalidatePageReads();
   await renderFollowups(true);
@@ -437,11 +447,12 @@ async function addContactLogFromPage() {
   if (!borrower_id || !contact_date || !notes) return alert("Borrower, contact date, and notes are required.");
 
   const created_by = await currentUserId();
-  const { error } = await supabase.from("borrower_contact_log").insert({ borrower_id, loan_id, contact_date, contact_type, outcome, notes, created_by });
+  const { error } = await supabase.from("borrower_contact_log").insert({ borrower_id, loan_id, contact_date, contact_type, outcome, notes, created_by, ...readInstallmentLinkFields(qs("contactInstallmentFields")) });
   if (error) return alert(error.message);
 
   qs("contactOutcome").value = "";
   qs("contactNotes").value = "";
+  resetLinks("contactInstallmentFields");
   invalidatePageReads();
   await renderFollowups(true);
   alert("Contact note saved.");
@@ -509,6 +520,7 @@ function borrowerContactHtml() {
       </div>
       <input id="borrowerContactOutcome" placeholder="Outcome (optional)" />
       <input id="borrowerContactNotes" placeholder="Contact notes" />
+      <div id="legacyContactInstallmentFields">${installmentLinksMarkup()}</div>
       <button id="btnBorrowerSaveContact" type="button">Save Contact Note</button>
 
       <div style="font-weight:800;margin-top:16px;">Schedule Follow-up</div>
@@ -522,6 +534,7 @@ function borrowerContactHtml() {
         </select>
       </div>
       <input id="borrowerFollowupReason" placeholder="Follow-up reason" />
+      <div id="legacyFollowupInstallmentFields">${installmentLinksMarkup()}</div>
       <button id="btnBorrowerAddFollowup" type="button">Add Follow-up</button>
 
       <div style="font-weight:800;margin-top:16px;">Open Follow-ups</div>
@@ -549,17 +562,20 @@ async function ensureBorrowerContactSection() {
     qs("borrowerContactBox").dataset.borrowerId = details.id;
     qs("borrowerContactDate").value = todayIso();
     qs("borrowerFollowupDueDate").value = todayIso();
+    for(const id of ["legacyContactInstallmentFields","legacyFollowupInstallmentFields"]){
+      resetLinks(id);linksWidget(id)?.set(details.id);
+    }
     await refreshBorrowerContactSection(details.id);
   }
 
   if (qs("btnBorrowerSaveContact") && qs("btnBorrowerSaveContact").dataset.bound !== "true") {
     qs("btnBorrowerSaveContact").dataset.bound = "true";
-    qs("btnBorrowerSaveContact").onclick = () => addBorrowerDetailContact(details.id);
+    qs("btnBorrowerSaveContact").onclick = () => addBorrowerDetailContact(qs("borrowerContactBox").dataset.borrowerId);
   }
 
   if (qs("btnBorrowerAddFollowup") && qs("btnBorrowerAddFollowup").dataset.bound !== "true") {
     qs("btnBorrowerAddFollowup").dataset.bound = "true";
-    qs("btnBorrowerAddFollowup").onclick = () => addBorrowerDetailFollowup(details.id);
+    qs("btnBorrowerAddFollowup").onclick = () => addBorrowerDetailFollowup(qs("borrowerContactBox").dataset.borrowerId);
   }
 }
 
@@ -601,11 +617,12 @@ async function addBorrowerDetailContact(borrowerId) {
   if (!notes) return alert("Contact notes are required.");
 
   const created_by = await currentUserId();
-  const { error } = await supabase.from("borrower_contact_log").insert({ borrower_id: borrowerId, contact_date, contact_type, outcome, notes, created_by });
+  const { error } = await supabase.from("borrower_contact_log").insert({ borrower_id: borrowerId, contact_date, contact_type, outcome, notes, created_by, ...readInstallmentLinkFields(qs("legacyContactInstallmentFields")) });
   if (error) return alert(error.message);
 
   qs("borrowerContactOutcome").value = "";
   qs("borrowerContactNotes").value = "";
+  resetLinks("legacyContactInstallmentFields");
   await refreshBorrowerContactSection(borrowerId);
   alert("Contact note saved.");
 }
@@ -617,10 +634,11 @@ async function addBorrowerDetailFollowup(borrowerId) {
   if (!reason) return alert("Follow-up reason is required.");
 
   const created_by = await currentUserId();
-  const { error } = await supabase.from("borrower_followups").insert({ borrower_id: borrowerId, due_date, priority, reason, created_by });
+  const { error } = await supabase.from("borrower_followups").insert({ borrower_id: borrowerId, due_date, priority, reason, created_by, ...readInstallmentLinkFields(qs("legacyFollowupInstallmentFields")) });
   if (error) return alert(error.message);
 
   qs("borrowerFollowupReason").value = "";
+  resetLinks("legacyFollowupInstallmentFields");
   await refreshBorrowerContactSection(borrowerId);
   alert("Follow-up added.");
 }
@@ -631,6 +649,9 @@ async function tick() {
   if (isPage("borrowerDetailsPage")) await ensureBorrowerContactSection();
 }
 
+window.addEventListener(CLIENT_CHANGED,()=>{
+  if(qs("followupBorrower"))populateBorrowerDropdowns().catch(error=>{if(!isStalePageSession(error))console.error(error);});
+});
 tick();
 fillInitialLoading("followupList");
 fillInitialLoading("recentContactList");
@@ -640,6 +661,6 @@ watchPage("followupsPage", tick, {
     readPageQuery("contacts", () => supabase.from("borrower_contact_log_view").select("*").order("created_at", { ascending: false }).limit(25)),
     readPageQuery("followup-borrowers", () => supabase.from("borrowers").select("id, full_name, phone").order("full_name", {ascending:true}))
   ]),
-  reset: () => {lastFollowupHtml="";const node=qs("followupList");if(node)node.innerHTML=loadingRows();const contacts=qs("recentContactList");if(contacts)contacts.innerHTML=loadingRows();document.querySelectorAll("#followupsPage .stat-value").forEach(n=>n.textContent="—");const select=qs("followupBorrower");if(select)delete select.dataset.loaded;}
+  reset: () => {lastFollowupHtml="";const node=qs("followupList");if(node)node.innerHTML=loadingRows();const contacts=qs("recentContactList");if(contacts)contacts.innerHTML=loadingRows();document.querySelectorAll("#followupsPage .stat-value").forEach(n=>n.textContent="—");for(const id of ["followupBorrower","contactBorrower"])fillClientSelect(qs(id),[]);for(const id of ["followupInstallmentFields","contactInstallmentFields"]){resetLinks(id);linksWidget(id)?.set('');}}
 });
 watchPage("borrowerDetailsPage", tick);

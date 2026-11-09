@@ -1,9 +1,11 @@
+import { CLIENT_CHANGED, fillClientSelect, mergeClientAccount } from './client-directory.js?v=1';
+import { paymentDistributionMarkup, attachPaymentDistribution } from './payment-distribution.js?v=1';
 import { invalidatePageReads, readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { mixedPaymentMarkup, attachMixedPaymentSplit } from './mixed-payment-split.js?v=1';
+import { mixedPaymentMarkup, attachMixedPaymentSplit } from './mixed-payment-split.js?v=2';
 import { openFloatingPanel, closeFloatingPanel } from './floating-panel.js?v=1';
-import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=1';
+import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
 
 const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },
@@ -208,13 +210,7 @@ function populateFilterBorrowers() {
   select.value = current;
 }
 function populatePaymentBorrowers() {
-  const select = qs("acctPaymentBorrower");
-  if (!select) return;
-  const current = select.value;
-  const active = accountsCache.filter((a) => Number(a.principal_balance || 0) > 0);
-  const html = `<option value="">Selecciona un cliente</option>${active.map((a) => `<option value="${esc(a.borrower_id)}">${esc(a.full_name || "Cliente")}</option>`).join("")}`;
-  if (select.innerHTML !== html) select.innerHTML = html;
-  select.value = active.some((a) => String(a.borrower_id) === String(current)) ? current : "";
+  fillClientSelect(qs("acctPaymentBorrower"),accountsCache);
 }
 
 function metricRows(rows, key) { return rows.filter((p) => !p.is_voided && String(p.paid_on || "").slice(0, 7) === key); }
@@ -311,13 +307,14 @@ function mountPaymentPanel(html, label, mode, detailId = null) {
   root.addEventListener('click',handleWorkspaceClick);
   root.addEventListener('change',handleWorkspaceChange);
   root.addEventListener('input',handleWorkspaceInput);
+  root.addEventListener('loan-ledger:payment-target-changed',updatePaymentPreview);
   return panel;
 }
 export async function openRegisterDrawer({borrowerId = '', accounts = null} = {}) {
   if(paymentSaving)return;
   const panel=mountPaymentPanel(registerDrawerHtml(),'Registrar pago','register');
   if(!panel)return;
-  if(accounts)accountsCache=accounts;
+  if(accounts&&!accountsCache.length)accountsCache=accounts;
   if(accountsCache.length){populatePaymentBorrowers();if(borrowerId)qs('acctPaymentBorrower').value=borrowerId;updateBorrowerContext();}
   try{
     const result=await readPaymentAccounts();
@@ -342,6 +339,7 @@ function registerDrawerHtml() {
       <label class="ll-payment-field"><span>Tipo de pago</span><select id="acctPageType"><option value="INSTALLMENT">Pago de cuota / interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>
       ${mixedPaymentMarkup('acctMixed')}
       ${paymentCalendarMarkup('acctPaymentCalendar')}
+      ${paymentDistributionMarkup()}
       <label class="ll-payment-field"><span>Notas del pago <small>(opcional)</small></span><textarea id="acctPageNotes" rows="4" placeholder="Escribe una nota o referencia..."></textarea></label>
       <div id="acctPagePaymentStatus" class="ll-payment-form-status"></div>
     </div>
@@ -355,19 +353,24 @@ function selectedAccount() {
 function paymentsMixedSplit(){
   const host=qs('paymentDrawer')?.querySelector('[data-mixed-payment]');
   return attachMixedPaymentSplit(host,{
-    readPayment:()=>({borrowerId:qs('acctPaymentBorrower')?.value,paidOn:qs('acctPagePaidOn')?.value,
-      amount:Number(qs('acctPageAmount')?.value||0),type:qs('acctPageType')?.value}),
+    readPayment:()=>({...paymentDraft(),targeted:(qs('paymentDrawer')?.querySelector('[data-pcal-target]')?.value||'oldest')!=='oldest'}),
     loadContext:async(borrowerId,paidOn)=>{
       const {data,error}=await supabase.rpc('get_borrower_mixed_payment_context',{p_borrower_id:borrowerId,p_paid_on:paidOn});
       if(error)throw error;return data;
     }
   });
 }
+function paymentDraft(){
+  return {borrowerId:qs('acctPaymentBorrower')?.value,paidOn:qs('acctPagePaidOn')?.value,
+    amount:Number(qs('acctPageAmount')?.value||0),type:qs('acctPageType')?.value,
+    installment:Number(qs('acctMixedInstallment')?.value||0)};
+}
+function paymentsDistribution(){
+  return attachPaymentDistribution(qs('paymentDrawer')?.querySelector('[data-payment-distribution]'),{db:supabase,readPayment:paymentDraft});
+}
 function paymentsCalendar(){
   return attachPaymentCalendar(qs('paymentDrawer')?.querySelector('[data-payment-calendar]'),{
-    readPayment:()=>({borrowerId:qs('acctPaymentBorrower')?.value,paidOn:qs('acctPagePaidOn')?.value,
-      amount:Number(qs('acctPageAmount')?.value||0),type:qs('acctPageType')?.value,
-      installment:Number(qs('acctMixedInstallment')?.value||0)}),
+    readPayment:paymentDraft,
     loadCalendar:async(borrowerId,paidOn,force)=>{
       const end=paymentCalendarEnd(paidOn);
       const {data,error}=await readPageQuery(`payment-calendar:${borrowerId}:${end}`,()=>supabase.rpc('get_borrower_calendar_workspace',
@@ -378,6 +381,7 @@ function paymentsCalendar(){
 }
 async function updatePaymentPreview(){
   const panel=paymentPanel;
+  paymentsDistribution()?.refresh();
   await paymentsMixedSplit()?.refresh();
   if(panel?.isCurrent()&&drawerMode==='register')paymentsCalendar()?.refresh();
 }
@@ -424,9 +428,17 @@ async function applyAccountPayment() {
   if (status) { status.textContent = "Aplicando pago..."; status.className = "ll-payment-form-status"; }
   try {
     const parts=paymentType==='MIXED'?await paymentsMixedSplit().values():null;
-    const { error } = await supabase.rpc(parts?'apply_borrower_mixed_payment':'apply_borrower_payment',parts?
-      {p_borrower_id:borrowerId,p_paid_on:paidOn,p_amount:amount,p_installment_amount:parts.installment,p_principal_amount:parts.principal,p_notes:notes}:
-      {p_borrower_id:borrowerId,p_paid_on:paidOn,p_amount:amount,p_payment_type:paymentType,p_notes:notes});
+    const installment=parts?.installment??(paymentType==='INSTALLMENT'?amount:0);
+    const dueDates=await paymentsCalendar()?.values(installment)??null;
+    const partnerSplit=await paymentsDistribution()?.values(installment)??null;
+    const draft=paymentDraft();
+    if(!submittedPanel?.isCurrent())return;
+    if(draft.borrowerId!==borrowerId||draft.paidOn!==paidOn||draft.amount!==amount||draft.type!==paymentType||
+      (parts&&draft.installment!==installment))throw new Error('El pago cambió. Revisa los datos y vuelve a guardarlo.');
+    const { error } = await supabase.rpc('record_borrower_payment',{
+      p_borrower_id:borrowerId,p_paid_on:paidOn,p_amount:amount,p_payment_type:paymentType,p_notes:notes,
+      p_installment_amount:parts?.installment??null,p_principal_amount:parts?.principal??null,
+      p_due_dates:dueDates,p_partner_split:partnerSplit});
     if (error) throw error;
     if (status) { status.textContent = "Pago registrado correctamente."; status.classList.add("success"); }
     invalidatePageReads();
@@ -532,6 +544,13 @@ function handleWorkspaceInput(event) {
   if (event.target.id === "paySearch") { pageNumber = 1; renderPayments(); }
 }
 
+window.addEventListener(CLIENT_CHANGED,event=>{
+  const client=event.detail?.client;
+  if(!client)return;
+  accountsCache=mergeClientAccount(accountsCache,client);
+  populateFilterBorrowers();
+  if(drawerMode==='register'){populatePaymentBorrowers();updateBorrowerContext();}
+});
 watchPage('paymentsPage', () => refreshData(false), {interval:45000, prefetch:() => readPaymentData(false), reset:() => {
   requestSequence++;accountsCache=[];paymentsCache=[];lastRefreshAt=0;pageNumber=1;
   closeDrawer(true);

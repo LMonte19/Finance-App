@@ -1,0 +1,54 @@
+/* Shared controls for client details, contributions and linked installments. */
+#app #llFloatingPanel [hidden]{display:none!important}
+#app :is(.ll-flow-fieldset,.ll-flow-details){min-width:0}
+#app .ll-flow-fieldset{display:grid;gap:10px;margin:0;padding:14px;border:1px solid var(--ui-line);border-radius:12px}
+#app .ll-flow-fieldset>legend{padding:0 5px;font-weight:700;color:var(--ui-ink);font-size:14px}
+#app .ll-flow-help{margin:0;color:var(--ui-muted);font-size:12px;line-height:1.45}
+#app .ll-flow-details{padding:10px 12px;border:1px solid var(--ui-line);border-radius:10px;color:var(--ui-ink);font-size:13px}
+#app .ll-flow-details>summary{cursor:pointer;font-weight:650}
+#app .ll-flow-details summary small{color:var(--ui-muted);font-weight:400}
+#app .ll-flow-fields{display:grid;gap:10px;margin-top:12px}
+#app .ll-flow-inline-title{margin:0 0 16px;font-size:18px}
+#app .ll-flow-picker{display:grid;gap:6px}
+#app :is(.ll-flow-tools,.ll-contact-inputs){display:flex;flex-wrap:wrap;align-items:center;gap:5px 12px}
+#app .ll-contact-inputs>[data-contact-list]{flex:1 1 100%;display:grid;gap:8px}
+#app .ll-contact-inputs>[data-contact-list]:empty{display:none}
+#app button.ll-flow-link{
+  width:fit-content!important;min-height:32px!important;margin:0!important;padding:4px 0!important;border:0!important;
+  border-radius:4px!important;background:transparent!important;color:var(--ui-purple)!important;box-shadow:none!important;
+  font-size:13px!important;font-weight:650!important;line-height:1.35!important;text-align:left!important;cursor:pointer;
+}
+#app button.ll-flow-link:hover{text-decoration:underline;filter:none}
+#app button.ll-flow-link:disabled{opacity:.5;cursor:default}
+#app button.ll-flow-remove{
+  display:grid!important;place-items:center;align-self:end;width:30px!important;height:36px!important;min-height:0!important;
+  margin:0 0 1px!important;padding:0!important;border:1px solid var(--ui-line)!important;border-radius:8px!important;
+  background:var(--ui-surface)!important;color:var(--ui-muted)!important;font-size:18px!important;
+}
+#app .ll-flow-contact-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
+#app .ll-funding-entries{display:grid;gap:12px}
+#app .ll-funding-entry{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) auto auto;align-items:end;gap:7px}
+#app .ll-funding-entry output{align-self:end;padding:0 0 13px;color:var(--ui-muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#app .ll-funding-entry :is(label,select,input){min-width:0}
+#app [data-installment-links]{display:grid;gap:10px}
+#app [data-installment-links] label>small{color:var(--ui-muted);font-weight:400}
+#app .ll-flow-date-list{display:grid;gap:2px;max-height:196px;overflow-y:auto;margin-top:8px;overscroll-behavior:contain}
+#app :is(.ll-flow-date-list label,.ll-flow-check,.ll-pcal-selected .ll-pcal-choose){
+  display:flex!important;flex-direction:row!important;align-items:center;gap:8px!important;color:var(--ui-ink);font-size:13px;
+}
+#app :is(.ll-flow-date-list,.ll-flow-check,.ll-pcal-choose) input[type="checkbox"]{
+  width:16px!important;height:16px!important;min-height:0!important;margin:5px 0!important;flex:none;accent-color:var(--ui-purple);
+}
+#app [data-distribution-choices]{display:grid;gap:7px}
+#app label.ll-flow-partner-weight{display:grid;grid-template-columns:minmax(0,1fr) 94px;align-items:center;gap:8px}
+#app #borrowerAccountContent .ll-client-hub .cp-contact-details{
+  margin-top:8px;max-height:130px;overflow:auto;width:fit-content;max-width:100%;color:var(--ui-muted);
+}
+#app .cp-contact-details dl{display:grid;gap:6px;padding-top:7px}
+#app .cp-contact-details dl>div{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}
+#app .cp-contact-details dd{color:var(--ui-ink);overflow-wrap:anywhere}
+#app .ll-linked-notes{padding-left:17px;margin:8px 0;color:var(--ui-ink);font-size:13px;overflow-wrap:anywhere}
+@media(max-width:380px){
+  #app .ll-funding-entry{grid-template-columns:minmax(0,1fr) auto auto}
+  #app .ll-funding-entry>label:first-child{grid-column:1/-1}
+}

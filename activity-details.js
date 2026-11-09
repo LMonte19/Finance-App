@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { openFloatingPanel, floatingHeader } from './floating-panel.js?v=1';
-import { openPaymentDetails } from './payment-management.js?v=10';
+import { openPaymentDetails } from './payment-management.js?v=11';
 import { actionName, changeDetails } from './activity-labels.js?v=1';
 
 const db=createClient('https://eatxkhhpjruwwibhcubf.supabase.co','sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'loan-ledger-auth'}});
@@ -13,9 +13,10 @@ const fact=(label,value)=>`<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></di
 const section=(title,text)=>text?`<section class="ll-floating-section"><h3>${esc(title)}</h3><p>${esc(text)}</p></section>`:'';
 
 function recordHtml(kind,row,name){
-  if(kind==='disbursement')return `<dl class="ll-floating-facts">${fact('Capital desembolsado',money(row.principal_original))}${fact('Capital pendiente',money(row.principal_outstanding))}${fact('Fecha de inicio',dateLabel(row.start_date))}${fact('Estado',status(row.status))}${fact('Interés mensual',Number(Number(row.monthly_rate_total||0)*100).toFixed(2)+'%')}${fact('Administración mensual',Number(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)+'%')}</dl>${section('Notas',row.notes)}<section class="ll-floating-section"><h3>Distribución de inversión</h3>${row.funding?.length?row.funding.map(f=>`<div class="ll-floating-line"><span>${esc(f.partner_name||'Socio')}</span><strong>${(Number(f.funding_percent||0)*100).toFixed(2)}%</strong></div>`).join(''):'<p>Sin distribución vinculada.</p>'}</section>`;
-  if(kind==='note')return `<dl class="ll-floating-facts">${fact('Tipo de contacto',contact(row.contact_type))}${fact('Fecha',dateLabel(row.contact_date))}${fact('Registrado por',row.created_by_name||'—')}${fact('Cuenta',name||row.borrower_name||'Cliente')}</dl>${section('Resultado',row.outcome)}${section('Nota de contacto',row.notes)}`;
-  return `<dl class="ll-floating-facts">${fact('Fecha de seguimiento',dateLabel(row.due_date))}${fact('Prioridad',status(row.priority))}${fact('Estado',status(row.status))}${fact('Registrado por',row.created_by_name||'—')}</dl>${section('Motivo',row.reason)}${section('Nota de cierre',row.completed_notes)}`;
+  const dates=`${row.execution_date?fact('Fecha de ejecución',dateLabel(row.execution_date)):''}${row.installment_dates?.length?fact('Cuotas vinculadas',row.installment_dates.map(dateLabel).join(', ')):''}`;
+  if(kind==='disbursement')return `<dl class="ll-floating-facts">${fact('Capital desembolsado',money(row.principal_original))}${fact('Capital pendiente',money(row.principal_outstanding))}${fact('Fecha de inicio',dateLabel(row.start_date))}${fact('Estado',status(row.status))}${fact('Interés mensual',Number(Number(row.monthly_rate_total||0)*100).toFixed(2)+'%')}${fact('Administración mensual',Number(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)+'%')}</dl>${section('Notas',row.notes)}<section class="ll-floating-section"><h3>Distribución de inversión</h3>${row.funding?.length?row.funding.map(f=>`<div class="ll-floating-line"><span>${esc(f.partner_name||'Socio')}</span><strong>${f.contributed_amount==null?(Number(f.funding_percent||0)*100).toFixed(2)+'%':money(f.contributed_amount)+' · '+(Number(f.contributed_amount)/Number(row.principal_original)*100).toFixed(2)+'%'}</strong></div>`).join(''):'<p>Sin distribución vinculada.</p>'}</section>`;
+  if(kind==='note')return `<dl class="ll-floating-facts">${fact('Tipo de contacto',contact(row.contact_type))}${fact('Fecha',dateLabel(row.contact_date))}${fact('Registrado por',row.created_by_name||'—')}${fact('Cuenta',name||row.borrower_name||'Cliente')}${dates}</dl>${section('Resultado',row.outcome)}${section('Nota de contacto',row.notes)}`;
+  return `<dl class="ll-floating-facts">${fact('Fecha de seguimiento',dateLabel(row.due_date))}${fact('Prioridad',status(row.priority))}${fact('Estado',status(row.status))}${fact('Registrado por',row.created_by_name||'—')}${dates}</dl>${section('Motivo',row.reason)}${section('Nota de cierre',row.completed_notes)}`;
 }
 
 export async function openActivityDetails({kind,id,record=null,borrowerName=''}){
@@ -31,7 +32,7 @@ export async function openActivityDetails({kind,id,record=null,borrowerName=''})
     if(result.error)throw result.error;
     let row=result.data;
     if(kind==='disbursement'){
-      const [funding,profiles]=await Promise.all([db.from('loan_funding').select('partner_user_id,funding_percent').eq('loan_id',id),db.from('profiles').select('user_id,full_name')]);
+      const [funding,profiles]=await Promise.all([db.from('loan_funding').select('partner_user_id,funding_percent,contributed_amount').eq('loan_id',id),db.from('profiles').select('user_id,full_name')]);
       if(funding.error)throw funding.error;if(profiles.error)throw profiles.error;
       const names=new Map((profiles.data||[]).map(p=>[p.user_id,p.full_name]));
       row={...row,funding:(funding.data||[]).map(f=>({...f,partner_name:names.get(f.partner_user_id)||'Socio'}))};

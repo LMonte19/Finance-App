@@ -3,7 +3,7 @@ const splitMoney=value=>new Intl.NumberFormat('en-US',{style:'currency',currency
 const splitCents=value=>{if(value===''||value==null)return null;const n=Number(value);return Number.isFinite(n)&&n>=0&&Math.abs(n*100-Math.round(n*100))<.000001?Math.round(n*100):null;};
 
 export function mixedPaymentMarkup(prefix){
-  return `<section class="ll-mixed-payment" data-mixed-payment hidden aria-labelledby="${prefix}Title"><div class="ll-mixed-head"><h3 id="${prefix}Title">Distribución del pago</h3><button type="button" data-split-reset>Restablecer sugerencia</button></div><p class="ll-mixed-reference" data-split-reference></p><div class="ll-mixed-fields"><label for="${prefix}Installment">Cuota / interés<input id="${prefix}Installment" data-split-part="installment" type="number" min="0" step="0.01" inputmode="decimal" value="0" required disabled></label><label for="${prefix}Principal">Abono al capital<input id="${prefix}Principal" data-split-part="principal" type="number" min="0" step="0.01" inputmode="decimal" value="0" required disabled></label></div><div class="ll-mixed-sum"><span>Total distribuido</span><strong data-split-sum>—</strong></div><p class="ll-mixed-status" data-split-status role="status" aria-live="polite"></p><p class="ll-mixed-help">La parte de cuota cubre primero los vencimientos más antiguos. El abono al capital se aplica por separado.</p></section>`;
+  return `<section class="ll-mixed-payment" data-mixed-payment hidden aria-labelledby="${prefix}Title"><div class="ll-mixed-head"><h3 id="${prefix}Title">Distribución del pago</h3><button type="button" data-split-reset>Restablecer sugerencia</button></div><p class="ll-mixed-reference" data-split-reference></p><div class="ll-mixed-fields"><label for="${prefix}Installment">Cuota / interés<input id="${prefix}Installment" data-split-part="installment" type="number" min="0" step="0.01" inputmode="decimal" value="0" required disabled></label><label for="${prefix}Principal">Abono al capital<input id="${prefix}Principal" data-split-part="principal" type="number" min="0" step="0.01" inputmode="decimal" value="0" required disabled></label></div><div class="ll-mixed-sum"><span>Total distribuido</span><strong data-split-sum>—</strong></div><p class="ll-mixed-status" data-split-status role="status" aria-live="polite"></p><p class="ll-mixed-help">Elige en el calendario qué cuotas cubrirá este pago. El abono al capital se aplica por separado.</p></section>`;
 }
 
 export function mixedContextFromCalendar(data,paidOn){
@@ -32,7 +32,7 @@ export function attachMixedPaymentSplit(host,{readPayment,loadContext}){
     if(fee===null||capital===null)return 'Usa importes positivos o cero, con un máximo de dos decimales.';
     if(fee+capital!==total)return 'La cuota y el capital deben sumar el monto total del pago.';
     if(capital>Math.round(Number(state.context.principal_balance||0)*100))return 'El abono supera el capital pendiente de '+splitMoney(state.context.principal_balance)+'.';
-    if(fee>Math.round(Number(state.context.pending_interest||0)*100))return 'La parte de cuota supera las cuotas pendientes disponibles. Ajusta el desglose.';
+    if(!payment.targeted&&fee>Math.round(Number(state.context.pending_interest||0)*100))return 'La parte de cuota supera las cuotas pendientes disponibles. Ajusta el desglose.';
     return '';
   }
   function render(){

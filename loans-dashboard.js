@@ -1,7 +1,10 @@
+import { openQuickAction } from './quick-actions.js?v=2';
+import { openNewClientPanel } from './client-form.js?v=1';
+import { CLIENT_CHANGED, mergeClientAccount } from './client-directory.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { readPageQuery, watchPage, invalidatePageReads, isStalePageSession, loadingRows } from './page-read-runtime.js?v=1';
+import { readPageQuery, watchPage, isStalePageSession, loadingRows } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
-import { openActivityDetails } from './activity-details.js?v=1';
+import { openActivityDetails } from './activity-details.js?v=2';
 
 const db = createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',
@@ -15,7 +18,7 @@ const money = value => `$${moneyFormatter.format(Number(value || 0))}`;
 const dateLabel = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'}).replace('.','') : '—';
 const esc = value => String(value ?? '').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
-const state = { filter:'ALL', search:'', sortKey:'NEXT_DUE', sortDir:'asc', view:'list', data:null, loading:false, opening:false, period:'month', periodSequence:0, requestSequence:0, pendingRefresh:null };
+const state = { filter:'ALL', search:'', sortKey:'OVERDUE', sortDir:'desc', view:'list', data:null, loading:false, opening:false, period:'month', periodSequence:0, requestSequence:0, pendingRefresh:null };
 
 const ICONS = {
   wallet:'<path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4Z"/>',
@@ -127,47 +130,12 @@ function setupPage(){
   page.dataset.ldSetup='1';page.classList.add('ld-ready');
 
   const cards=[...page.querySelectorAll(':scope > .card')];
-  const formCard=cards.find(card=>card.querySelector('#btnCreateLoan'));
-  const listCard=cards.find(card=>card.querySelector('#loanList'));
-
-  const dashboard=document.createElement('div');dashboard.id='loansDashboardHost';dashboard.className='ld-dashboard';dashboard.innerHTML='<div class="ld-empty">Cargando cartera...</div>';
+  const dashboard=document.createElement('div');dashboard.id='loansDashboardHost';dashboard.className='ld-dashboard';
   const legacy=document.createElement('div');legacy.id='loansLegacyMount';legacy.hidden=true;
-  const overlay=document.createElement('div');overlay.id='loansDrawerOverlay';overlay.className='ld-overlay';
-  const drawer=document.createElement('aside');drawer.id='loansDrawer';drawer.className='ld-drawer';drawer.setAttribute('aria-hidden','true');
-  drawer.innerHTML=`<div class="ld-drawer-head"><strong id="loansDrawerTitle">Nuevo desembolso</strong><button type="button" class="ld-drawer-close" id="loansDrawerClose">✕</button></div><div id="loansDisbursementBody"></div><div id="loansClientBody" hidden><form id="loansNewClientForm" class="ld-client-form"><label>Nombre completo<input id="ldClientName" required placeholder="Nombre del cliente"></label><label>Teléfono<input id="ldClientPhone" placeholder="Teléfono (opcional)"></label><label>Notas<textarea id="ldClientNotes" placeholder="Notas opcionales"></textarea></label><button type="submit" class="ld-client-save">Guardar cliente</button><div id="ldClientStatus" class="muted"></div></form></div>`;
-
-  page.prepend(dashboard);page.append(legacy,overlay,drawer);
-  if(listCard) legacy.appendChild(listCard);
-  if(formCard) $('loansDisbursementBody').appendChild(formCard);
-
-  $('loansDrawerClose').onclick=closeDrawer;overlay.onclick=closeDrawer;
-  $('loansNewClientForm').addEventListener('submit',saveClient);
+  page.prepend(dashboard);page.append(legacy);
+  cards.forEach(card=>legacy.appendChild(card));
   setStableMarkup(dashboard,dashboardHtml(initialLoanData()));
   wireDashboard();
-}
-
-function openDrawer(type){
-  const drawer=$('loansDrawer'),overlay=$('loansDrawerOverlay');if(!drawer||!overlay)return;
-  const client=type==='client';
-  $('loansDrawerTitle').textContent=client?'Nuevo cliente':'Nuevo desembolso';
-  $('loansClientBody').hidden=!client;$('loansDisbursementBody').hidden=client;
-  drawer.classList.add('open');overlay.classList.add('open');drawer.setAttribute('aria-hidden','false');
-  setTimeout(()=>client?$('ldClientName')?.focus():$('principal')?.focus(),180);
-}
-function closeDrawer(){ $('loansDrawer')?.classList.remove('open');$('loansDrawerOverlay')?.classList.remove('open');$('loansDrawer')?.setAttribute('aria-hidden','true'); }
-
-async function saveClient(event){
-  event.preventDefault();
-  const name=$('ldClientName')?.value.trim();if(!name)return;
-  const status=$('ldClientStatus');if(status)status.textContent='Guardando cliente...';
-  try{
-    const {data:userData,error:userError}=await db.auth.getUser();if(userError)throw userError;
-    const {error}=await db.from('borrowers').insert({full_name:name,phone:$('ldClientPhone')?.value.trim()||null,notes:$('ldClientNotes')?.value.trim()||null,created_by:userData.user.id});
-    if(error)throw error;
-    invalidatePageReads();
-    $('loansNewClientForm').reset();if(status)status.textContent='Cliente guardado.';
-    await renderDashboard(true);setTimeout(closeDrawer,350);
-  }catch(error){if(status)status.textContent=error.message||String(error);}
 }
 
 async function loadData(force=false){
@@ -283,6 +251,7 @@ function recoveryCard(data,metrics){
 function sortRank(row,data,key){
   if(key==='NAME')return String(row.full_name||'').toLocaleLowerCase();
   if(key==='BALANCE')return Number(row.principal_balance||0);
+  if(key==='OVERDUE')return Number(row.overdue_amount||0);
   if(key==='CYCLE')return Number(row.current_cycle_fee||0);
   if(key==='NEXT_DUE')return String(row.next_due_date||'9999-12-31');
   if(key==='STATUS'){const status=statusInfo(row.account_status).key;return {CURRENT:1,OVERDUE:2,PAID_OFF:3}[status]||9;}
@@ -311,21 +280,25 @@ function clientRows(data){
     if(state.view==='grid')return clientGridCard(row,index,status,activity);
     return `<button type="button" class="ld-client-row" data-ld-borrower="${esc(row.borrower_id)}">
       <div class="ld-client-ident"><span class="ld-avatar ${avatarClass(index)}">${esc(initials(row.full_name))}</span><span class="ld-client-identity"><span class="ld-client-name">${esc(row.full_name)}</span></span></div>
-      <div class="ld-cell ld-cell-balance"><strong>${money(row.principal_balance)}</strong></div>
-      <div class="ld-cell ld-cell-cycle"><strong>${money(row.current_cycle_fee)}</strong></div>
-      <div class="ld-cell ld-cell-due"><strong>${row.next_due_date?dateLabel(row.next_due_date):'—'}</strong>${row.next_due_date?`<small>${daysLabel(row.next_due_date)}</small>`:''}</div>
-      <div class="ld-cell-status"><span class="ld-status ${status.className}">${status.label}</span></div>
-      <div class="ld-cell ld-cell-activity"><strong>${activity?activity.type==='PAYMENT'?'Pago recibido':'Desembolso':'Sin actividad'}</strong><small>${activity?dateLabel(activity.date):'—'}</small></div>
+      <div class="ld-cell ld-cell-balance" data-cell-label="Balance"><strong>${money(row.principal_balance)}</strong></div>
+      <div class="ld-cell ld-cell-overdue" data-cell-label="Atrasado" data-is-overdue="${Number(row.overdue_amount)>0}"><strong>${money(row.overdue_amount)}</strong><small>${overdueInstallments(row)}</small></div>
+      <div class="ld-cell ld-cell-cycle" data-cell-label="Cuota actual"><strong>${money(row.current_cycle_fee)}</strong></div>
+      <div class="ld-cell-status" data-cell-label="Estado"><span class="ld-status ${status.className}">${status.label}</span></div>
+      <div class="ld-cell ld-cell-activity" data-cell-label="Última actividad"><strong>${activity?activity.type==='PAYMENT'?'Pago recibido':'Desembolso':'Sin actividad'}</strong><small>${activity?dateLabel(activity.date):'—'}</small></div>
       <span class="ld-arrow">${icon('chevron')}</span>
     </button>`;
   }).join('');
 }
 
+function overdueInstallments(row){
+  const count=Number(row.overdue_count||0);
+  return `${count} cuota${count===1?'':'s'}`;
+}
 function clientGridCard(row,index,status,activity){
   return `<button type="button" class="ld-client-row ld-grid-card" data-ld-borrower="${esc(row.borrower_id)}" aria-label="Abrir cuenta de ${esc(row.full_name)}">
     <span class="ld-grid-card-head"><span class="ld-client-ident"><span class="ld-avatar ${avatarClass(index)}">${esc(initials(row.full_name))}</span><span class="ld-client-name">${esc(row.full_name)}</span></span><span class="ld-status ${status.className}">${status.label}</span></span>
     <span class="ld-grid-balance"><span class="ld-grid-label">Balance pendiente</span><strong>${money(row.principal_balance)}</strong></span>
-    <span class="ld-grid-details"><span><span class="ld-grid-label">Cuota · 15 y fin de mes</span><strong>${money(row.current_cycle_fee)}</strong></span><span><span class="ld-grid-label">Próxima cuota</span><strong>${row.next_due_date?dateLabel(row.next_due_date):'—'}</strong><small>${row.next_due_date?daysLabel(row.next_due_date):'Sin vencimiento'}</small></span></span>
+    <span class="ld-grid-details"><span class="ld-cell-overdue" data-is-overdue="${Number(row.overdue_amount)>0}"><span class="ld-grid-label">Atrasado</span><strong>${money(row.overdue_amount)}</strong><small>${overdueInstallments(row)}</small></span><span><span class="ld-grid-label">Cuota actual</span><strong>${money(row.current_cycle_fee)}</strong></span></span>
     <span class="ld-grid-activity"><span><span class="ld-grid-label">Última actividad</span><strong>${activity?activity.type==='PAYMENT'?'Pago recibido':'Desembolso':'Sin actividad'}</strong><small>${activity?dateLabel(activity.date):'—'}</small></span><span class="ld-arrow">${icon('chevron')}</span></span>
   </button>`;
 }
@@ -342,7 +315,7 @@ function activityHtml(data,limit=4){
   return rows.map(row=>`<button type="button" class="ld-activity-item" data-loan-activity-id="${esc(row.id)}" data-loan-activity-kind="${row.type==='PAYMENT'?'payment':'disbursement'}" aria-label="${esc('Ver detalle: '+row.title)}"><span class="ld-mini-icon ${row.type==='PAYMENT'?'green':''}">${icon(row.type==='PAYMENT'?'dollar':'arrowDown')}</span><span><span class="ld-item-title">${esc(row.title)}</span><span class="ld-item-meta">${money(row.amount)} · ${dateLabel(row.date)}</span></span></button>`).join('');
 }
 
-const sortLabels={NAME:'Cliente',BALANCE:'Balance',CYCLE:'Cuota',NEXT_DUE:'Próxima cuota',STATUS:'Estado',ACTIVITY:'Última actividad'};
+const sortLabels={NAME:'Cliente',BALANCE:'Balance',OVERDUE:'Atrasado',CYCLE:'Cuota actual',NEXT_DUE:'Próxima cuota',STATUS:'Estado',ACTIVITY:'Última actividad'};
 function sortHeader(key){
   const active=state.sortKey===key;const glyph=active?(state.sortDir==='asc'?'↑':'↓'):'↕';
   return `<button type="button" class="ld-th ${active?'active':''}" data-sort-col="${key}" aria-label="Ordenar por ${sortLabels[key]}"><span class="ld-th-content"><span>${sortLabels[key]}</span>${key==='CYCLE'?'<small>15 y fin de mes</small>':''}</span><span class="ld-sort-glyph">${glyph}</span></button>`;
@@ -366,9 +339,9 @@ function dashboardHtml(data){
     <div class="ld-controls">
       <label class="ld-search">${icon('search')}<input id="ldSearch" placeholder="Buscar cliente por nombre..." value="${esc(state.search)}" aria-label="Buscar cliente"></label>
       <div class="ld-filter-pills" role="group" aria-label="Filtrar clientes"><button data-filter="ALL" class="${state.filter==='ALL'?'active':''}">Todos</button><button data-filter="CURRENT" class="${state.filter==='CURRENT'?'active':''}">Al día</button><button data-filter="OVERDUE" class="${state.filter==='OVERDUE'?'active':''}">Atrasados</button><button data-filter="PAID_OFF" class="${state.filter==='PAID_OFF'?'active':''}">Pagados</button></div>
-      <select id="ldSort" class="ld-sort" aria-label="Ordenar clientes"><option value="NEXT_DUE" ${state.sortKey==='NEXT_DUE'?'selected':''}>Ordenar: Próxima cuota</option><option value="BALANCE" ${state.sortKey==='BALANCE'?'selected':''}>Ordenar: Balance</option><option value="CYCLE" ${state.sortKey==='CYCLE'?'selected':''}>Ordenar: Cuota</option><option value="STATUS" ${state.sortKey==='STATUS'?'selected':''}>Ordenar: Estado</option><option value="ACTIVITY" ${state.sortKey==='ACTIVITY'?'selected':''}>Ordenar: Actividad</option><option value="NAME" ${state.sortKey==='NAME'?'selected':''}>Ordenar: Nombre</option></select>
+      <select id="ldSort" class="ld-sort" aria-label="Ordenar clientes"><option value="OVERDUE" ${state.sortKey==='OVERDUE'?'selected':''}>Ordenar: Atrasado</option><option value="NEXT_DUE" ${state.sortKey==='NEXT_DUE'?'selected':''}>Ordenar: Próxima cuota</option><option value="BALANCE" ${state.sortKey==='BALANCE'?'selected':''}>Ordenar: Balance</option><option value="CYCLE" ${state.sortKey==='CYCLE'?'selected':''}>Ordenar: Cuota</option><option value="STATUS" ${state.sortKey==='STATUS'?'selected':''}>Ordenar: Estado</option><option value="ACTIVITY" ${state.sortKey==='ACTIVITY'?'selected':''}>Ordenar: Actividad</option><option value="NAME" ${state.sortKey==='NAME'?'selected':''}>Ordenar: Nombre</option></select>
     </div>
-    <div class="ld-table-scroll"><div class="ld-table-head">${sortHeader('NAME')}${sortHeader('BALANCE')}${sortHeader('CYCLE')}${sortHeader('NEXT_DUE')}${sortHeader('STATUS')}${sortHeader('ACTIVITY')}<span></span></div>
+    <div class="ld-table-scroll"><div class="ld-table-head">${sortHeader('NAME')}${sortHeader('BALANCE')}${sortHeader('OVERDUE')}${sortHeader('CYCLE')}${sortHeader('STATUS')}${sortHeader('ACTIVITY')}<span></span></div>
     <div class="ld-client-list" id="ldClientList">${data.loading?loadingRows():clientRows(data)}</div></div>
   </section>
   <section class="ld-side-card ld-upcoming-panel"><div class="ld-side-head"><strong>Próximos vencimientos</strong><button type="button" data-go-page="paymentsPage">Ver calendario</button></div><div id="ldUpcomingList">${data.loading?loadingRows(2):upcomingHtml(data)}</div></section></main>
@@ -416,7 +389,7 @@ function updateSortUi(){
 }
 function showPage(id){document.querySelectorAll('.tab-btn').forEach(button=>button.classList.toggle('active',button.dataset.page===id));document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active-page',page.id===id));$('sideMenu')?.classList.remove('open');$('menuOverlay')?.classList.remove('open');}
 
-function defaultDirection(key){return ['BALANCE','CYCLE','ACTIVITY'].includes(key)?'desc':'asc';}
+function defaultDirection(key){return ['BALANCE','OVERDUE','CYCLE','ACTIVITY'].includes(key)?'desc':'asc';}
 function wireDashboard(){
   const host=$('loansDashboardHost');if(!host||host.dataset.bound==='1')return;host.dataset.bound='1';
   host.addEventListener('input',event=>{if(event.target.id==='ldSearch'){state.search=event.target.value;rerenderRows();}});
@@ -427,8 +400,9 @@ function wireDashboard(){
   host.addEventListener('click',event=>{
     const activity=event.target.closest?.('[data-loan-activity-id]');
     if(activity){const kind=activity.dataset.loanActivityKind,id=activity.dataset.loanActivityId;openActivityDetails({kind,id,record:(kind==='payment'?state.data?.payments:state.data?.disbursements)?.find(row=>String(row.id)===id)});return;}
-    if(event.target.closest?.('#ldNewClient')){openDrawer('client');return;}
-    if(event.target.closest?.('#ldNewDisbursement')){openDrawer('disbursement');return;}
+    const newClient=event.target.closest?.('#ldNewClient'),newLoan=event.target.closest?.('#ldNewDisbursement');
+    if(newClient){openNewClientPanel(db,{trigger:newClient});return;}
+    if(newLoan){openQuickAction('loan',{trigger:newLoan});return;}
     const column=event.target.closest?.('[data-sort-col]');
     if(column){const key=column.dataset.sortCol;if(state.sortKey===key)state.sortDir=state.sortDir==='asc'?'desc':'asc';else{state.sortKey=key;state.sortDir=defaultDirection(key);}rerenderRows();return;}
     const filter=event.target.closest?.('[data-filter]');
@@ -471,9 +445,16 @@ document.addEventListener('click',event=>{const back=event.target.closest?.('#bo
 function activate(){setupPage();if(isLoansPage())renderDashboard(false);}
 watchPage('loansPage',activate,{interval:45000,prefetch:()=>loadData(false),reset:()=>{
   state.requestSequence++;state.periodSequence++;state.data=null;state.filter='ALL';state.search='';state.view='list';state.period='month';
-  state.sortKey='NEXT_DUE';state.sortDir='asc';
-  closeDrawer();setStableMarkup($('loansDashboardHost'),dashboardHtml(initialLoanData()),true);
+  state.sortKey='OVERDUE';state.sortDir='desc';
+  setStableMarkup($('loansDashboardHost'),dashboardHtml(initialLoanData()),true);
 }});
+window.addEventListener(CLIENT_CHANGED,event=>{
+  const client=event.detail?.client;
+  if(client&&state.data){
+    state.data={...state.data,accounts:mergeClientAccount(state.data.accounts,client)};
+    if(isLoansPage())renderLoanData(state.data);
+  }
+});
 window.addEventListener('loan-ledger:dashboard-refresh',()=>renderDashboard(true));
 setupPage();
 

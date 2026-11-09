@@ -1,8 +1,13 @@
+import { CLIENT_CHANGED, CLIENT_FIELDS, mergeClientAccount, publishClientChange } from './client-directory.js?v=1';
+import { clientFieldsMarkup, clientFields } from './client-form.js?v=1';
+import { attachFundingEditor, openFundingEditor } from './funding-editor.js?v=1';
+import { installmentLinksMarkup, attachInstallmentLinks, borrowerInstallmentRows, readInstallmentLinkFields, describeInstallmentLinks } from './installment-links.js?v=1';
+import { paymentDistributionMarkup, attachPaymentDistribution } from './payment-distribution.js?v=1';
 import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=1';
-import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=1';
-import { openActivityDetails } from './activity-details.js?v=1';
+import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
+import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
+import { openActivityDetails } from './activity-details.js?v=2';
 
 const db=createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',
@@ -22,7 +27,7 @@ const STYLE_FILES=[
   ['clientProfileFixedShellCss','./client-profile-fixed-shell.css?v=2'],
   ['uiFinalPolishCss','./ui-final-polish.css?v=3'],
   ['clientProfileControllerCss','./client-profile-controller.css?v=3'],
-  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=8']
+  ['clientProfileWorkspaceCss','./client-profile-workspace.css?v=9']
 ];
 STYLE_FILES.forEach(([id,href])=>{
   let link=document.getElementById(id);
@@ -48,6 +53,7 @@ let calendarOffset=0;
 let selectedDueIso=null;
 let movementFilter='todos';
 const profileListTemplates=new WeakMap();
+const fundingEditors=new WeakMap();
 let composerTrigger=null;
 let composerBackgrounds=[];
 
@@ -160,13 +166,14 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
     db.from('borrower_contact_log_view').select('*').eq('borrower_id',borrowerId).order('created_at',{ascending:false}).limit(80),
     db.from('borrower_followups_view').select('*').eq('borrower_id',borrowerId).order('due_date',{ascending:true}).limit(80),
     db.from('app_settings').select('setting_key,setting_value').in('setting_key',['loan_defaults','default_funding_split']),
-    db.from('loan_funding').select('loan_id,partner_user_id,funding_percent'),
-    db.from('profiles').select('user_id,full_name,role')
+    db.from('loan_funding').select('loan_id,partner_user_id,funding_percent,contributed_amount'),
+    db.from('profiles').select('user_id,full_name,role'),
+    db.from('borrowers').select(CLIENT_FIELDS).eq('id',borrowerId).single()
   ];
   if(includeAccounts)jobs.push(db.from('borrower_account_summary').select('*').order('full_name',{ascending:true}));
   const [results,userRes]=await Promise.all([Promise.all(jobs),db.auth.getUser()]);
   for(const result of results)if(result.error)throw result.error;
-  const [summaryRes,calendarRes,disbRes,contactRes,followRes,settingsRes,fundingRes,profilesRes,accountsRes]=results;
+  const [summaryRes,calendarRes,disbRes,contactRes,followRes,settingsRes,fundingRes,profilesRes,clientRes,accountsRes]=results;
   if(!calendarRes.data)throw new Error('No se pudo consultar el calendario de esta cuenta.');
   const settings=Object.fromEntries((settingsRes.data||[]).map(row=>[row.setting_key,row.setting_value]));
   const profileNames=new Map((profilesRes.data||[]).map(row=>[row.user_id,row.full_name||row.role||'Socio']));
@@ -176,9 +183,12 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
     if(!fundingByLoan.has(row.loan_id))fundingByLoan.set(row.loan_id,[]);
     fundingByLoan.get(row.loan_id).push({...row,partner_name:profileNames.get(row.partner_user_id)||'Socio'});
   });
+  const viewer=profilesRes.data?.find(row=>row.user_id===userRes.data?.user?.id);
   return {
-    summary:summaryRes.data,
-    canEditClient:['ADMIN','AGENT'].includes(profilesRes.data?.find(row=>row.user_id===userRes.data?.user?.id)?.role),
+    summary:{...summaryRes.data,...clientRes.data},
+    fundingPeople:(profilesRes.data||[]).filter(row=>['ADMIN','PARTNER'].includes(row.role)).sort((a,b)=>String(a.full_name).localeCompare(String(b.full_name),'es')),
+    canManageFunding:viewer?.role==='ADMIN',
+    canEditClient:['ADMIN','AGENT'].includes(viewer?.role),
     calendarRows:calendarRes.data.rows||[],
     calendarAsOf:calendarRes.data.as_of_date||today(),
     disbursements:(disbRes.data||[]).map(row=>({...row,funding:fundingByLoan.get(row.id)||[]})),
@@ -230,8 +240,10 @@ function calendarDetailHtml(data,iso){
   const {row,arrears}=calendarBalance(data,iso);
   const payments=(data.payments||[]).filter(p=>!p.is_voided&&(p.due_applications||[]).some(a=>a.due_date===iso&&Number(a.applied_total)>0));
   const linked=payments.reduce((sum,p)=>sum+(p.due_applications||[]).filter(a=>a.due_date===iso).reduce((n,a)=>n+Number(a.applied_total||0),0),0);
+  const related=[...(data.followups||[]),...(data.contacts||[])].filter(record=>record.installment_dates?.includes(iso));
+  const linkedNotes=related.length?`<section class="cp-due-section"><h3>Notas y seguimientos vinculados</h3><ul class="ll-linked-notes">${related.map(record=>`<li><strong>${esc(record.reason||record.outcome||record.notes||'Nota de contacto')}</strong>${record.execution_date?` <small>· Ejecución: ${fmtDate(record.execution_date)}</small>`:''}</li>`).join('')}</ul><button type="button" class="cp-text-action" data-open-tab="followups">Ver notas y seguimientos</button></section>`:'';
   const excess=Math.max(0,Math.round((Number(row.paid_total||0)-Number(row.expected_total||0))*100)/100);
-  return `<div class="cp-due-facts"><div><small>Capital base de esta fecha</small><strong>${calendarMoney(row.principal_snapshot)}</strong></div><div><small>Cuota original</small><strong>${calendarMoney(row.expected_total)}</strong></div><div><small>Pagado a esta cuota</small><strong>${calendarMoney(row.paid_total)}</strong></div></div><p class="cp-calendar-note">Calculada con el capital de esta fecha. Los saldos reflejan los pagos registrados; las cuotas futuras son una proyección.</p>${excess>0?`<p class="cp-calendar-alert">Hay ${calendarMoney(excess)} aplicados por encima del importe de esta cuota. Revisa los pagos vinculados.</p>`:''}<section class="cp-due-section"><h3>Atrasos anteriores <span>${arrears.length}</span></h3>${arrears.length?`<div class="cp-due-table-scroll"><table class="cp-due-table"><thead><tr><th>Cuota</th><th>Original</th><th>Pagado</th><th>Pendiente</th></tr></thead><tbody>${arrears.map(a=>`<tr><td><button type="button" class="cp-text-action" data-calendar-jump="${esc(a.due_date)}">${fmtDate(a.due_date)}</button></td><td>${calendarMoney(a.expected_total)}</td><td>${calendarMoney(a.paid_total)}</td><td><strong>${calendarMoney(a.amount_due)}</strong></td></tr>`).join('')}</tbody></table></div>`:'<p class="cp-calendar-note">No hay cuotas anteriores vencidas pendientes en esta fecha.</p>'}</section><section class="cp-due-section"><h3>Pagos aplicados a esta cuota</h3>${payments.map(p=>calendarReceiptHtml(p,iso)).join('')||'<p class="cp-calendar-note">No hay pagos vinculados a esta cuota.</p>'}${Number(row.paid_total||0)-linked>.005?'<p class="cp-calendar-note">Parte del abono procede de un registro histórico sin detalle de pago vinculado.</p>':''}</section>`;
+  return `<div class="cp-due-facts"><div><small>Capital base de esta fecha</small><strong>${calendarMoney(row.principal_snapshot)}</strong></div><div><small>Cuota original</small><strong>${calendarMoney(row.expected_total)}</strong></div><div><small>Pagado a esta cuota</small><strong>${calendarMoney(row.paid_total)}</strong></div></div><p class="cp-calendar-note">Calculada con el capital de esta fecha. Los saldos reflejan los pagos registrados; las cuotas futuras son una proyección.</p>${excess>0?`<p class="cp-calendar-alert">Hay ${calendarMoney(excess)} aplicados por encima del importe de esta cuota. Revisa los pagos vinculados.</p>`:''}<section class="cp-due-section"><h3>Atrasos anteriores <span>${arrears.length}</span></h3>${arrears.length?`<div class="cp-due-table-scroll"><table class="cp-due-table"><thead><tr><th>Cuota</th><th>Original</th><th>Pagado</th><th>Pendiente</th></tr></thead><tbody>${arrears.map(a=>`<tr><td><button type="button" class="cp-text-action" data-calendar-jump="${esc(a.due_date)}">${fmtDate(a.due_date)}</button></td><td>${calendarMoney(a.expected_total)}</td><td>${calendarMoney(a.paid_total)}</td><td><strong>${calendarMoney(a.amount_due)}</strong></td></tr>`).join('')}</tbody></table></div>`:'<p class="cp-calendar-note">No hay cuotas anteriores vencidas pendientes en esta fecha.</p>'}</section><section class="cp-due-section"><h3>Pagos aplicados a esta cuota</h3>${payments.map(p=>calendarReceiptHtml(p,iso)).join('')||'<p class="cp-calendar-note">No hay pagos vinculados a esta cuota.</p>'}${Number(row.paid_total||0)-linked>.005?'<p class="cp-calendar-note">Parte del abono procede de un registro histórico sin detalle de pago vinculado.</p>':''}</section>${linkedNotes}`;
 }
 function monthRangeTitle(dates){
   const f=new Intl.DateTimeFormat('es',{month:'long',year:'numeric'});
@@ -327,29 +339,45 @@ function paymentRowsHtml(rows){
       <div class="cp-record-detail"><dl><div><dt>Abono a capital</dt><dd>${money(p.applied_principal)}</dd></div><div><dt>Cuota/interés</dt><dd>${money(p.applied_interest)}</dd></div><div><dt>Administración</dt><dd>${money(p.applied_mgmt)}</dd></div><div><dt>Socios</dt><dd>${money(p.applied_funders)}</dd></div><div><dt>Notas</dt><dd>${esc(p.notes||'Sin notas')}</dd></div>${p.void_reason?`<div><dt>Motivo de anulación</dt><dd>${esc(p.void_reason)}</dd></div>`:''}</dl>${p.is_voided?'':`<button type="button" class="cp-action cp-danger" data-void-payment="${esc(p.id)}">Anular pago</button>`}</div>
     </details>`).join('')}</div>`;
 }
-function disbursementRowsHtml(rows){
+function disbursementRowsHtml(rows,canEdit=false){
   if(!rows.length)return emptyState('Todavía no hay desembolsos registrados.','disbursement','Crear desembolso');
   return `<div class="cp-ledger-head cp-loan-columns" aria-hidden="true"><span>Fecha de inicio</span><span>Desembolsado</span><span>Capital pendiente</span><span>Interés mensual</span><span>Estado</span><span></span></div><div class="cp-record-list" data-list="disbursements">${rows.map(row=>`
     <details class="cp-record" data-profile-record="${esc(row.id)}" data-history-row="disbursements" data-history-search="${esc([row.start_date,fmtDate(row.start_date),row.principal_original,row.principal_outstanding,statusLabel(row.status),row.notes,...(row.funding||[]).map(item=>item.partner_name)].join(' ').toLowerCase())}">
       <summary class="cp-loan-columns"><time datetime="${esc(row.start_date)}">${fmtDate(row.start_date)}</time><strong>${money(row.principal_original)}</strong><span class="cp-row-amount">${money(row.principal_outstanding)}</span><span>${(Number(row.monthly_rate_total||0)*100).toFixed(2)}%</span><span class="ll-status-pill ${tone(row.status)}">${esc(statusLabel(row.status))}</span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary>
-      <div class="cp-record-detail"><dl><div><dt>Capital pendiente</dt><dd>${money(row.principal_outstanding)}</dd></div><div><dt>Administración mensual</dt><dd>${(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)}%</dd></div><div><dt>Distribución de inversión</dt><dd>${row.funding?.length?row.funding.map(item=>`${esc(item.partner_name)} ${(Number(item.funding_percent||0)*100).toFixed(2).replace(/\.00$/,'')}%`).join(' · '):'Sin distribución visible'}</dd></div><div><dt>Notas</dt><dd>${esc(row.notes||'Sin notas')}</dd></div></dl></div>
+      <div class="cp-record-detail"><dl><div><dt>Capital pendiente</dt><dd>${money(row.principal_outstanding)}</dd></div><div><dt>Administración mensual</dt><dd>${(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)}%</dd></div><div><dt>Distribución de inversión</dt><dd>${row.funding?.length?row.funding.map(item=>{
+        const amount=item.contributed_amount==null?Number(row.principal_original)*Number(item.funding_percent):Number(item.contributed_amount);
+        const percent=Number(row.principal_original)>0?amount/Number(row.principal_original)*100:0;
+        return `${esc(item.partner_name)} ${money(amount)} (${percent.toFixed(2)}%)`;
+      }).join(' · '):'Sin distribución visible'}</dd></div><div><dt>Notas</dt><dd>${esc(row.notes||'Sin notas')}</dd></div></dl>${canEdit&&row.status!=='VOIDED'?`<button type="button" class="cp-action cp-quiet" data-edit-contributions="${esc(row.id)}">Editar aportes</button>`:''}</div>
     </details>`).join('')}</div>`;
 }
 function followupRowsHtml(rows){
   if(!rows.length)return emptyState('Sin seguimientos pendientes.','followup','Programar seguimiento');
   const priority={NORMAL:'Normal',LOW:'Baja',HIGH:'Alta',URGENT:'Urgente'};
   const sorted=[...rows].sort((a,b)=>(a.status==='DONE')-(b.status==='DONE')||String(a.due_date).localeCompare(String(b.due_date)));
-  return `<div class="cp-record-list" data-list="followups">${sorted.map(row=>`<article class="cp-followup-row"><div class="cp-date"><time datetime="${esc(row.due_date)}">${fmtDate(row.due_date)}</time><small>${row.status==='DONE'?'Completado':dueTiming(row.due_date)}</small></div><div class="cp-followup-copy"><strong>${esc(row.reason||'Seguimiento')}</strong><p>Prioridad ${esc(priority[row.priority]||row.priority||'Normal')}${row.loan_start_date?` · Desembolso del ${fmtDate(row.loan_start_date)}`:''}</p>${row.completed_notes?`<p>${esc(row.completed_notes)}</p>`:''}</div><div class="cp-followup-actions"><span class="ll-status-pill ${tone(row.status==='DONE'?'DONE':row.timing_status||row.status)}">${esc(statusLabel(row.status==='DONE'?'DONE':row.timing_status||row.status))}</span>${row.status==='DONE'?'':`<button type="button" class="cp-action cp-quiet" data-complete-followup="${esc(row.id)}">Completar</button>`}</div></article>`).join('')}</div>`;
+  return `<div class="cp-record-list" data-list="followups">${sorted.map(row=>`<article class="cp-followup-row"><div class="cp-date"><time datetime="${esc(row.due_date)}">${fmtDate(row.due_date)}</time><small>${row.status==='DONE'?'Completado':dueTiming(row.due_date)}</small></div><div class="cp-followup-copy"><strong>${esc(row.reason||'Seguimiento')}</strong><p>Prioridad ${esc(priority[row.priority]||row.priority||'Normal')}${row.loan_start_date?` · Desembolso del ${fmtDate(row.loan_start_date)}`:''}</p>${describeInstallmentLinks(row)?`<p>${esc(describeInstallmentLinks(row))}</p>`:''}${row.completed_notes?`<p>${esc(row.completed_notes)}</p>`:''}</div><div class="cp-followup-actions"><span class="ll-status-pill ${tone(row.status==='DONE'?'DONE':row.timing_status||row.status)}">${esc(statusLabel(row.status==='DONE'?'DONE':row.timing_status||row.status))}</span>${row.status==='DONE'?'':`<button type="button" class="cp-action cp-quiet" data-complete-followup="${esc(row.id)}">Completar</button>`}</div></article>`).join('')}</div>`;
 }
 function contactRowsHtml(rows){
   if(!rows.length)return emptyState('Todavía no hay notas ni contactos.','note','Agregar nota');
   const types={NOTE:'Nota',CALL:'Llamada',TEXT:'Texto',WHATSAPP:'WhatsApp',EMAIL:'Correo',IN_PERSON:'En persona',OTHER:'Otro'};
-  return `<div class="cp-record-list" data-list="contacts">${rows.map(row=>`<details class="cp-record cp-contact-record" data-profile-record="${esc(row.id)}"><summary><span class="cp-date"><time datetime="${esc(row.contact_date)}">${fmtDate(row.contact_date)}</time><small>${esc(types[row.contact_type]||row.contact_type||'Nota')}</small></span><span class="cp-followup-copy"><strong>${esc(row.outcome||'Nota de contacto')}</strong><small>${esc(row.notes||'')}</small></span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary><div class="cp-record-detail"><p>${esc(row.notes||'Sin notas')}</p><small>Registrado por ${esc(row.created_by_name||'Usuario')}</small></div></details>`).join('')}</div>`;
+  return `<div class="cp-record-list" data-list="contacts">${rows.map(row=>`<details class="cp-record cp-contact-record" data-profile-record="${esc(row.id)}"><summary><span class="cp-date"><time datetime="${esc(row.contact_date)}">${fmtDate(row.contact_date)}</time><small>${esc(types[row.contact_type]||row.contact_type||'Nota')}</small></span><span class="cp-followup-copy"><strong>${esc(row.outcome||'Nota de contacto')}</strong><small>${esc(row.notes||'')}</small></span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary><div class="cp-record-detail"><p>${esc(row.notes||'Sin notas')}</p>${describeInstallmentLinks(row)?`<p>${esc(describeInstallmentLinks(row))}</p>`:''}<small>Registrado por ${esc(row.created_by_name||'Usuario')}</small></div></details>`).join('')}</div>`;
 }
 function loanOptionsHtml(rows){return `<option value="">Cuenta general</option>${rows.map(row=>`<option value="${esc(row.id)}">${fmtDate(row.start_date)} · ${money(row.principal_outstanding)} · ${statusLabel(row.status)}</option>`).join('')}`;}
-function fundingRowsHtml(data){
-  if(!data.defaultFunding.length)return emptyState('Configura la distribución predeterminada en Socios y usuarios antes de crear un desembolso.');
-  return data.defaultFunding.map((row,index)=>`<label class="ll-funding-row"><span>${esc(row.partner_name||'Socio')}</span><input type="number" aria-label="Participación de ${esc(row.partner_name||'Socio')} en porcentaje" min="0" max="100" step="0.01" value="${(Number(row.funding_percent||0)*100).toFixed(2)}" data-funding-index="${index}" data-partner-user-id="${esc(row.partner_user_id)}"></label>`).join('');
+function profileFundingEditor(form,data=currentData){
+  if(!fundingEditors.has(form)){
+    const editor=attachFundingEditor(form.querySelector('#llProfileFundingRows'),{
+      people:data.fundingPeople||[],preset:data.defaultFunding,total:()=>form.querySelector('#llProfilePrincipal').value});
+    fundingEditors.set(form,editor);
+  }
+  return fundingEditors.get(form);
+}
+function profileContactDetails(a){
+  const lines=[];
+  if(a.additional_phones?.length)lines.push(['Teléfonos adicionales',a.additional_phones.join(' · ')]);
+  if(a.emails?.length)lines.push(['Correos electrónicos',a.emails.join(' · ')]);
+  const guarantor=[a.guarantor_name,a.guarantor_phone,a.guarantor_email].filter(Boolean);
+  if(guarantor.length)lines.push(['Garante',guarantor.join(' · ')]);
+  return lines.map(([label,value])=>`<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('');
 }
 function nextActionBodyHtml(data){
   const row=data.followups.find(item=>item.status!=='DONE');
@@ -366,16 +394,14 @@ function composerHtml(data){
     <header class="cp-composer-head"><div><p>Cuenta de <strong data-slot="composer-name">${esc(a.full_name)}</strong></p><h2 id="cpComposerTitle">Registrar pago</h2></div><button type="button" class="cp-close" data-close-composer aria-label="Cerrar panel">×</button></header>
     <div class="cp-composer-context"><span>Capital pendiente</span><strong data-slot="composer-balance">${money(a.principal_balance)}</strong></div><div class="cp-composer-body">
       <section data-composer-panel="client" hidden><form id="llProfileClientForm" class="ll-profile-form">
-        <label>Nombre completo<input id="llProfileClientName" type="text" required></label>
-        <label>Teléfono<input id="llProfileClientPhone" type="tel"></label>
-        <label>Notas del cliente<textarea id="llProfileClientNotes" rows="4"></textarea></label>
+        ${clientFieldsMarkup()}
         <div id="llProfileClientStatus" class="ll-form-status" role="status"></div>
         <div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar cambios</button></div>
       </form></section>
-      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>${mixedPaymentMarkup('llProfileMixed')}${paymentCalendarMarkup('llProfileCalendar')}<label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
-      <section data-composer-panel="disbursement" hidden><form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="1" step="1" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div class="ll-form-section-title">Distribución de inversión</div><div id="llProfileFundingRows">${fundingRowsHtml(data)}</div><div id="llProfileFundingTotal" class="ll-form-status"></div><p class="cp-form-help">El capital se agrega a la cuenta y se recalculan las cuotas futuras.</p><div id="llProfileDisbursementStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary" ${data.defaultFunding.length?'':'disabled'}>Guardar desembolso</button></div></form></section>
-      <section data-composer-panel="note" hidden><form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><div id="llProfileContactStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar nota</button></div></form></section>
-      <section data-composer-panel="followup" hidden><form id="llProfileFollowupForm" class="ll-profile-form"><div class="ll-form-two"><label>Fecha<input id="llProfileFollowupDate" type="date" value="${today()}" required></label><label>Prioridad<select id="llProfileFollowupPriority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label>Desembolso relacionado<select id="llProfileFollowupLoan">${loanOptionsHtml(data.disbursements)}</select></label><label>Motivo<textarea id="llProfileFollowupReason" rows="4" required placeholder="Motivo o recordatorio"></textarea></label><div id="llProfileFollowupStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Crear seguimiento</button></div></form></section>
+      <section data-composer-panel="payment" hidden><form id="llProfilePaymentForm" class="ll-profile-form"><label>Monto<input id="llProfilePayAmount" type="number" min="0.01" step="0.01" value="${suggested?paymentAmount(suggested):''}" required></label><div class="ll-quick-profile-amounts">${quickAmountButtons(suggested,3,false)}</div><label>Fecha<input id="llProfilePayDate" type="date" value="${today()}" required></label><label>Tipo de pago<select id="llProfilePayType"><option value="INSTALLMENT">Pago de cuota/interés</option><option value="PRINCIPAL">Abono directo a capital</option><option value="MIXED">Mixto: cuota + abono al capital</option><option value="PAYOFF">Saldar capital</option></select></label>${mixedPaymentMarkup('llProfileMixed')}${paymentCalendarMarkup('llProfileCalendar')}${paymentDistributionMarkup()}<label>Notas<input id="llProfilePayNotes" placeholder="Notas opcionales"></label><p class="cp-form-help">Las cuotas cubren intereses. El capital solo se reduce con abonos, pagos mixtos o saldos.</p><div id="llProfilePayStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Registrar pago</button></div></form></section>
+      <section data-composer-panel="disbursement" hidden><form id="llProfileDisbursementForm" class="ll-profile-form"><label>Capital desembolsado<input id="llProfilePrincipal" type="number" min="0.01" max="9999999999.99" step="0.01" required></label><label>Fecha de inicio<input id="llProfileStartDate" type="date" value="${today()}" required></label><div class="ll-form-two"><label>Interés mensual total %<input id="llProfileTotalRate" type="number" min="0" step="0.01" value="${totalRate.toFixed(2)}" required></label><label>Administración %<input id="llProfileMgmtRate" type="number" min="0" step="0.01" value="${mgmtRate.toFixed(2)}" required></label></div><label>Notas<input id="llProfileDisbursementNotes" placeholder="Notas opcionales"></label><div id="llProfileFundingRows"></div><p class="cp-form-help">El capital se agrega a la cuenta y se recalculan las cuotas futuras.</p><div id="llProfileDisbursementStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary" ${data.canManageFunding?'':'disabled'}>Guardar desembolso</button></div></form></section>
+      <section data-composer-panel="note" hidden><form id="llProfileContactForm" class="ll-profile-form"><div class="ll-form-two"><label>Tipo<select id="llProfileContactType"><option value="NOTE">Nota</option><option value="CALL">Llamada</option><option value="TEXT">Texto</option><option value="WHATSAPP">WhatsApp</option><option value="EMAIL">Correo</option><option value="IN_PERSON">En persona</option><option value="OTHER">Otro</option></select></label><label>Fecha<input id="llProfileContactDate" type="date" value="${today()}" required></label></div><label>Desembolso relacionado<select id="llProfileContactLoan">${loanOptionsHtml(data.disbursements)}</select></label>${installmentLinksMarkup()}<label>Resultado<input id="llProfileContactOutcome" placeholder="Ej.: prometió pagar el viernes"></label><label>Notas<textarea id="llProfileContactNotes" rows="4" required placeholder="Escribe la nota del contacto"></textarea></label><div id="llProfileContactStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Guardar nota</button></div></form></section>
+      <section data-composer-panel="followup" hidden><form id="llProfileFollowupForm" class="ll-profile-form"><div class="ll-form-two"><label>Fecha de seguimiento<input id="llProfileFollowupDate" type="date" value="${today()}" required></label><label>Prioridad<select id="llProfileFollowupPriority"><option value="NORMAL">Normal</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></label></div><label>Desembolso relacionado<select id="llProfileFollowupLoan">${loanOptionsHtml(data.disbursements)}</select></label>${installmentLinksMarkup()}<label>Motivo<textarea id="llProfileFollowupReason" rows="4" required placeholder="Motivo o recordatorio"></textarea></label><div id="llProfileFollowupStatus" class="ll-form-status" role="status"></div><div class="cp-form-actions"><button type="button" class="cp-action" data-close-composer>Cancelar</button><button type="submit" class="ll-primary-btn cp-action cp-primary">Crear seguimiento</button></div></form></section>
     </div>
   </aside>`;
 }
@@ -386,7 +412,7 @@ function profileShellHtml(data,selectedId){
       <div class="ll-controller-loading-badge" aria-live="polite"><span class="ll-controller-loading-dot"></span><strong>Cargando...</strong></div>
       <div class="cp-masthead"><section class="ll-client-header">
         <div class="ll-avatar-xl ll-dynamic-value" data-slot="header-avatar">${esc(initials(a.full_name))}</div>
-        <div class="ll-client-header-copy"><div class="ll-title-row"><h1 class="ll-client-title ll-dynamic-value" data-slot="header-name">${esc(a.full_name||'Cuenta del cliente')}</h1><span class="ll-status-pill ${tone(a.account_status)} ll-dynamic-value" data-slot="header-status">${esc(statusLabel(a.account_status))}</span></div><div class="ll-client-meta"><span>Teléfono: <b class="ll-dynamic-value" data-slot="header-phone">${esc(a.phone||'Sin teléfono')}</b></span><button type="button" class="cp-text-action" data-top-action="whatsapp">WhatsApp</button><button type="button" class="cp-text-action" data-composer="client"${data.canEditClient?'':' hidden'}>Editar cliente</button></div><div class="cp-client-notes" tabindex="0"${a.notes?.trim()?'':' hidden'}><strong>Notas del cliente:</strong> <span data-slot="header-notes">${esc(a.notes||'')}</span></div></div>
+        <div class="ll-client-header-copy"><div class="ll-title-row"><h1 class="ll-client-title ll-dynamic-value" data-slot="header-name">${esc(a.full_name||'Cuenta del cliente')}</h1><span class="ll-status-pill ${tone(a.account_status)} ll-dynamic-value" data-slot="header-status">${esc(statusLabel(a.account_status))}</span></div><div class="ll-client-meta"><span>Teléfono: <b class="ll-dynamic-value" data-slot="header-phone">${esc(a.phone||'Sin teléfono')}</b></span><button type="button" class="cp-text-action" data-top-action="whatsapp">WhatsApp</button><button type="button" class="cp-text-action" data-composer="client"${data.canEditClient?'':' hidden'}>Editar cliente</button></div><div class="cp-client-notes" tabindex="0"${a.notes?.trim()?'':' hidden'}><strong>Notas del cliente:</strong> <span data-slot="header-notes">${esc(a.notes||'')}</span></div><details class="ll-flow-details cp-contact-details" hidden><summary>Más datos de contacto</summary><dl data-slot="contact-details"></dl></details></div>
         <div class="ll-action-row"><button class="ll-primary-btn cp-action cp-primary" type="button" id="llFocusPay" data-composer="payment">${svg('payment')} Registrar pago</button><button class="cp-action" type="button" data-composer="disbursement">Nuevo desembolso</button><details class="ll-more-actions"><summary aria-label="Más acciones">${svg('more')}</summary><div class="ll-more-menu"><button type="button" data-composer="note">Agregar nota o contacto</button><button type="button" data-composer="followup">Programar seguimiento</button></div></details></div>
       </section>
       <div class="ll-summary-stat-grid cp-kpis" aria-label="Resumen de la cuenta">
@@ -401,7 +427,7 @@ function profileShellHtml(data,selectedId){
           <section class="cp-panel cp-section cp-calendar" aria-labelledby="cpCalendarTitle">${calendarHtml('summary',data)}</section><section class="cp-panel cp-section"><div class="cp-section-heading"><h2>Actividad reciente</h2>${movementFilterHtml()}</div><div class="ll-list-host" data-list-host="movements">${movementsHtml(data)}</div></section>
         </div><aside class="cp-overview-side"><section class="cp-panel cp-section"><div class="cp-section-heading"><h2>Información de la cuenta</h2></div><dl class="cp-account-facts"><div><dt>Total desembolsado</dt><dd data-slot="total-disbursed">${money(a.total_disbursed)}</dd></div><div><dt>Capital abonado</dt><dd data-slot="principal-paid">${money(a.total_principal_paid)}</dd></div><div><dt>Cuota mensual</dt><dd data-slot="monthly-fee">${money(a.current_monthly_fee)}</dd></div><div><dt>Desembolsos</dt><dd data-slot="disbursement-count">${a.disbursement_count||0}</dd></div></dl><button type="button" class="cp-text-action" data-open-tab="disbursements">Ver detalle de desembolsos ${svg('chevronRight')}</button></section><section class="cp-panel cp-section"><div class="cp-section-heading"><h2>Próximo seguimiento</h2></div><div class="ll-next-action-host" data-list-host="next-action">${nextActionBodyHtml(data)}</div></section></aside></div></section>
         <section id="cpPaymentsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="payments"><div class="cp-panel cp-history-panel">${historyToolbar('payments','Historial de pagos','Consulta capital, intereses y distribución de cada pago.','payment','Registrar pago')}<div class="ll-list-host" data-list-host="payments">${paymentRowsHtml(data.payments)}</div><div class="cp-filter-empty" data-history-empty="payments" hidden>No hay pagos que coincidan con la búsqueda.</div></div></section>
-        <section id="cpDisbursementsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="disbursements"><div class="cp-panel cp-history-panel">${historyToolbar('disbursements','Desembolsos','Capital, saldo y condiciones de cada desembolso.','disbursement','Nuevo desembolso')}<div class="ll-list-host" data-list-host="disbursements">${disbursementRowsHtml(data.disbursements)}</div><div class="cp-filter-empty" data-history-empty="disbursements" hidden>No hay desembolsos que coincidan con la búsqueda.</div></div></section>
+        <section id="cpDisbursementsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="disbursements"><div class="cp-panel cp-history-panel">${historyToolbar('disbursements','Desembolsos','Capital, saldo y condiciones de cada desembolso.','disbursement','Nuevo desembolso')}<div class="ll-list-host" data-list-host="disbursements">${disbursementRowsHtml(data.disbursements,data.canManageFunding)}</div><div class="cp-filter-empty" data-history-empty="disbursements" hidden>No hay desembolsos que coincidan con la búsqueda.</div></div></section>
         <section id="cpFollowupsPanel" class="ll-profile-panel" role="tabpanel" data-profile-panel="followups"><div class="cp-panel cp-followup-panel"><div class="cp-panel-heading"><div><h2>Notas y seguimientos</h2><p>Recordatorios pendientes e historial de contacto.</p></div><div class="cp-toolbar-actions"><button type="button" class="cp-action" data-composer="note">Agregar nota</button><button type="button" class="cp-action" data-composer="followup">Programar seguimiento</button></div></div><section class="cp-section"><div class="cp-section-heading"><h3>Seguimientos</h3><span class="cp-result-count" data-slot="pending-followups">${pending} pendientes</span></div><div class="ll-list-host" data-list-host="followups">${followupRowsHtml(data.followups)}</div></section><section class="cp-section"><div class="cp-section-heading"><h3>Notas y contactos</h3><span class="cp-result-count" data-slot="contacts-count">${data.contacts.length} registros</span></div><div class="ll-list-host" data-list-host="contacts">${contactRowsHtml(data.contacts)}</div></section></div></section>
       </div>
     </main>${composerHtml(data)}
@@ -439,7 +465,6 @@ function mountProfile(data,selectedId){
   mounted=true;
   document.body.classList.add('ll-client-detail-fixed');
   wireController(content.querySelector('.ll-account-shell'));
-  updateFundingTotal();
   showTab(activeTab,false);
   syncContactAction(content.querySelector('.ll-account-shell'),data);
 }
@@ -574,7 +599,7 @@ async function updateProfile(data,borrowerId){
     transitionList(root.querySelector('[data-list-host="movements"]'),movementsHtml(data)),
     transitionList(root.querySelector('[data-list-host="next-action"]'),nextActionBodyHtml(data)),
     transitionList(root.querySelector('[data-list-host="payments"]'),paymentRowsHtml(data.payments)),
-    transitionList(root.querySelector('[data-list-host="disbursements"]'),disbursementRowsHtml(data.disbursements)),
+    transitionList(root.querySelector('[data-list-host="disbursements"]'),disbursementRowsHtml(data.disbursements,data.canManageFunding)),
     transitionList(root.querySelector('[data-list-host="followups"]'),followupRowsHtml(data.followups)),
     transitionList(root.querySelector('[data-list-host="contacts"]'),contactRowsHtml(data.contacts))
   ];
@@ -714,6 +739,12 @@ function syncContactAction(root,data){
   if(action)action.hidden=!String(data?.summary?.phone||'').replace(/\D/g,'');
   const edit=root?.querySelector('[data-composer="client"]');
   if(edit)edit.hidden=!data?.canEditClient;
+  const details=root&&slot(root,'contact-details');
+  if(details){
+    const html=profileContactDetails(data.summary);
+    if(details.dataset.markup!==html){details.innerHTML=html;details.dataset.markup=html;}
+    details.parentElement.hidden=!html;
+  }
   const notes=root&&slot(root,'header-notes');
   if(notes){
     const value=data?.summary?.notes||'';
@@ -726,24 +757,26 @@ function resetComposerForms(root,data,form=null){
   if(!scope)return;
   [scope,...scope.querySelectorAll('form')].forEach(node=>{if(node.tagName==='FORM')delete node.dataset.dirty;});
   scope.querySelectorAll('input,textarea').forEach(input=>{
-    if(input.matches('[data-partner-user-id]'))return;
     input.value=input.type==='date'?today():'';
   });
   const defaults={'#llProfilePayType':'INSTALLMENT','#llProfileContactType':'NOTE','#llProfileContactLoan':'','#llProfileFollowupLoan':'','#llProfileFollowupPriority':'NORMAL'};
   Object.entries(defaults).forEach(([selector,value])=>{const input=scope.querySelector(selector);if(input)input.value=value;});
   for(const [id,value] of [['llProfileTotalRate',data.defaults.default_total_monthly_rate??10],['llProfileMgmtRate',data.defaults.default_management_rate??3]]){const input=scope.querySelector(`#${id}`);if(input)input.value=Number(value).toFixed(2);}
   const amount=scope.querySelector('#llProfilePayAmount'),suggested=Number(data.summary.current_cycle_fee||data.summary.current_monthly_fee||0);if(amount)amount.value=suggested?paymentAmount(suggested):'';
-  const funding=scope.querySelector('#llProfileFundingRows');if(funding)funding.innerHTML=fundingRowsHtml(data);
-  const submit=scope.querySelector('#llProfileDisbursementForm button[type="submit"]');if(submit)submit.disabled=!data.defaultFunding.length;
+  const funding=scope.querySelector('#llProfileFundingRows');
+  if(funding){funding.replaceChildren();fundingEditors.delete(funding.closest('form'));}
+  const submit=scope.querySelector('#llProfileDisbursementForm button[type="submit"]');if(submit)submit.disabled=!data.canManageFunding;
+  scope.querySelectorAll('[data-installment-links]').forEach(host=>attachInstallmentLinks(host,{load:id=>borrowerInstallmentRows(db,id)})?.reset());
+  if(scope.querySelector('[data-payment-calendar]')){profilePaymentCalendar()?.reset();profilePaymentDistribution()?.reset();}
   scope.querySelectorAll('.ll-form-status').forEach(status=>{status.textContent='';status.classList.remove('error');});
   if(scope.querySelector('[data-mixed-payment]'))profileMixedSplit()?.reset();
-  updateFundingTotal();
 }
 function profileMixedSplit(){
   const form=document.getElementById('llProfilePaymentForm'),host=form?.querySelector('[data-mixed-payment]');
   return attachMixedPaymentSplit(host,{
     readPayment:()=>({borrowerId:currentBorrowerId,paidOn:form.querySelector('#llProfilePayDate').value,
-      amount:Number(form.querySelector('#llProfilePayAmount').value||0),type:form.querySelector('#llProfilePayType').value}),
+      amount:Number(form.querySelector('#llProfilePayAmount').value||0),type:form.querySelector('#llProfilePayType').value,
+      targeted:(form.querySelector('[data-pcal-target]')?.value||'oldest')!=='oldest'}),
     loadContext:async(borrowerId,paidOn)=>{
       const local=String(borrowerId)===String(currentBorrowerId)?mixedContextFromCalendar(currentData,paidOn):null;
       if(local)return local;
@@ -752,12 +785,19 @@ function profileMixedSplit(){
     }
   });
 }
+function profilePaymentDraft(form){
+  return {borrowerId:currentBorrowerId,paidOn:form.querySelector('#llProfilePayDate').value,
+    amount:Number(form.querySelector('#llProfilePayAmount').value||0),type:form.querySelector('#llProfilePayType').value,
+    installment:Number(form.querySelector('#llProfileMixedInstallment')?.value||0)};
+}
+function profilePaymentDistribution(){
+  const form=document.getElementById('llProfilePaymentForm');
+  return attachPaymentDistribution(form?.querySelector('[data-payment-distribution]'),{db,readPayment:()=>profilePaymentDraft(form)});
+}
 function profilePaymentCalendar(){
   const form=document.getElementById('llProfilePaymentForm');
   return attachPaymentCalendar(form?.querySelector('[data-payment-calendar]'),{
-    readPayment:()=>({borrowerId:currentBorrowerId,paidOn:form.querySelector('#llProfilePayDate').value,
-      amount:Number(form.querySelector('#llProfilePayAmount').value||0),type:form.querySelector('#llProfilePayType').value,
-      installment:Number(form.querySelector('#llProfileMixedInstallment')?.value||0)}),
+    readPayment:()=>profilePaymentDraft(form),
     loadCalendar:async(borrowerId,paidOn)=>{
       const end=paymentCalendarEnd(paidOn);
       if(currentData&&borrowerId===String(currentBorrowerId)&&(currentData.calendarRows.at(-1)?.due_date||'')>=end)
@@ -768,6 +808,7 @@ function profilePaymentCalendar(){
   });
 }
 async function updateProfilePaymentPreview({force=false}={}){
+  profilePaymentDistribution()?.refresh();
   await profileMixedSplit()?.refresh({force});
   profilePaymentCalendar()?.refresh({force});
 }
@@ -778,12 +819,15 @@ function openComposer(kind,trigger=null){
   if(panel.querySelector('form')?.dataset.saving==='1')return;
   if(kind==='client'){
     if(!currentData?.canEditClient)return;
-    const {full_name,phone,notes}=currentData.summary;
-    panel.querySelector('#llProfileClientName').value=full_name||'';
-    panel.querySelector('#llProfileClientPhone').value=phone||'';
-    panel.querySelector('#llProfileClientNotes').value=notes||'';
+    clientFields(panel.querySelector('form')).set(currentData.summary);
     setStatus('llProfileClientStatus','');
   }
+  if(kind==='disbursement'){
+    if(!currentData?.canManageFunding){announceProfile('Solo un administrador puede registrar desembolsos.');return;}
+    profileFundingEditor(panel.querySelector('form'));
+  }
+  if(kind==='note'||kind==='followup')attachInstallmentLinks(panel.querySelector('[data-installment-links]'),
+    {load:id=>borrowerInstallmentRows(db,id)})?.set(currentBorrowerId,currentData.calendarRows);
   drawer.querySelector('.cp-composer-context').hidden=kind==='client';
   const titles={client:'Editar cliente',payment:'Registrar pago',disbursement:'Nuevo desembolso',note:'Agregar nota o contacto',followup:'Programar seguimiento'};
   drawer.querySelector('#cpComposerTitle').textContent=titles[kind];
@@ -794,7 +838,7 @@ function openComposer(kind,trigger=null){
   const backgrounds=[root.querySelector('.ll-workspace'),root.querySelector('.ll-client-rail'),document.getElementById('llGlobalSidebar')].filter(Boolean);
   if(!composerBackgrounds.length){composerBackgrounds=backgrounds.map(node=>({node,inert:node.hasAttribute('inert')}));backgrounds.forEach(node=>node.setAttribute('inert',''));}
   drawer.querySelector('.cp-composer-body').scrollTop=0;
-  const focus={client:'#llProfileClientName',payment:'#llProfilePayAmount',disbursement:'#llProfilePrincipal',note:'#llProfileContactNotes',followup:'#llProfileFollowupReason'};
+  const focus={client:'[name="full_name"]',payment:'#llProfilePayAmount',disbursement:'#llProfilePrincipal',note:'#llProfileContactNotes',followup:'#llProfileFollowupReason'};
   panel.querySelector(focus[kind])?.focus({preventScroll:true});
   if(kind==='payment')updateProfilePaymentPreview({force:true});
 }
@@ -864,20 +908,15 @@ async function handleSubmit(event){
     if(form.id==='llProfileClientForm'){
       const root=form.closest('.ll-account-shell'),borrowerId=currentBorrowerId;
       if(!borrowerId||!currentData?.canEditClient||root.dataset.activeBorrower!==String(borrowerId))return;
-      const full_name=form.querySelector('#llProfileClientName').value.trim();
-      const phone=form.querySelector('#llProfileClientPhone').value.trim()||null;
-      const notes=form.querySelector('#llProfileClientNotes').value.trim()||null;
       const status='llProfileClientStatus';
-      if(!full_name)return setStatus(status,'Escribe el nombre del cliente.',true);
+      const fields=clientFields(form).values();
       setStatus(status,'Guardando cambios…');
-      const {data:saved,error}=await db.from('borrowers').update({full_name,phone,notes}).eq('id',borrowerId).select('full_name,phone,notes').single();
+      const {data:saved,error}=await db.from('borrowers').update(fields).eq('id',borrowerId).select(CLIENT_FIELDS).single();
       if(error||!saved){
         if(String(currentBorrowerId)===String(borrowerId))setStatus(status,'No se pudo guardar la información del cliente.',true);
         return;
       }
-      accounts=accounts.map(account=>String(account.borrower_id)===String(borrowerId)?{...account,...saved}:account);
-      invalidatePageReads();
-      window.dispatchEvent(new CustomEvent('loan-ledger:client-details-updated'));
+      publishClientChange(saved);
       if(String(currentBorrowerId)===String(borrowerId)&&root.isConnected&&!root.querySelector('.cp-composer').hidden){
         currentData={...currentData,summary:{...currentData.summary,...saved}};
         const summary=currentData.summary;
@@ -901,41 +940,52 @@ async function handleSubmit(event){
       const statusId=summary?'llSummaryPayStatus':'llProfilePayStatus';
       if(!amount||!paid_on)return setStatus(statusId,'Fecha y monto son requeridos.',true);
       setStatus(statusId,'Aplicando pago...');
-      let parts;
-      if(payment_type==='MIXED'){
-        try{parts=await profileMixedSplit().values();}catch(error){return setStatus(statusId,error.message||String(error),true);}
-      }
-      const {error}=await db.rpc(parts?'apply_borrower_mixed_payment':'apply_borrower_payment',parts?
-        {p_borrower_id:currentBorrowerId,p_paid_on:paid_on,p_amount:amount,p_installment_amount:parts.installment,p_principal_amount:parts.principal,p_notes:notes}:
-        {p_borrower_id:currentBorrowerId,p_paid_on:paid_on,p_amount:amount,p_payment_type:payment_type,p_notes:notes});
+      const borrowerId=currentBorrowerId;
+      let parts,dueDates,partnerSplit;
+      try{
+        if(payment_type==='MIXED')parts=await profileMixedSplit().values();
+        if(!summary){
+          const installment=parts?.installment??(payment_type==='INSTALLMENT'?amount:0);
+          dueDates=await profilePaymentCalendar()?.values(installment);
+          partnerSplit=await profilePaymentDistribution()?.values(installment);
+          const draft=profilePaymentDraft(form);
+          if(draft.borrowerId!==borrowerId||draft.paidOn!==paid_on||draft.amount!==amount||draft.type!==payment_type||
+            (parts&&draft.installment!==installment))throw new Error('El pago cambió. Revisa los datos y vuelve a guardarlo.');
+        }
+      }catch(error){return setStatus(statusId,error.message||String(error),true);}
+      const {error}=await db.rpc('record_borrower_payment',{
+        p_borrower_id:borrowerId,p_paid_on:paid_on,p_amount:amount,p_payment_type:payment_type,p_notes:notes,
+        p_installment_amount:parts?.installment??null,p_principal_amount:parts?.principal??null,
+        p_due_dates:dueDates??null,p_partner_split:partnerSplit??null});
       if(error)return setStatus(statusId,error.message,true);
       setStatus(statusId,'Pago registrado correctamente.');
     }else if(form.id==='llProfileContactForm'){
       const date=form.querySelector('#llProfileContactDate')?.value,notes=form.querySelector('#llProfileContactNotes')?.value.trim();
       if(!date||!notes)return setStatus('llProfileContactStatus','Fecha y notas son requeridas.',true);
       setStatus('llProfileContactStatus','Guardando nota...');
-      const {error}=await db.from('borrower_contact_log').insert({borrower_id:currentBorrowerId,loan_id:form.querySelector('#llProfileContactLoan')?.value||null,contact_date:date,contact_type:form.querySelector('#llProfileContactType')?.value||'NOTE',outcome:form.querySelector('#llProfileContactOutcome')?.value.trim()||null,notes,created_by:await currentUserId()});
+      const {error}=await db.from('borrower_contact_log').insert({borrower_id:currentBorrowerId,loan_id:form.querySelector('#llProfileContactLoan')?.value||null,contact_date:date,contact_type:form.querySelector('#llProfileContactType')?.value||'NOTE',outcome:form.querySelector('#llProfileContactOutcome')?.value.trim()||null,notes,...readInstallmentLinkFields(form),created_by:await currentUserId()});
       if(error)return setStatus('llProfileContactStatus',error.message,true);
       setStatus('llProfileContactStatus','Nota guardada.');
     }else if(form.id==='llProfileFollowupForm'){
       const date=form.querySelector('#llProfileFollowupDate')?.value,reason=form.querySelector('#llProfileFollowupReason')?.value.trim();
       if(!date||!reason)return setStatus('llProfileFollowupStatus','Fecha y motivo son requeridos.',true);
       setStatus('llProfileFollowupStatus','Creando seguimiento...');
-      const {error}=await db.from('borrower_followups').insert({borrower_id:currentBorrowerId,loan_id:form.querySelector('#llProfileFollowupLoan')?.value||null,due_date:date,priority:form.querySelector('#llProfileFollowupPriority')?.value||'NORMAL',reason,created_by:await currentUserId()});
+      const {error}=await db.from('borrower_followups').insert({borrower_id:currentBorrowerId,loan_id:form.querySelector('#llProfileFollowupLoan')?.value||null,due_date:date,priority:form.querySelector('#llProfileFollowupPriority')?.value||'NORMAL',reason,...readInstallmentLinkFields(form),created_by:await currentUserId()});
       if(error)return setStatus('llProfileFollowupStatus',error.message,true);
       setStatus('llProfileFollowupStatus','Seguimiento creado.');
     }else{
-      const principal=Number(form.querySelector('#llProfilePrincipal')?.value||0),start_date=form.querySelector('#llProfileStartDate')?.value,total=Number(form.querySelector('#llProfileTotalRate')?.value||0)/100,mgmt=Number(form.querySelector('#llProfileMgmtRate')?.value||0)/100,notes=form.querySelector('#llProfileDisbursementNotes')?.value.trim()||null;
-      const funding=[...form.querySelectorAll('[data-partner-user-id]')].map(input=>({partner_user_id:input.dataset.partnerUserId,funding_percent:Number(input.value||0)/100})).filter(row=>row.partner_user_id&&row.funding_percent>0);
-      const fundingTotal=funding.reduce((sum,row)=>sum+row.funding_percent,0);
-      if(!principal||!start_date)return setStatus('llProfileDisbursementStatus','Fecha y capital son requeridos.',true);
-      if(mgmt>total)return setStatus('llProfileDisbursementStatus','La administración no puede superar el interés total.',true);
-      if(!funding.length||Math.abs(fundingTotal-1)>0.001)return setStatus('llProfileDisbursementStatus','La distribución debe sumar 100%.',true);
-      setStatus('llProfileDisbursementStatus','Guardando desembolso...');
-      const {data:loan,error}=await db.from('loans').insert({borrower_id:currentBorrowerId,created_by:await currentUserId(),start_date,principal_original:principal,principal_outstanding:principal,monthly_rate_total:total,monthly_rate_mgmt:mgmt,notes,status:'ACTIVE'}).select('id').single();
-      if(error)return setStatus('llProfileDisbursementStatus',error.message,true);
-      const fundingResult=await db.from('loan_funding').insert(funding.map(row=>({loan_id:loan.id,...row})));
-      if(fundingResult.error)return setStatus('llProfileDisbursementStatus',fundingResult.error.message,true);
+      const status='llProfileDisbursementStatus';
+      if(!currentData?.canManageFunding)return setStatus(status,'Solo un administrador puede registrar desembolsos.',true);
+      const rate=selector=>Number((Number(form.querySelector(selector).value)/100).toFixed(4));
+      let contributions;
+      try{contributions=profileFundingEditor(form).values();}catch(error){return setStatus(status,error.message,true);}
+      setStatus(status,'Guardando desembolso…');
+      const {error}=await db.rpc('create_funded_disbursement',{
+        p_borrower_id:currentBorrowerId,p_start_date:form.querySelector('#llProfileStartDate').value,
+        p_principal:Number(form.querySelector('#llProfilePrincipal').value),p_rate_total:rate('#llProfileTotalRate'),
+        p_rate_mgmt:rate('#llProfileMgmtRate'),p_notes:form.querySelector('#llProfileDisbursementNotes').value.trim()||null,
+        p_contributions:contributions});
+      if(error)return setStatus(status,error.message,true);
       setStatus('llProfileDisbursementStatus','Desembolso guardado.');
     }
     invalidatePageReads();
@@ -945,7 +995,7 @@ async function handleSubmit(event){
     closeComposer(true);
   }catch(error){
     console.error('client profile action failed',error);
-    if(form.id==='llProfileClientForm')setStatus('llProfileClientStatus','No se pudo guardar la información del cliente.',true);
+    if(form.id==='llProfileClientForm')setStatus('llProfileClientStatus',error.message||'No se pudo guardar la información del cliente.',true);
     else alert(error.message||error);
   }
   finally{delete form.dataset.saving;form.removeAttribute('aria-busy');if(submit)submit.disabled=!!wasDisabled;}
@@ -960,6 +1010,12 @@ async function handleClick(event){
     return;
   }
   if(event.target.closest('[data-close-composer]')){event.preventDefault();closeComposer();return;}
+  const funding=event.target.closest('[data-edit-contributions]');
+  if(funding&&currentData?.canManageFunding){
+    const loan=currentData.disbursements.find(row=>String(row.id)===funding.dataset.editContributions);
+    if(loan)openFundingEditor(db,{loan:{...loan,borrower_id:currentBorrowerId},people:currentData.fundingPeople,trigger:funding});
+    return;
+  }
   const composer=event.target.closest('[data-composer]');if(composer){event.preventDefault();openComposer(composer.dataset.composer,composer);return;}
   const activity=event.target.closest('[data-activity-record]');
   if(activity&&currentData){
@@ -996,7 +1052,7 @@ function handleInput(event){
   if(['llProfilePayAmount','llProfilePayType','llProfilePayDate'].includes(event.target.id)||event.target.matches('[data-split-part]'))updateProfilePaymentPreview();
   if(event.target.matches('[data-history-search-input],[data-payment-state-filter]'))applyHistoryFilters(event.currentTarget);
   if(event.target.matches('.ll-client-search-input')){const q=event.target.value.trim().toLowerCase();document.querySelectorAll('#borrowerAccountContent .ll-client-card').forEach(card=>card.hidden=!!q&&!String(card.dataset.clientSearch||'').includes(q));}
-  if(event.target.matches('[data-partner-user-id]'))updateFundingTotal();
+  if(event.target.id==='llProfilePrincipal'&&form)fundingEditors.get(form)?.refresh();
 }
 function handleKeydown(event){
   const drawer=event.target.closest('.cp-composer');
@@ -1020,12 +1076,6 @@ function handleKeydown(event){
     showTab(next.dataset.profileTab);next.focus({preventScroll:true});
   }
 }
-function updateFundingTotal(){
-  const inputs=[...document.querySelectorAll('#borrowerAccountContent [data-partner-user-id]')];
-  if(!inputs.length)return;
-  const total=inputs.reduce((sum,input)=>sum+Number(input.value||0),0);
-  setStatus('llProfileFundingTotal',`Total: ${total.toFixed(2)}%${Math.abs(total-100)>0.01?' · Debe sumar 100%.':''}`,Math.abs(total-100)>0.01);
-}
 function wireController(root){
   if(!root||root.dataset.controllerBound==='1')return;
   root.dataset.controllerBound='1';
@@ -1033,8 +1083,24 @@ function wireController(root){
   root.addEventListener('submit',handleSubmit);
   root.addEventListener('input',handleInput);
   root.addEventListener('change',handleInput);
+  root.addEventListener('loan-ledger:payment-target-changed',()=>updateProfilePaymentPreview());
   root.addEventListener('keydown',handleKeydown);
 }
+
+window.addEventListener(CLIENT_CHANGED,event=>{
+  const client=event.detail?.client;
+  if(!client||!mounted)return;
+  accounts=mergeClientAccount(accounts,client);
+  const list=document.querySelector('#borrowerAccountContent .ll-client-list');
+  if(!list)return;
+  const card=[...list.querySelectorAll('[data-acct-borrower]')].find(node=>node.dataset.acctBorrower===String(client.id));
+  const row=accounts.find(account=>String(account.borrower_id)===String(client.id));
+  if(card){
+    card.title=client.full_name;card.setAttribute('aria-label',client.full_name);card.dataset.clientSearch=client.full_name.toLowerCase();
+    transitionValue(card.querySelector('.ll-client-name'),client.full_name);
+    transitionValue(card.querySelector('.ll-client-initials'),initials(client.full_name));
+  }else list.insertAdjacentHTML('afterbegin',clientRowHtml(row,currentBorrowerId));
+});
 
 window.addEventListener('click',event=>{
   const row=event.target.closest?.('#loansDashboardHost [data-ld-borrower]');
