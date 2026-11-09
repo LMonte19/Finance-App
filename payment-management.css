@@ -65,6 +65,22 @@
 }
 #paymentsPage .ll-payments-primary:hover{filter:brightness(.98)!important}
 
+#paymentsPage .ll-payment-summary-heading{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  gap:4px 10px;
+  margin:0 0 10px;
+  color:var(--ui-ink);
+  font-size:var(--ui-body);
+  font-weight:700;
+  line-height:1.45;
+}
+#paymentsPage .ll-payment-summary-heading time{
+  color:var(--ui-muted);
+  font-weight:500;
+}
+
 #paymentsPage .ll-payment-kpis{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -268,6 +284,26 @@
   place-items:center;
   color:#9298a2;
   font-size:14px;
+}
+#paymentsPage .ll-payment-empty{
+  place-content:center;
+  gap:4px;
+  padding:12px;
+  box-sizing:border-box;
+  color:var(--ui-muted);
+  text-align:center;
+}
+#paymentsPage .ll-payment-empty p{margin:0}
+#paymentsPage .ll-payment-empty-action{
+  width:auto;
+  min-height:36px;
+  margin:0;
+  padding:4px 8px;
+  background:transparent;
+  color:var(--ui-purple);
+  font-size:inherit;
+  text-decoration:underline;
+  text-underline-offset:3px;
 }
 #paymentsPage .ll-payment-pagination{
   display:flex;

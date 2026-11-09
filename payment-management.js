@@ -1,6 +1,6 @@
 import { CLIENT_CHANGED, fillClientSelect, mergeClientAccount } from './client-directory.js?v=1';
 import { paymentDistributionMarkup, attachPaymentDistribution } from './payment-distribution.js?v=1';
-import { invalidatePageReads, readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
+import { getPageSessionId, invalidatePageReads, readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { mixedPaymentMarkup, attachMixedPaymentSplit } from './mixed-payment-split.js?v=2';
@@ -12,7 +12,7 @@ const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_pu
 });
 
 function ensurePaymentsStyle() {
-  const href = "./payment-management.css?v=4";
+  const href = "./payment-management.css?v=5";
   let link = document.getElementById("paymentManagementCss");
   if (!link) {
     link = document.createElement("link");
@@ -31,8 +31,6 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":
 const initials = (name = "?") => String(name || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "?";
 
 let statusFilter = localStorage.getItem("loanLedger.paymentFilter") || "all";
-let periodFilter = "month";
-let typeFilter = "";
 let accountsCache = [];
 let paymentsCache = [];
 let refreshBusy = false;
@@ -45,6 +43,7 @@ let lastRefreshAt = 0;
 let paymentSaving = false;
 let paymentPanel = null;
 const PAGE_SIZE = 10;
+const HISTORY_BATCH_SIZE = 250;
 
 const ICONS = {
   dollar: '<circle cx="12" cy="12" r="8.5"/><path d="M15.2 8.5c-.7-.8-1.7-1.2-3.2-1.2-1.8 0-3 .8-3 2 0 3 6 1.2 6 4.2 0 1.3-1.2 2.2-3.2 2.2-1.6 0-2.8-.5-3.6-1.4M12 5.5v13"/>',
@@ -74,7 +73,8 @@ function fmtDate(iso) {
   catch { return iso; }
 }
 function monthKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
-function previousMonthKey() { const date = new Date(); date.setMonth(date.getMonth() - 1); return monthKey(date); }
+function previousMonthKey(date) { return monthKey(new Date(date.getFullYear(), date.getMonth() - 1, 1)); }
+const monthLabel = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" });
 function accountStatus(value) {
   const key = String(value || "").toUpperCase();
   return { ACTIVE: "ACTIVO", CURRENT: "AL DÍA", OVERDUE: "ATRASADO", PAID_OFF: "SALDADO", CLOSED: "CERRADO" }[key] || value || "—";
@@ -95,8 +95,11 @@ function ensurePaymentsDom() {
           <button id="llOpenPaymentDrawer" class="ll-payments-primary" type="button">${svg("plus", 15)}<span>Registrar pago</span></button>
         </header>
 
-        <section id="paymentKpis" class="ll-payment-kpis" aria-label="Resumen de pagos">
-          ${kpiSkeleton("Pagado este mes")}${kpiSkeleton("Cuota / interés")}${kpiSkeleton("Capital recuperado")}${kpiSkeleton("Pagos anulados")}
+        <section aria-labelledby="paymentSummaryHeading">
+          <h2 id="paymentSummaryHeading" class="ll-payment-summary-heading">Resumen mensual <time id="paymentSummaryPeriod"></time></h2>
+          <div id="paymentKpis" class="ll-payment-kpis">
+            ${kpiSkeleton("Pagado este mes")}${kpiSkeleton("Cuota / interés")}${kpiSkeleton("Capital recuperado")}${kpiSkeleton("Pagos anulados")}
+          </div>
         </section>
 
         <section class="ll-payment-history-card">
@@ -110,7 +113,7 @@ function ensurePaymentsDom() {
             <select id="payFilterBorrower" aria-label="Filtrar por cliente"><option value="">Todos los clientes</option></select>
             <select id="payFilterPeriod" aria-label="Filtrar por periodo">
               <option value="all">Todos los periodos</option>
-              <option value="month" selected>Este mes</option>
+              <option value="month">Este mes</option>
               <option value="previous">Mes anterior</option>
               <option value="year">Este año</option>
             </select>
@@ -129,7 +132,7 @@ function ensurePaymentsDom() {
           </div>
           <div id="accountPaymentList" class="ll-payment-table-body"><div class="ll-payment-loading">Cargando pagos...</div></div>
           <footer class="ll-payment-pagination">
-            <span id="paymentResultCount">—</span>
+            <span id="paymentResultCount" aria-live="polite">—</span>
             <div><button id="llPayPrev" type="button" aria-label="Página anterior">‹</button><span id="llPayPage">1</span><button id="llPayNext" type="button" aria-label="Página siguiente">›</button></div>
           </footer>
         </section>
@@ -137,6 +140,7 @@ function ensurePaymentsDom() {
 
     </div>
   `;
+  updateSummaryPeriod();
   wireWorkspace();
 }
 function kpiSkeleton(label) {
@@ -162,11 +166,24 @@ function readPaymentAccounts(force = false) {
       .select("borrower_id, full_name, principal_balance, current_cycle_fee, account_status, next_due_date, overdue_amount")
       .order("full_name", { ascending: true }), {force, ttl:45000});
 }
+async function fetchPaymentHistory() {
+  const owner = getPageSessionId();
+  const rows = [];
+  for (let offset = 0; ; offset += HISTORY_BATCH_SIZE) {
+    const { data, error } = await supabase.from("borrower_account_payments_view")
+      .select("id,borrower_id,borrower_name,paid_on,amount,payment_type,applied_interest,applied_principal,is_voided,notes,void_reason")
+      .order("paid_on", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: false })
+      .range(offset, offset + HISTORY_BATCH_SIZE - 1);
+    if (getPageSessionId() !== owner) return { error: { code: "STALE_PAGE_SESSION" } };
+    if (error) return { error };
+    rows.push(...data);
+    if (data.length < HISTORY_BATCH_SIZE) return { data: rows };
+  }
+}
 function readPaymentData(force = false) {
   return Promise.all([
     readPaymentAccounts(force),
-    readPageQuery('payments-history', () => supabase.from("borrower_account_payments_view").select("*")
-      .order("paid_on", { ascending: false }).order("created_at", { ascending: false }).limit(250), {force, ttl:45000})
+    readPageQuery('payments-history', fetchPaymentHistory, {force, ttl:45000})
   ]);
 }
 
@@ -182,6 +199,7 @@ async function refreshData(force = false) {
     if (payments.error) throw payments.error;
     accountsCache=accounts.data||[];
     paymentsCache=payments.data||[];
+    lastRefreshAt = Date.now();
     populateFilterBorrowers();
     renderKpis();
     renderPayments();
@@ -189,7 +207,6 @@ async function refreshData(force = false) {
       populatePaymentBorrowers();
       updateBorrowerContext();
     }
-    lastRefreshAt = Date.now();
   } catch (error) {
     if (isStalePageSession(error)) return;
     console.error("payments workspace refresh failed", error);
@@ -207,7 +224,7 @@ function populateFilterBorrowers() {
   const current = select.value;
   const html = `<option value="">Todos los clientes</option>${accountsCache.map((a) => `<option value="${esc(a.borrower_id)}">${esc(a.full_name || "Cliente")}</option>`).join("")}`;
   if (select.innerHTML !== html) select.innerHTML = html;
-  select.value = current;
+  select.value = accountsCache.some((account) => String(account.borrower_id) === current) ? current : "";
 }
 function populatePaymentBorrowers() {
   fillClientSelect(qs("acctPaymentBorrower"),accountsCache);
@@ -221,13 +238,21 @@ function metricTrend(current, previous) {
   const direction = percent >= 0 ? "up" : "down";
   return `<span class="ll-kpi-trend ${direction}">${svg(percent >= 0 ? "arrowUp" : "arrowDown", 12)} ${Math.abs(percent).toFixed(1)}% vs. mes anterior</span>`;
 }
+function updateSummaryPeriod(date = new Date()) {
+  const period = qs("paymentSummaryPeriod");
+  if (!period) return;
+  period.dateTime = monthKey(date);
+  period.textContent = monthLabel.format(date);
+}
 function renderKpis() {
   const host = qs("paymentKpis");
   if (!host) return;
-  const currentRows = metricRows(paymentsCache, monthKey());
-  const previousRows = metricRows(paymentsCache, previousMonthKey());
-  const currentVoided = paymentsCache.filter((p) => p.is_voided && String(p.paid_on || "").slice(0, 7) === monthKey());
-  const previousVoided = paymentsCache.filter((p) => p.is_voided && String(p.paid_on || "").slice(0, 7) === previousMonthKey());
+  const now = new Date(), currentMonth = monthKey(now), previousMonth = previousMonthKey(now);
+  updateSummaryPeriod(now);
+  const currentRows = metricRows(paymentsCache, currentMonth);
+  const previousRows = metricRows(paymentsCache, previousMonth);
+  const currentVoided = paymentsCache.filter((p) => p.is_voided && String(p.paid_on || "").slice(0, 7) === currentMonth);
+  const previousVoided = paymentsCache.filter((p) => p.is_voided && String(p.paid_on || "").slice(0, 7) === previousMonth);
   const sum = (rows, field) => rows.reduce((total, row) => total + Number(row[field] || 0), 0);
   const uniqueInterestClients = new Set(currentRows.filter((p) => Number(p.applied_interest || 0) > 0).map((p) => p.borrower_id)).size;
   const metrics = [
@@ -245,22 +270,24 @@ function setStatusFilter(next) {
   pageNumber = 1;
   renderPayments();
 }
-function matchesPeriod(payment) {
-  const date = String(payment.paid_on || "");
-  if (periodFilter === "month") return date.slice(0, 7) === monthKey();
-  if (periodFilter === "previous") return date.slice(0, 7) === previousMonthKey();
-  if (periodFilter === "year") return date.slice(0, 4) === String(new Date().getFullYear());
-  return true;
+function historyPeriod() {
+  const now = new Date();
+  switch (qs("payFilterPeriod")?.value) {
+    case "month": return { prefix: monthKey(now), label: "este mes" };
+    case "previous": return { prefix: previousMonthKey(now), label: "el mes anterior" };
+    case "year": return { prefix: `${now.getFullYear()}-`, label: "este año" };
+    default: return { prefix: "", label: "" };
+  }
 }
-function filteredPayments() {
+function filteredPayments(periodRows) {
   const borrowerId = qs("payFilterBorrower")?.value || "";
+  const typeFilter = qs("payFilterType")?.value || "";
   const term = String(qs("paySearch")?.value || "").trim().toLowerCase();
-  return paymentsCache.filter((p) => {
+  return periodRows.filter((p) => {
     if (statusFilter === "active" && p.is_voided) return false;
     if (statusFilter === "voided" && !p.is_voided) return false;
     if (borrowerId && String(p.borrower_id) !== String(borrowerId)) return false;
     if (typeFilter && p.payment_type !== typeFilter) return false;
-    if (!matchesPeriod(p)) return false;
     if (term) {
       const haystack = [p.borrower_name, p.paid_on, p.amount, p.payment_type, p.notes, p.void_reason].map((value) => String(value || "").toLowerCase()).join(" ");
       if (!haystack.includes(term)) return false;
@@ -268,16 +295,25 @@ function filteredPayments() {
     return true;
   });
 }
+function emptyPaymentHistory(period, periodRows) {
+  if (!paymentsCache.length) return '<div class="ll-payment-empty"><p>Aún no hay pagos registrados.</p></div>';
+  const hasPeriod = !!period.label && !periodRows.length;
+  return `<div class="ll-payment-empty"><p>${hasPeriod ? `No hay pagos para ${period.label}.` : "No hay pagos que coincidan con estos filtros."}</p>
+    <button class="ll-payment-empty-action" type="button" data-payment-empty-action="${hasPeriod ? "all-periods" : "reset"}">${hasPeriod ? "Ver todos los periodos" : "Limpiar filtros"}</button></div>`;
+}
 function renderPayments() {
   const host = qs("accountPaymentList");
   if (!host) return;
   document.querySelectorAll("[data-status-filter]").forEach((button) => button.classList.toggle("active", button.dataset.statusFilter === statusFilter));
-  const rows = filteredPayments();
+  if (!lastRefreshAt) return;
+  const period = historyPeriod();
+  const periodRows = period.prefix ? paymentsCache.filter((p) => p.paid_on?.startsWith(period.prefix)) : paymentsCache;
+  const rows = filteredPayments(periodRows);
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   if (pageNumber > totalPages) pageNumber = totalPages;
   const start = (pageNumber - 1) * PAGE_SIZE;
   const visible = rows.slice(start, start + PAGE_SIZE);
-  setStableMarkup(host, visible.length ? visible.map(paymentRowHtml).join("") : `<div class="ll-payment-empty">No hay pagos para esta vista.</div>`);
+  setStableMarkup(host, visible.length ? visible.map(paymentRowHtml).join("") : emptyPaymentHistory(period, periodRows));
   const resultCount = qs("paymentResultCount");
   if (resultCount) resultCount.textContent = rows.length ? `Mostrando ${start + 1}–${Math.min(start + PAGE_SIZE, rows.length)} de ${rows.length} pagos` : "0 pagos";
   const page = qs("llPayPage"); if (page) page.textContent = String(pageNumber);
@@ -443,8 +479,6 @@ async function applyAccountPayment() {
     if (status) { status.textContent = "Pago registrado correctamente."; status.classList.add("success"); }
     invalidatePageReads();
     window.dispatchEvent(new CustomEvent('loan-ledger:account-changed',{detail:{borrowerId}}));
-    accountsCache = [];
-    paymentsCache = [];
     await refreshData(true);
     setTimeout(() => { if (submittedPanel?.isCurrent() && drawerMode === "register") closeDrawer(); }, 650);
   } catch (error) {
@@ -507,7 +541,6 @@ async function voidActivePayment() {
     if (error) throw error;
     invalidatePageReads();
     window.dispatchEvent(new CustomEvent('loan-ledger:account-changed',{detail:{borrowerId:paymentsCache.find(row=>row.id===paymentId)?.borrower_id}}));
-    accountsCache = [];paymentsCache = [];
     await refreshData(true);saved=true;
   }catch(error){if(panel?.isCurrent()&&status){status.textContent=error.message||String(error);status.classList.add('error');}}
   finally{paymentSaving=false;if(button)button.disabled=false;}
@@ -524,6 +557,17 @@ function handleWorkspaceClick(event) {
   if (target.closest("#llOpenPaymentDrawer")) { openRegisterDrawer(); return; }
   if (target.closest("[data-close-payment-drawer]") || target.closest("#paymentDrawerBackdrop")) { closeDrawer(); return; }
   const filter = target.closest("[data-status-filter]"); if (filter) { setStatusFilter(filter.dataset.statusFilter); return; }
+  const emptyAction = target.closest("[data-payment-empty-action]");
+  if (emptyAction) {
+    qs("payFilterPeriod").value = "all";
+    pageNumber = 1;
+    if (emptyAction.dataset.paymentEmptyAction === "reset") {
+      ["payFilterBorrower", "payFilterType", "paySearch"].forEach((id) => { qs(id).value = ""; });
+      setStatusFilter("all");
+    } else renderPayments();
+    qs("payFilterPeriod").focus();
+    return;
+  }
   const row = target.closest("[data-account-payment-id]"); if (row) { openPaymentDetails(row.dataset.accountPaymentId); return; }
   const quick = target.closest("[data-quick-payment]"); if (quick && !quick.disabled) { applyQuickAmount(quick.dataset.quickPayment, quick.dataset.amount); return; }
   if (target.closest("#acctPageApplyPayment")) { applyAccountPayment(); return; }
@@ -533,9 +577,7 @@ function handleWorkspaceClick(event) {
   if (target.closest("#llPayNext")) { pageNumber += 1; renderPayments(); return; }
 }
 function handleWorkspaceChange(event) {
-  if (event.target.id === "payFilterBorrower") { pageNumber = 1; renderPayments(); }
-  if (event.target.id === "payFilterPeriod") { periodFilter = event.target.value; pageNumber = 1; renderPayments(); }
-  if (event.target.id === "payFilterType") { typeFilter = event.target.value; pageNumber = 1; renderPayments(); }
+  if (["payFilterBorrower", "payFilterPeriod", "payFilterType"].includes(event.target.id)) { pageNumber = 1; renderPayments(); }
   if (event.target.id === "acctPaymentBorrower") updateBorrowerContext();
   if(['acctPageType','acctPagePaidOn'].includes(event.target.id))updatePaymentPreview();
 }
@@ -557,7 +599,10 @@ watchPage('paymentsPage', () => refreshData(false), {interval:45000, prefetch:()
   closeFloatingPanel(true);
   setStableMarkup(qs('paymentKpis'), ['Pagado este mes','Cuota / interés','Capital recuperado','Pagos anulados'].map(kpiSkeleton).join(''));
   setStableMarkup(qs('accountPaymentList'), '<div class="ll-payment-loading">Cargando pagos...</div>');
-  ['payFilterBorrower','acctPaymentBorrower'].forEach(id=>setStableMarkup(qs(id),''));
+  setStableMarkup(qs('payFilterBorrower'),'<option value="">Todos los clientes</option>');
+  ['payFilterType','paySearch'].forEach(id=>{if(qs(id))qs(id).value='';});
+  if(qs('payFilterPeriod'))qs('payFilterPeriod').value='all';
+  if(qs('paymentResultCount'))qs('paymentResultCount').textContent='—';
 }});
 ensurePaymentsDom();
 
