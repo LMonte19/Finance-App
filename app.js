@@ -20,8 +20,12 @@ const setDebug = (msg) => { const el = qs("debug"); if (el) el.textContent = msg
 const safe = (fn) => (...args) => fn(...args).catch((e) => { console.error(e); setDebug(e?.message || String(e)); alert(e?.message || String(e)); });
 
 let currentProfile = null;
-let isBooting = false;
-let bootedOnce = false;
+let activeAuthUser = null;
+let authAttempt = 0;
+let authBoot = null;
+const oauthReturn = new URL(window.location.href);
+const oauthError = oauthReturn.searchParams.get("error") || oauthReturn.searchParams.get("error_code")
+  || new URLSearchParams(oauthReturn.hash.slice(1)).get("error") || new URLSearchParams(oauthReturn.hash.slice(1)).get("error_code");
 let creatingNewBorrower = false;
 let pendingNewLoanFunding = [];
 
@@ -65,7 +69,6 @@ async function loadProfileByUserId(userId) {
   if (!userId) throw new Error("Missing userId for profile lookup.");
   const { data, error } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error("Profile missing for user_id: " + userId);
   return data;
 }
 async function loadAppSetting(key) {
@@ -183,7 +186,7 @@ function initHandlers() {
       const { data, error } = await supabase.auth.signInWithPassword({ email: qs("email").value.trim(), password: qs("password").value.trim() });
       if (error) throw error;
       const session = data?.session || (await supabase.auth.getSession()).data.session;
-      await bootFromSession(session, "signInHandler");
+      await bootFromSession(session);
     } finally { btn.disabled = false; }
   });
   if (qs("btnGoogleSignIn")) qs("btnGoogleSignIn").onclick = safe(async () => {
@@ -198,10 +201,20 @@ function initHandlers() {
         provider: "google",
         options: {
           redirectTo: redirectUrl.toString(),
+          queryParams: { prompt: "select_account" },
         },
       });
       if (error) throw error;
     } finally { btn.disabled = false; }
+  });
+  if (qs("btnCheckAccess")) qs("btnCheckAccess").onclick = safe(async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    await bootFromSession(data.session);
+  });
+  if (qs("btnSwitchAccount")) qs("btnSwitchAccount").onclick = safe(async () => {
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (error) throw error;
   });
   if (qs("btnMagicLink")) qs("btnMagicLink").onclick = safe(async () => {
     const btn = qs("btnMagicLink");
@@ -238,7 +251,7 @@ function initHandlers() {
 window.addEventListener('loan-ledger:defaults-updated',()=>prefillLoanDefaults(true).catch(error=>{if(!isStalePageSession(error))console.error(error);}));
 window.addEventListener('loan-ledger:profile-updated',async()=>{
   const id=getPageSessionId();if(!id)return;
-  try{const profile=await loadProfileByUserId(id);if(getPageSessionId()!==id)return;currentProfile=profile;
+  try{const profile=await loadProfileByUserId(id);if(getPageSessionId()!==id||!profile)return;currentProfile=profile;
     if(qs('whoami'))qs('whoami').textContent=`${profile.full_name??'Usuario'} • ${profile.role}`;
     if(qs('rolePill'))qs('rolePill').textContent=profile.role;
     await refreshFundingPartnerSelects();
@@ -258,9 +271,9 @@ async function setSignedInUI(profile) {
   qs("loanTotalRate") && (qs("loanTotalRate").oninput = updateLoanFunderRatePreview);
   qs("loanMgmtRate") && (qs("loanMgmtRate").oninput = updateLoanFunderRatePreview);
   await Promise.all([refreshBorrowers(), refreshFundingPartnerSelects(), loadDefaultsIntoSettingsUI(), prefillLoanDefaults(true)]);
-  setDebug("");
+  if (currentProfile === profile) setDebug("");
 }
-async function setSignedOutUI() {
+function setSignedOutUI() {
   setPageSession(null);
   currentProfile = null;
   if (qs("authCard")) qs("authCard").style.display = "block";
@@ -269,33 +282,56 @@ async function setSignedOutUI() {
   showThemeButton(false);
   if (qs("whoami")) qs("whoami").textContent = "Sesión no iniciada";
   if (qs("rolePill")) qs("rolePill").textContent = "rol";
+  qs("authAccessActions").hidden = true;
   setDebug("");
 }
-async function bootFromSession(session, source = "unknown") {
-  setPageSession(session?.user?.id);
-  if (isBooting) return;
-  isBooting = true;
-  try {
-    if (!session?.user) { bootedOnce = true; await setSignedOutUI(); return; }
-    const profile = await loadProfileByUserId(session.user.id);
-    if (getPageSessionId() !== session.user.id) return;
-    await setSignedInUI(profile);
-    bootedOnce = true;
-    console.log("boot ok", source);
-  } catch (error) { if (!isStalePageSession(error)) throw error; }
-  finally { isBooting = false; }
+function bootFromSession(session) {
+  const user = session?.user;
+  const userId = user?.id ?? null;
+  if (activeAuthUser !== userId || !user) {
+    authAttempt++;
+    authBoot = null;
+    activeAuthUser = userId;
+    setSignedOutUI();
+  }
+  if (!user) {
+    if (oauthError) setDebug("No se pudo completar el acceso con Google. Intenta de nuevo y elige el correo autorizado.");
+    return;
+  }
+  if (currentProfile) return;
+  if (authBoot) return authBoot;
+  const attempt = ++authAttempt;
+  setDebug("Verificando acceso...");
+  authBoot = (async () => {
+    try {
+      const profile = await loadProfileByUserId(userId);
+      if (attempt !== authAttempt) return;
+      if (!profile) {
+        setDebug(`Iniciaste sesión${user.email ? " como " + user.email : ""}, pero esta cuenta todavía no tiene acceso. Pide al administrador que le asigne un rol.`);
+        qs("authAccessActions").hidden = false;
+        return;
+      }
+      qs("authAccessActions").hidden = true;
+      setPageSession(userId);
+      await setSignedInUI(profile);
+    } catch (error) {
+      if (attempt !== authAttempt || isStalePageSession(error)) return;
+      console.error("Could not load account", error);
+      if (!currentProfile) {
+        setDebug("No pudimos verificar tu acceso. Intenta de nuevo.");
+        qs("authAccessActions").hidden = false;
+      }
+    } finally {
+      if (attempt === authAttempt) authBoot = null;
+    }
+  })();
+  return authBoot;
 }
-supabase.auth.onAuthStateChange((_event, session) => {
-  setPageSession(session?.user?.id);
-  setTimeout(() => {
-    if (!bootedOnce && !_event.includes("TOKEN_REFRESHED")) bootFromSession(session, "authState");
-    if (_event === "SIGNED_OUT") setSignedOutUI();
-  }, 0);
+supabase.auth.onAuthStateChange((event, session) => {
+  if (["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT"].includes(event)) {
+    setTimeout(() => bootFromSession(session), 0);
+  }
 });
-(async function init() {
-  initTabs();
-  initHandlers();
-  window.loanLedgerTheme?.initThemeButton?.();
-  const { data } = await supabase.auth.getSession();
-  await bootFromSession(data.session, "initialSession");
-})();
+initTabs();
+initHandlers();
+window.loanLedgerTheme?.initThemeButton?.();

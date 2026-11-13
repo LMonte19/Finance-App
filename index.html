@@ -100,7 +100,11 @@
       </button>
 
       <button id="btnMagicLink" type="button" style="display:none;background:#333;border:1px solid #444;" aria-hidden="true" tabindex="-1">Enviar enlace de acceso por correo</button>
-      <div class="muted" id="debug" style="margin-top:8px;"></div>
+      <div class="muted" id="debug" role="status" style="margin-top:8px;"></div>
+      <div id="authAccessActions" hidden>
+        <button id="btnCheckAccess" type="button">Volver a verificar acceso</button>
+        <button id="btnSwitchAccount" type="button">Cerrar sesión de esta cuenta</button>
+      </div>
       <div class="muted">Puedes entrar con tu contraseña o con Google.</div>
     </div>
 
@@ -199,7 +203,7 @@
   </div>
 
   <script src="theme-simple.js?v=1"></script>
-  <script type="module" src="app.js?v=7"></script>
+  <script type="module" src="app.js?v=8"></script>
   <script type="module" src="due-extension.js?v=116"></script>
 </body>
 </html>
