@@ -1,3 +1,4 @@
+import { choosePaymentVoidReason } from './payment-void-reasons.js?v=1';
 import { CLIENT_CHANGED, CLIENT_FIELDS, mergeClientAccount, publishClientChange } from './client-directory.js?v=1';
 import { clientFieldsMarkup, clientFields } from './client-form.js?v=1';
 import { attachFundingEditor, openFundingEditor } from './funding-editor.js?v=1';
@@ -7,7 +8,7 @@ import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
 import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
-import { openActivityDetails } from './activity-details.js?v=3';
+import { openActivityDetails } from './activity-details.js?v=4';
 import { openClientInstallmentPicker } from './client-installment-picker.js?v=1';
 
 const db=createClient(
@@ -1087,7 +1088,21 @@ async function handleClick(event){
   const summaryAmount=event.target.closest('[data-summary-amount]');if(summaryAmount){root.querySelectorAll('[data-summary-amount]').forEach(btn=>btn.classList.remove('active'));summaryAmount.classList.add('active');const input=root.querySelector('#llSummaryPayAmount');if(input)input.value=summaryAmount.dataset.summaryAmount;return;}
   const profileAmount=event.target.closest('[data-profile-amount]');if(profileAmount){const input=root.querySelector('#llProfilePayAmount');if(input){input.value=profileAmount.dataset.profileAmount;input.closest('form').dataset.dirty='1';}updateProfilePaymentPreview();return;}
   const complete=event.target.closest('[data-complete-followup]');if(complete){const note=prompt('Nota de finalización (opcional):','');if(note===null)return;const {error}=await db.rpc('complete_followup',{p_followup_id:complete.dataset.completeFollowup,p_completed_notes:note.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
-  const voidButton=event.target.closest('[data-void-payment]');if(voidButton){const reason=prompt('Motivo de anulación (opcional):','');if(reason===null)return;if(!confirm('¿Seguro que quieres anular este pago? Se revertirán las aplicaciones de cuota, capital y distribuciones.'))return;const {error}=await db.rpc('void_payment',{p_payment_id:voidButton.dataset.voidPayment,p_reason:reason.trim()||null});if(error)return alert(error.message);invalidatePageReads();await refreshCurrent();return;}
+  const voidButton=event.target.closest('[data-void-payment]');
+  if(voidButton){
+    const borrowerId=currentBorrowerId;
+    const paymentId=voidButton.dataset.voidPayment;
+    const reason=await choosePaymentVoidReason(voidButton);
+    if(!reason||!voidButton.isConnected||currentBorrowerId!==borrowerId)return;
+    voidButton.disabled=true;
+    try{
+      const {error}=await db.rpc('void_payment',{p_payment_id:paymentId,p_reason:reason});
+      if(error)return alert(error.message);
+      invalidatePageReads();
+      await refreshCurrent();
+    }finally{voidButton.disabled=false;}
+    return;
+  }
   const search=event.target.closest('.ll-controller-search');if(search){const wrap=root.querySelector('.ll-client-search-wrap');if(wrap){wrap.hidden=!wrap.hidden;if(!wrap.hidden)setTimeout(()=>focusProfileControl(root,'.ll-client-search-input'),0);}return;}
 }
 function handleInput(event){

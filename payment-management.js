@@ -1,3 +1,4 @@
+import { choosePaymentVoidReason } from './payment-void-reasons.js?v=1';
 import { CLIENT_CHANGED, fillClientSelect, mergeClientAccount } from './client-directory.js?v=1';
 import { paymentDistributionMarkup, attachPaymentDistribution } from './payment-distribution.js?v=1';
 import { getPageSessionId, invalidatePageReads, readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
@@ -529,10 +530,10 @@ function detailDrawerHtml(p, dues, principals, allocs) {
 }
 async function voidActivePayment() {
   if (!activeDetailId || paymentSaving) return;
-  const reason = prompt("Motivo de anulación:", "Registrado incorrectamente");
-  if (reason === null) return;
-  if (!confirm("¿Anular este pago y revertir cuotas, capital y distribuciones?")) return;
   const status = qs("paymentActionStatus"), button=qs('btnVoidPaymentDetail'), panel=paymentPanel, paymentId=activeDetailId;
+  if (!button || button.disabled) return;
+  const reason = await choosePaymentVoidReason(button);
+  if (!reason || !panel?.isCurrent() || activeDetailId !== paymentId) return;
   paymentSaving=true;if(button)button.disabled=true;
   let saved=false;
   try{

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { esc } from './combined-workspace-ui.js?v=1';
+import { choosePaymentVoidReason } from './payment-void-reasons.js?v=1';
 
 const db = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },
@@ -168,9 +169,10 @@ async function renderPaymentHistory(force = false) {
     historyCard.innerHTML = `<div style="font-weight:800">Historial de pagos</div>${(data || []).length ? (data || []).map(paymentHtml).join("") : "No hay pagos."}`;
   } catch (error) { console.error(error); } finally { historyBusy = false; }
 }
-async function voidPayment(paymentId) {
-  const reason = prompt("Motivo de anulación (opcional):") || null;
-  if (!confirm("¿Seguro que quieres anular este pago? Esto va a revertir cuotas/capital y distribuciones.")) return;
+async function voidPayment(button) {
+  const paymentId = button.dataset.paymentId;
+  const reason = await choosePaymentVoidReason(button);
+  if (!reason || !button.isConnected) return;
   const { error } = await db.rpc("void_payment", { p_payment_id: paymentId, p_reason: reason });
   if (error) return alert(error.message);
   alert("Pago anulado y revertido.");
@@ -266,7 +268,7 @@ document.addEventListener("click", (event) => {
     return;
   }
   const voidBtn = event.target.closest?.(".acctVoidPaymentBtn");
-  if (voidBtn) { event.preventDefault(); event.stopPropagation(); voidPayment(voidBtn.dataset.paymentId); }
+  if (voidBtn) { event.preventDefault(); event.stopPropagation(); voidPayment(voidBtn); }
 }, true);
 window.addEventListener("loan-ledger:open-account", (event) => {
   if (event.detail?.borrowerId) {
