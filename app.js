@@ -1,4 +1,5 @@
 import { setPageSession, invalidatePageReads, readPageQuery, getPageSessionId, isStalePageSession } from './page-read-runtime.js?v=1';
+import { ACCESS_OWNER_ID, openAdminAccess } from './admin-access.js?v=1';
 import { esc } from './combined-workspace-ui.js?v=1';
 import { floatingHeader, openFloatingPanel } from './floating-panel.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -304,15 +305,22 @@ window.addEventListener('loan-ledger:profile-updated',async()=>{
   try{const profile=await loadProfileByUserId(id);if(getPageSessionId()!==id||!profile)return;currentProfile=profile;
     if(qs('whoami'))qs('whoami').textContent=`${profile.full_name??'Usuario'} • ${profile.role}`;
     if(qs('rolePill'))qs('rolePill').textContent=profile.role;
+    syncAccessMenu();
     await refreshFundingPartnerSelects();
   }catch(error){if(!isStalePageSession(error))console.error(error);}
 });
+function syncAccessMenu() {
+  const button = qs("btnManageAppAccess");
+  const available = currentProfile?.role === "ADMIN" && getPageSessionId() === ACCESS_OWNER_ID;
+  if (button && button.hidden === available) button.hidden = !available;
+}
 async function setSignedInUI(profile) {
   currentProfile = profile;
   qs("authCard").style.display = "none";
   qs("app").style.display = "block";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "inline-block";
   qs("btnSignInMethods").hidden = false;
+  syncAccessMenu();
   showThemeButton(true);
   if (qs("whoami")) qs("whoami").textContent = `${profile.full_name ?? "Usuario"} • ${profile.role}`;
   if (qs("rolePill")) qs("rolePill").textContent = profile.role;
@@ -334,6 +342,7 @@ function setSignedOutUI() {
   if (qs("app")) qs("app").style.display = "none";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "none";
   qs("btnSignInMethods").hidden = true;
+  syncAccessMenu();
   showThemeButton(false);
   if (qs("whoami")) qs("whoami").textContent = "Sesión no iniciada";
   if (qs("rolePill")) qs("rolePill").textContent = "rol";
@@ -391,6 +400,12 @@ initTabs();
 initHandlers();
 window.loanLedgerTheme?.initThemeButton?.();
 document.addEventListener("click", event => {
+  const admin = event.target.closest?.('[data-manage-app-access]');
+  if (admin && getPageSessionId() === ACCESS_OWNER_ID && currentProfile?.role === "ADMIN") {
+    closeMenu();
+    openAdminAccess(supabase, admin);
+    return;
+  }
   const trigger = event.target.closest?.('[data-global-action="sign-in-methods"]');
   if (trigger) openSignInMethods(trigger);
 });

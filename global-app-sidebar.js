@@ -76,6 +76,7 @@ function createSidebar(){
     <nav class="ll-global-secondary" aria-label="Más herramientas"></nav>
     <div class="ll-global-spacer"></div>
     <div class="ll-global-footer">
+      <button type="button" class="ll-global-action" data-manage-app-access hidden style="display:none!important">${svg('users')}<span>Administrar acceso</span></button>
       <button type="button" class="ll-global-action" data-global-action="sign-in-methods">${svg('key')}<span>Métodos de acceso</span></button>
       <button type="button" class="ll-global-action" data-global-action="theme">${svg('theme')}<span>Tema</span></button>
       <button type="button" class="ll-global-action" data-global-action="language">${svg('language')}<span>Idioma</span><em id="llGlobalLang">EN</em></button>
@@ -155,6 +156,13 @@ function syncUser(){
   const who=(document.getElementById('whoami')?.textContent||'').trim();
   const el=document.getElementById('llGlobalUser');
   if(el&&who&&who!=='Sesión no iniciada')el.textContent=who;
+  const access = document.querySelector('#llGlobalSidebar [data-manage-app-access]');
+  const hidden = document.getElementById('btnManageAppAccess')?.hidden ?? true;
+  if (access && access.hidden !== hidden) {
+    access.hidden = hidden;
+    if (hidden) access.style.setProperty('display', 'none', 'important');
+    else access.style.removeProperty('display');
+  }
   const lang=document.getElementById('btnLangToggle');
   const langEl=document.getElementById('llGlobalLang');
   if(langEl&&lang)langEl.textContent=(lang.textContent||'EN').trim();
