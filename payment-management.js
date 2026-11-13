@@ -1,4 +1,4 @@
-import { choosePaymentVoidReason } from './payment-void-reasons.js?v=1';
+import { choosePaymentVoidReason } from './payment-void-reasons.js?v=2';
 import { CLIENT_CHANGED, fillClientSelect, mergeClientAccount } from './client-directory.js?v=1';
 import { paymentDistributionMarkup, attachPaymentDistribution } from './payment-distribution.js?v=1';
 import { getPageSessionId, invalidatePageReads, readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';

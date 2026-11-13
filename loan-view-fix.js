@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { esc } from './combined-workspace-ui.js?v=1';
-import { choosePaymentVoidReason } from './payment-void-reasons.js?v=1';
+import { choosePaymentVoidReason } from './payment-void-reasons.js?v=2';
 
 const db = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },

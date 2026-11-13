@@ -1,8 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
-import { openQuickAction } from './quick-actions.js?v=4';
-import { openActivityDetails, openActivityEntry } from './activity-details.js?v=4';
+import { openQuickAction } from './quick-actions.js?v=5';
+import { openActivityDetails, openActivityEntry } from './activity-details.js?v=5';
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",

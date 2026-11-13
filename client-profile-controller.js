@@ -1,4 +1,4 @@
-import { choosePaymentVoidReason } from './payment-void-reasons.js?v=1';
+import { choosePaymentVoidReason } from './payment-void-reasons.js?v=2';
 import { CLIENT_CHANGED, CLIENT_FIELDS, mergeClientAccount, publishClientChange } from './client-directory.js?v=1';
 import { clientFieldsMarkup, clientFields } from './client-form.js?v=1';
 import { attachFundingEditor, openFundingEditor } from './funding-editor.js?v=1';
@@ -8,7 +8,7 @@ import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
 import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
-import { openActivityDetails } from './activity-details.js?v=4';
+import { openActivityDetails } from './activity-details.js?v=5';
 import { openClientInstallmentPicker } from './client-installment-picker.js?v=1';
 
 const db=createClient(

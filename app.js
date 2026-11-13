@@ -312,7 +312,6 @@ window.addEventListener('loan-ledger:profile-updated',async()=>{
 });
 function syncAccessMenu() {
   const admin = currentProfile?.role === "ADMIN";
-  qs("app").toggleAttribute("data-admin-session", admin);
   const methods = qs("btnSignInMethods");
   const manage = qs("btnManageAppAccess");
   if (methods && methods.hidden === admin) methods.hidden = !admin;

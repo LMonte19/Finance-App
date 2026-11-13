@@ -1,3 +1,5 @@
+import { getPageSessionId } from './page-read-runtime.js?v=1';
+
 // Store these labels as written so new payment reversals use the same wording.
 export const PAYMENT_VOID_REASONS = Object.freeze([
   'Pago duplicado',
@@ -13,7 +15,8 @@ export const PAYMENT_VOID_REASONS = Object.freeze([
 
 export function choosePaymentVoidReason(trigger) {
   const app = document.getElementById('app');
-  if (!app?.hasAttribute('data-admin-session') || app.querySelector('.ll-void-dialog')) {
+  const owner = getPageSessionId();
+  if (!app || !owner || app.querySelector('.ll-void-dialog')) {
     return Promise.resolve(null);
   }
 
@@ -48,16 +51,16 @@ export function choosePaymentVoidReason(trigger) {
       resolve(reason);
     };
     const observer = new MutationObserver(() => {
-      if (!dialog.isConnected || !app.hasAttribute('data-admin-session')) finish(null);
+      if (!dialog.isConnected || getPageSessionId() !== owner) finish(null);
     });
-    observer.observe(app, { attributes: true, attributeFilter: ['data-admin-session'], childList: true, subtree: true });
+    observer.observe(app, { attributes: true, attributeFilter: ['style'], childList: true, subtree: true });
     dialog.addEventListener('keydown', event => {
       if (event.key === 'Escape' || event.key === 'Tab') event.stopPropagation();
     });
     dialog.querySelector('[data-cancel-void]').onclick = () => dialog.close();
     dialog.addEventListener('close', () => {
       const reason = dialog.querySelector('select').value;
-      finish(dialog.returnValue === 'confirm' && app.hasAttribute('data-admin-session') &&
+      finish(dialog.returnValue === 'confirm' && getPageSessionId() === owner &&
         PAYMENT_VOID_REASONS.includes(reason) ? reason : null);
     }, { once: true });
     dialog.showModal();
