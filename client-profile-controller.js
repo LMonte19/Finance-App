@@ -8,7 +8,7 @@ import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
 import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
-import { openActivityDetails } from './activity-details.js?v=7';
+import { openActivityDetails } from './activity-details.js?v=8';
 import { openClientInstallmentPicker } from './client-installment-picker.js?v=1';
 
 const db=createClient(
@@ -174,12 +174,13 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
     db.from('app_settings').select('setting_key,setting_value').in('setting_key',['loan_defaults','default_funding_split']),
     db.from('loan_funding').select('loan_id,partner_user_id,funding_percent,contributed_amount'),
     db.from('profiles').select('user_id,full_name,role'),
-    db.from('borrowers').select(CLIENT_FIELDS).eq('id',borrowerId).single()
+    db.from('borrowers').select(CLIENT_FIELDS).eq('id',borrowerId).single(),
+    db.from('operational_administrators').select('full_name').eq('receives_management_fee',true).maybeSingle()
   ];
   if(includeAccounts)jobs.push(db.from('borrower_account_summary').select('*').order('full_name',{ascending:true}));
   const [results,userRes]=await Promise.all([Promise.all(jobs),db.auth.getUser()]);
   for(const result of results)if(result.error)throw result.error;
-  const [summaryRes,calendarRes,disbRes,contactRes,followRes,settingsRes,fundingRes,profilesRes,clientRes,accountsRes]=results;
+  const [summaryRes,calendarRes,disbRes,contactRes,followRes,settingsRes,fundingRes,profilesRes,clientRes,managerRes,accountsRes]=results;
   if(!calendarRes.data)throw new Error('No se pudo consultar el calendario de esta cuenta.');
   const settings=Object.fromEntries((settingsRes.data||[]).map(row=>[row.setting_key,row.setting_value]));
   const profileNames=new Map((profilesRes.data||[]).map(row=>[row.user_id,row.full_name||row.role||'Socio']));
@@ -197,7 +198,7 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
     canEditClient:['ADMIN','AGENT','PARTNER'].includes(viewer?.role),
     calendarRows:calendarRes.data.rows||[],
     calendarAsOf:calendarRes.data.as_of_date||today(),
-    disbursements:(disbRes.data||[]).map(row=>({...row,funding:fundingByLoan.get(row.id)||[]})),
+    disbursements:(disbRes.data||[]).map(row=>({...row,funding:fundingByLoan.get(row.id)||[],operationalAdministrator:managerRes.data?.full_name??null})),
     payments:calendarRes.data.payments||[],
     contacts:contactRes.data||[],
     followups:followRes.data||[],
@@ -372,10 +373,10 @@ function disbursementRowsHtml(rows,canEdit=false){
   return `<div class="cp-ledger-head cp-loan-columns" aria-hidden="true"><span>Fecha de inicio</span><span>Desembolsado</span><span>Capital pendiente</span><span>Interés mensual</span><span>Estado</span><span></span></div><div class="cp-record-list" data-list="disbursements">${rows.map(row=>`
     <details class="cp-record" data-profile-record="${esc(row.id)}" data-history-row="disbursements" data-history-search="${esc([row.start_date,fmtDate(row.start_date),row.principal_original,row.principal_outstanding,statusLabel(row.status),row.notes,...(row.funding||[]).map(item=>item.partner_name)].join(' ').toLowerCase())}">
       <summary class="cp-loan-columns"><time datetime="${esc(row.start_date)}">${fmtDate(row.start_date)}</time><strong>${money(row.principal_original)}</strong><span class="cp-row-amount">${money(row.principal_outstanding)}</span><span>${(Number(row.monthly_rate_total||0)*100).toFixed(2)}%</span><span class="ll-status-pill ${tone(row.status)}">${esc(statusLabel(row.status))}</span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary>
-      <div class="cp-record-detail"><dl><div><dt>Capital pendiente</dt><dd>${money(row.principal_outstanding)}</dd></div><div><dt>Administración mensual</dt><dd>${(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)}%</dd></div><div><dt>Distribución de inversión</dt><dd>${row.funding?.length?row.funding.map(item=>{
+      <div class="cp-record-detail"><dl><div><dt>Capital pendiente</dt><dd>${money(row.principal_outstanding)}</dd></div><div><dt>Administración mensual</dt><dd>${(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)}%</dd></div><div><dt>Administrador operativo actual</dt><dd>${esc(row.operationalAdministrator||'Sin asignar')}</dd></div><div><dt>Distribución de inversión</dt><dd>${row.funding?.length?row.funding.map(item=>{
         const amount=item.contributed_amount==null?Number(row.principal_original)*Number(item.funding_percent):Number(item.contributed_amount);
         const percent=Number(row.principal_original)>0?amount/Number(row.principal_original)*100:0;
-        return `${esc(item.partner_name)} ${money(amount)} (${percent.toFixed(2)}%)`;
+        return `${esc(item.partner_name)} (Socio aportante) · ${money(amount)} (${percent.toFixed(2)}%)`;
       }).join(' · '):'Sin distribución visible'}</dd></div><div><dt>Notas</dt><dd>${esc(row.notes||'Sin notas')}</dd></div></dl>${canEdit&&row.status!=='VOIDED'?`<button type="button" class="cp-action cp-quiet" data-edit-contributions="${esc(row.id)}">Editar aportes</button>`:''}</div>
     </details>`).join('')}</div>`;
 }

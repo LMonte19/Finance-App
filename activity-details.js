@@ -14,7 +14,7 @@ const section=(title,text)=>text?`<section class="ll-floating-section"><h3>${esc
 
 function recordHtml(kind,row,name){
   const dates=`${row.execution_date?fact('Fecha de ejecución',dateLabel(row.execution_date)):''}${row.installment_dates?.length?fact('Cuotas vinculadas',row.installment_dates.map(dateLabel).join(', ')):''}`;
-  if(kind==='disbursement')return `<dl class="ll-floating-facts">${fact('Capital desembolsado',money(row.principal_original))}${fact('Capital pendiente',money(row.principal_outstanding))}${fact('Fecha de inicio',dateLabel(row.start_date))}${fact('Estado',status(row.status))}${fact('Interés mensual',Number(Number(row.monthly_rate_total||0)*100).toFixed(2)+'%')}${fact('Administración mensual',Number(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)+'%')}</dl>${section('Notas',row.notes)}<section class="ll-floating-section"><h3>Distribución de inversión</h3>${row.funding?.length?row.funding.map(f=>`<div class="ll-floating-line"><span>${esc(f.partner_name||'Socio')}</span><strong>${f.contributed_amount==null?(Number(f.funding_percent||0)*100).toFixed(2)+'%':money(f.contributed_amount)+' · '+(Number(f.contributed_amount)/Number(row.principal_original)*100).toFixed(2)+'%'}</strong></div>`).join(''):'<p>Sin distribución vinculada.</p>'}</section>`;
+  if(kind==='disbursement')return `<dl class="ll-floating-facts">${fact('Capital desembolsado',money(row.principal_original))}${fact('Capital pendiente',money(row.principal_outstanding))}${fact('Fecha de inicio',dateLabel(row.start_date))}${fact('Estado',status(row.status))}${fact('Interés mensual',Number(Number(row.monthly_rate_total||0)*100).toFixed(2)+'%')}${fact('Administración mensual',Number(Number(row.monthly_rate_mgmt||0)*100).toFixed(2)+'%')}${fact('Administrador operativo actual',row.operationalAdministrator||'Sin asignar')}</dl>${section('Notas',row.notes)}<section class="ll-floating-section"><h3>Distribución de inversión</h3>${row.funding?.length?row.funding.map(f=>`<div class="ll-floating-line"><span>${esc(f.partner_name||'Socio')}<small>Socio aportante</small></span><strong>${f.contributed_amount==null?(Number(f.funding_percent||0)*100).toFixed(2)+'%':money(f.contributed_amount)+' · '+(Number(f.contributed_amount)/Number(row.principal_original)*100).toFixed(2)+'%'}</strong></div>`).join(''):'<p>Sin distribución vinculada.</p>'}</section>`;
   if(kind==='note')return `<dl class="ll-floating-facts">${fact('Tipo de contacto',contact(row.contact_type))}${fact('Fecha',dateLabel(row.contact_date))}${fact('Registrado por',row.created_by_name||'—')}${fact('Cuenta',name||row.borrower_name||'Cliente')}${dates}</dl>${section('Resultado',row.outcome)}${section('Nota de contacto',row.notes)}`;
   return `<dl class="ll-floating-facts">${fact('Fecha de seguimiento',dateLabel(row.due_date))}${fact('Prioridad',status(row.priority))}${fact('Estado',status(row.status))}${fact('Registrado por',row.created_by_name||'—')}${dates}</dl>${section('Motivo',row.reason)}${section('Nota de cierre',row.completed_notes)}`;
 }
@@ -23,7 +23,7 @@ export async function openActivityDetails({kind,id,record=null,borrowerName=''})
   if(kind==='payment')return openPaymentDetails(id,record?{...record,borrower_name:record.borrower_name||borrowerName}:null);
   const titles={disbursement:'Detalle del desembolso',note:'Detalle del contacto',followup:'Detalle del seguimiento'};
   const title=titles[kind];if(!title)return;
-  const cached=record&&(kind!=='disbursement'||Array.isArray(record.funding));
+  const cached=record&&(kind!=='disbursement'||(Array.isArray(record.funding)&&Object.hasOwn(record,'operationalAdministrator')));
   const panel=openFloatingPanel({label:title,html:floatingHeader(title,borrowerName)+`<div class="ll-floating-scroll" data-activity-detail>${cached?recordHtml(kind,record,borrowerName):'<p class="ll-floating-help">Consultando el movimiento…</p>'}</div>`});
   if(!panel||cached)return;
   try{
@@ -32,10 +32,10 @@ export async function openActivityDetails({kind,id,record=null,borrowerName=''})
     if(result.error)throw result.error;
     let row=result.data;
     if(kind==='disbursement'){
-      const [funding,profiles]=await Promise.all([db.from('loan_funding').select('partner_user_id,funding_percent,contributed_amount').eq('loan_id',id),db.from('profiles').select('user_id,full_name')]);
-      if(funding.error)throw funding.error;if(profiles.error)throw profiles.error;
+      const [funding,profiles,manager]=await Promise.all([db.from('loan_funding').select('partner_user_id,funding_percent,contributed_amount').eq('loan_id',id),db.from('profiles').select('user_id,full_name'),db.from('operational_administrators').select('full_name').eq('receives_management_fee',true).maybeSingle()]);
+      if(funding.error)throw funding.error;if(profiles.error)throw profiles.error;if(manager.error)throw manager.error;
       const names=new Map((profiles.data||[]).map(p=>[p.user_id,p.full_name]));
-      row={...row,funding:(funding.data||[]).map(f=>({...f,partner_name:names.get(f.partner_user_id)||'Socio'}))};
+      row={...row,operationalAdministrator:manager.data?.full_name??null,funding:(funding.data||[]).map(f=>({...f,partner_name:names.get(f.partner_user_id)||'Socio'}))};
     }
     if(panel.isCurrent())panel.body.querySelector('[data-activity-detail]').innerHTML=recordHtml(kind,row,borrowerName);
   }catch(error){if(panel.isCurrent())panel.body.querySelector('[data-activity-detail]').innerHTML=`<p class="ll-floating-status error">${esc(error.message||'No se pudo consultar el movimiento.')}</p>`;}

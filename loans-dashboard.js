@@ -4,7 +4,7 @@ import { CLIENT_CHANGED, mergeClientAccount } from './client-directory.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { readPageQuery, watchPage, isStalePageSession, loadingRows } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
-import { openActivityDetails } from './activity-details.js?v=7';
+import { openActivityDetails } from './activity-details.js?v=8';
 
 const db = createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',
