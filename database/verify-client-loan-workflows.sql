@@ -73,7 +73,25 @@ begin
     p_mixed:=public.record_borrower_payment(b,current_date,150,'MIXED',null,50,100,array[remaining],null);
     assert (select applied_interest=50 and applied_principal=100 from public.payments where id=p_mixed);
     assert (select amount=35 from public.payment_allocations where payment_id=p_mixed and allocation_type='PARTNER_DISTRIBUTION' and partner_user_id=partner_id);
-    perform public.void_payment(p_mixed,'Rollback verification');
+    if agent_id is not null then
+      perform set_config('request.jwt.claim.sub',agent_id::text,true);
+      rejected:=false;
+      begin
+        perform public.void_payment(p_mixed,'Pago duplicado');
+      exception when raise_exception then
+        rejected:=sqlerrm='Solo un administrador o socio puede anular pagos.';
+      end;
+      assert rejected,'Agents must not gain void permissions';
+    end if;
+    perform set_config('request.jwt.claim.sub',partner_id::text,true);
+    assert not has_function_privilege('authenticated','finance_workflow_private.restore_voided_payment_dues(uuid,date,date,boolean)','EXECUTE');
+    assert not has_function_privilege('anon','public.void_payment(uuid,text)','EXECUTE');
+    perform public.void_payment(p_mixed,'Pago duplicado');
+    perform public.void_payment(p_current,'Monto incorrecto');
+    perform set_config('request.jwt.claim.sub',admin_id::text,true);
+    assert (select is_voided and voided_by=partner_id and void_reason='Pago duplicado' from public.payments where id=p_mixed);
+    assert (select is_voided and voided_by=partner_id from public.payments where id=p_current);
+    assert not exists(select 1 from public.payment_allocations where payment_id in (p_mixed,p_current));
     assert (select sum(principal_outstanding)=1500 from public.loans where borrower_id=b);
     assert (select amount_due=50 from public.borrower_due_timeline(b,current_cycle) where due_date=remaining);
 
