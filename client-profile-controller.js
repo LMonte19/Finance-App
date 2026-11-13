@@ -8,7 +8,7 @@ import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
 import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
-import { openActivityDetails } from './activity-details.js?v=6';
+import { openActivityDetails } from './activity-details.js?v=7';
 import { openClientInstallmentPicker } from './client-installment-picker.js?v=1';
 
 const db=createClient(
@@ -193,8 +193,8 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
   return {
     summary:{...summaryRes.data,...clientRes.data},
     fundingPeople:(profilesRes.data||[]).filter(row=>['ADMIN','PARTNER'].includes(row.role)).sort((a,b)=>String(a.full_name).localeCompare(String(b.full_name),'es')),
-    canManageFunding:viewer?.role==='ADMIN',
-    canEditClient:['ADMIN','AGENT'].includes(viewer?.role),
+    canManageFunding:['ADMIN','AGENT','PARTNER'].includes(viewer?.role),
+    canEditClient:['ADMIN','AGENT','PARTNER'].includes(viewer?.role),
     calendarRows:calendarRes.data.rows||[],
     calendarAsOf:calendarRes.data.as_of_date||today(),
     disbursements:(disbRes.data||[]).map(row=>({...row,funding:fundingByLoan.get(row.id)||[]})),
@@ -860,7 +860,7 @@ function openComposer(kind,trigger=null){
     setStatus('llProfileClientStatus','');
   }
   if(kind==='disbursement'){
-    if(!currentData?.canManageFunding){announceProfile('Solo un administrador puede registrar desembolsos.');return;}
+    if(!currentData?.canManageFunding){announceProfile('Tu cuenta no tiene permiso para registrar desembolsos.');return;}
     profileFundingEditor(panel.querySelector('form'));
   }
   if(kind==='note'||kind==='followup')attachInstallmentLinks(panel.querySelector('[data-installment-links]'),
@@ -1017,7 +1017,7 @@ async function handleSubmit(event){
       setStatus('llProfileFollowupStatus','Seguimiento creado.');
     }else{
       const status='llProfileDisbursementStatus';
-      if(!currentData?.canManageFunding)return setStatus(status,'Solo un administrador puede registrar desembolsos.',true);
+      if(!currentData?.canManageFunding)return setStatus(status,'Tu cuenta no tiene permiso para registrar desembolsos.',true);
       const rate=selector=>Number((Number(form.querySelector(selector).value)/100).toFixed(4));
       let contributions;
       try{contributions=profileFundingEditor(form).values();}catch(error){return setStatus(status,error.message,true);}

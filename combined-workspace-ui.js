@@ -4,7 +4,7 @@ export const qs=id=>document.getElementById(id);
 export const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const money=value=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:2}).format(Number(value||0));
 export const percent=value=>`${new Intl.NumberFormat('es',{maximumFractionDigits:2}).format(Number(value||0)*100)}%`;
-export const roleName=role=>({ADMIN:'Administrador',AGENT:'Agente',PARTNER:'Socio'}[role]||'Sin rol');
+export const roleName=role=>({ADMIN:'Propietario de la app',AGENT:'Administrador operativo',PARTNER:'Socio'}[role]||'Sin rol');
 export const initials=name=>String(name||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
 export const isoDate=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 export const today=()=>isoDate(new Date());

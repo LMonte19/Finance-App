@@ -1,3 +1,4 @@
+import { roleName } from './combined-workspace-ui.js?v=2';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
@@ -19,75 +20,15 @@ let currentRole = null;
 let currentName = null;
 let guardTimer = null;
 
-const ADMIN_ONLY_IDS = new Set([
-  "btnVoidLoan",
-  "btnSaveLoanActionEdit",
-  "btnMarkPaidOff",
-  "btnCloseLoan",
-  "btnAddFundingSplit",
-  "btnSaveDefaultFunding",
-  "btnResetTestData",
-  "btnSavePaymentNotesAdminOnly",
-]);
-
-const AGENT_ALLOWED_ACTION_IDS = new Set([
-  "btnAddBorrower",
-  "btnCreateLoan",
-  "btnAddPayment",
-  "btnToggleNewBorrower",
-  "btnAddNewLoanFunding",
-  "btnAddFollowup",
-  "btnAddContactLog",
-  "btnBorrowerSaveContact",
-  "btnBorrowerAddFollowup",
-  "btnGenerateAllDue",
-  "quickGenerateDue",
-]);
-
-const PARTNER_BLOCKED_IDS = new Set([
-  "btnAddBorrower",
-  "btnCreateLoan",
-  "btnAddPayment",
-  "btnToggleNewBorrower",
-  "btnAddNewLoanFunding",
-  "btnAddFundingSplit",
-  "btnSaveDefaultFunding",
-  "btnResetTestData",
-  "btnSaveLoanActionEdit",
-  "btnMarkPaidOff",
-  "btnCloseLoan",
-  "btnVoidLoan",
-  "btnAddFollowup",
-  "btnAddContactLog",
-  "btnBorrowerSaveContact",
-  "btnBorrowerAddFollowup",
-  "btnGenerateAllDue",
-  "quickNewLoan",
-  "quickRecordPayment",
-  "quickFollowup",
-  "quickLogContact",
-  "quickGenerateDue",
-]);
-
-function hideElement(el, reason = "Not available for this role") {
-  if (!el) return;
-  el.dataset.roleHidden = "true";
-  el.title = reason;
-  el.style.display = "none";
-}
-
-function disableElement(el, reason = "Not available for this role") {
-  if (!el) return;
-  el.disabled = true;
-  el.title = reason;
-  el.style.opacity = "0.5";
-  el.style.cursor = "not-allowed";
-}
-
-function showElement(el) {
-  if (!el || el.dataset.roleHidden !== "true") return;
-  el.style.display = "";
-  delete el.dataset.roleHidden;
+function setRestricted(element, restricted) {
+  if (!element) return;
+  if (restricted && element.dataset.roleHidden !== "true") {
+    element.dataset.roleHidden = "true";
+    element.style.display = "none";
+  } else if (!restricted && element.dataset.roleHidden === "true") {
+    delete element.dataset.roleHidden;
+    element.style.display = "";
+  }
 }
 
 async function loadCurrentProfile() {
@@ -103,87 +44,13 @@ async function loadCurrentProfile() {
 
   if (error) throw error;
   currentRole = data?.role || null;
-  currentName = data?.full_name || user.email || "User";
+  currentName = data?.full_name || user.email || "Usuario";
   return data;
 }
 
-function hideMenuForRole() {
-  if (!currentRole) return;
-
-  const adminMenuIds = ["menuProfiles", "menuMaintenance"];
-  const settingsMenu = document.querySelector('[data-page="defaultsPage"]');
-
-  if (currentRole !== "ADMIN") {
-    adminMenuIds.forEach((id) => hideElement(qs(id), "Admin only"));
-    hideElement(settingsMenu, "Admin only");
-  } else {
-    adminMenuIds.forEach((id) => showElement(qs(id)));
-    showElement(settingsMenu);
-  }
-
-  if (currentRole === "PARTNER") {
-    hideElement(qs("menuLoanHealth"), "Admin/Agent only");
-    hideElement(qs("menuFollowups"), "Admin/Agent only");
-    hideElement(qs("menuDueOverdue"), "Admin/Agent only");
-  } else {
-    showElement(qs("menuLoanHealth"));
-    showElement(qs("menuFollowups"));
-    showElement(qs("menuDueOverdue"));
-  }
-}
-
-function protectButtons() {
-  if (!currentRole) return;
-
-  document.querySelectorAll("button").forEach((btn) => {
-    const id = btn.id || "";
-    // Payment details follow the signed-in profile directly. The void RPC also checks the role.
-    if (id === "btnVoidPaymentDetail" || btn.hasAttribute("data-void-payment")) return;
-    const text = (btn.textContent || "").trim().toLowerCase();
-
-    if (currentRole !== "ADMIN" && ADMIN_ONLY_IDS.has(id)) {
-      hideElement(btn, "Admin only");
-      return;
-    }
-
-    if (currentRole !== "ADMIN" && btn.dataset.quickVoidPayment) {
-      hideElement(btn, "Admin only");
-      return;
-    }
-
-    if (currentRole !== "ADMIN" && /void payment|void loan|reset test data|save profile|save funding split/i.test(btn.textContent || "")) {
-      hideElement(btn, "Admin only");
-      return;
-    }
-
-    if (currentRole === "PARTNER" && PARTNER_BLOCKED_IDS.has(id)) {
-      hideElement(btn, "Partner is view-only");
-      return;
-    }
-
-    if (currentRole === "PARTNER" && /(save|add|create|record|generate|mark done|close|void|reset)/i.test(text)) {
-      hideElement(btn, "Partner is view-only");
-      return;
-    }
-  });
-}
-
-function protectInputs() {
-  if (!currentRole) return;
-
-  if (currentRole === "PARTNER") {
-    document.querySelectorAll("input, select, textarea").forEach((el) => {
-      if (el.matches('.ll-void-dialog select[name="reason"]')) return;
-      const allowSearch = /search|filter/i.test(el.id || "") || /search/i.test(el.placeholder || "");
-      if (!allowSearch) disableElement(el, "Partner is view-only");
-    });
-  }
-
-  if (currentRole !== "ADMIN") {
-    document.querySelectorAll("#defaultInterestRate,#defaultManagementRate,#defaultFundingPartner,#defaultFundingPercent,#fundingPartner,#fundingPercent,#actionLoanStartDate,#actionLoanStatus,#actionLoanOriginal,#actionLoanOutstanding,#actionLoanTotalRate,#actionLoanMgmtRate,#actionLoanNotes").forEach((el) => {
-      disableElement(el, "Admin only");
-    });
-  }
+function applyOwnerOnlyVisibility() {
+  const restricted = currentRole !== "ADMIN";
+  for (const id of ["menuMaintenance", "btnResetTestData"]) setRestricted(qs(id), restricted);
 }
 
 function addRoleBanner() {
@@ -198,12 +65,13 @@ function addRoleBanner() {
   banner.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
       <div>
-        <strong>Signed in as ${currentName || "User"}</strong><br>
-        <span class="muted">Role: ${currentRole}</span>
+        <strong data-role-viewer></strong><br>
+        <span class="muted">Role: ${roleName(currentRole)}</span>
       </div>
       <span class="pill">Permissions active</span>
     </div>
   `;
+  banner.querySelector("[data-role-viewer]").textContent = currentName;
   app.insertBefore(banner, app.firstChild);
 }
 
@@ -213,9 +81,7 @@ async function applyRoleGuards() {
     if (!currentRole) return;
 
     addRoleBanner();
-    hideMenuForRole();
-    protectButtons();
-    protectInputs();
+    applyOwnerOnlyVisibility();
   } catch (error) {
     console.error("Role guard error:", error);
   }

@@ -1,9 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { readPageQuery, watchPage, isStalePageSession, loadingRows, getPageSessionId } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
-import { qs, esc, money, roleName, dateLabel, isoDate, today, icon, empty, openPage } from './combined-workspace-ui.js?v=1';
-import { actionLabels, tableLabels, technicalTables, actionName, tableName, changeDetails, groupActivity } from './activity-labels.js?v=1';
-import { REPORTS, exportReport, collectRows, downloadCsv, validateRange } from './report-exports.js?v=1';
+import { qs, esc, money, roleName, dateLabel, isoDate, today, icon, empty, openPage } from './combined-workspace-ui.js?v=2';
+import { actionLabels, tableLabels, technicalTables, actionName, tableName, changeDetails, groupActivity } from './activity-labels.js?v=2';
+import { REPORTS, exportReport, collectRows, downloadCsv, validateRange } from './report-exports.js?v=2';
 
 const db=createClient('https://eatxkhhpjruwwibhcubf.supabase.co','sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'loan-ledger-auth'}});
 const state={page:0,size:50,total:0,rows:[],sequence:0,searchTimer:null,tab:'history',exporting:false};

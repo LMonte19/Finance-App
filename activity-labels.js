@@ -1,4 +1,4 @@
-import { esc, money, percent, dateLabel } from './combined-workspace-ui.js?v=1';
+import { esc, money, percent, dateLabel } from './combined-workspace-ui.js?v=2';
 export const actionLabels = {
   BORROWER_DUE_EVENTS_INSERT:'Cuota calculada',
   BORROWER_DUE_EVENTS_UPDATE:'Cuota recalculada',
@@ -71,7 +71,7 @@ export const technicalTables=['borrower_due_events','payment_borrower_due_applic
 export const actionName=action=>actionLabels[action]||'Movimiento registrado';
 export const tableName=table=>tableLabels[table]||'Otros movimientos';
 const fields={full_name:'Nombre',phone:'Teléfono',role:'Rol de acceso',amount:'Monto',paid_on:'Fecha de pago',payment_type:'Tipo de pago',principal_original:'Capital desembolsado',principal_outstanding:'Capital pendiente',applied_principal:'Capital aplicado',applied_interest:'Cuota / interés aplicado',applied_mgmt:'Administración asignada',applied_funders:'Ingreso asignado a socios',funding_percent:'Participación de inversión',allocation_type:'Tipo de distribución',due_date:'Fecha de cuota',status:'Estado',is_voided:'Anulado',voided_at:'Fecha de anulación',void_reason:'Motivo de anulación',notes:'Notas',priority:'Prioridad',contact_type:'Tipo de contacto',setting_key:'Configuración',setting_value:'Valores',monthly_rate_total:'Interés mensual',monthly_rate_mgmt:'Administración mensual',completed_at:'Completado',completed_notes:'Nota de cierre',expected_total:'Cuota esperada',paid_total:'Pagado',remaining_amount:'Pendiente'};
-const values={ADMIN:'Administrador',AGENT:'Agente',PARTNER:'Socio',INSTALLMENT:'Cuota / interés',PRINCIPAL:'Abono a capital',MIXED:'Pago mixto',PAYOFF:'Saldo de capital',MANAGEMENT_FEE:'Administración',FUNDER_FEE:'Ingreso de socio',FUNDING_FEE:'Ingreso de socio',ACTIVE:'Activo',PENDING:'Pendiente',PAID:'Pagado',PARTIAL:'Pago parcial',VOID:'Anulado',CURRENT:'Al día',OVERDUE:'Atrasado',PAID_OFF:'Saldado',CLOSED:'Cerrado',OPEN:'Abierto',DONE:'Completado',loan_defaults:'Tasas predeterminadas',default_funding_split:'Distribución predeterminada'};
+const values={ADMIN:'Propietario de la app',AGENT:'Administrador operativo',PARTNER:'Socio',INSTALLMENT:'Cuota / interés',PRINCIPAL:'Abono a capital',MIXED:'Pago mixto',PAYOFF:'Saldo de capital',MANAGEMENT_FEE:'Administración',FUNDER_FEE:'Ingreso de socio',FUNDING_FEE:'Ingreso de socio',ACTIVE:'Activo',PENDING:'Pendiente',PAID:'Pagado',PARTIAL:'Pago parcial',VOID:'Anulado',CURRENT:'Al día',OVERDUE:'Atrasado',PAID_OFF:'Saldado',CLOSED:'Cerrado',OPEN:'Abierto',DONE:'Completado',loan_defaults:'Tasas predeterminadas',default_funding_split:'Distribución predeterminada'};
 export function fieldName(key){return fields[key]||String(key).replaceAll('_',' ').replace(/^./,c=>c.toUpperCase());}
 export function fieldValue(key,value){
   if(value==null||value==='')return '—';if(typeof value==='boolean')return value?'Sí':'No';

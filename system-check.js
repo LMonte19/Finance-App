@@ -86,7 +86,7 @@ function renderCheck(row) {
   `);
 }
 function renderPermissions(rows) {
-  const labels = { ADMIN: "Administrador", AGENT: "Agente", PARTNER: "Socio" };
+  const labels = { ADMIN: "Propietario de la app", AGENT: "Administrador operativo", PARTNER: "Socio" };
   const grouped = rows.reduce((acc, row) => { acc[row.role] ||= []; acc[row.role].push(row); return acc; }, {});
   return ["ADMIN", "AGENT", "PARTNER"].map((role) => {
     const list = grouped[role] || [];
@@ -109,8 +109,8 @@ function manualChecklistHtml() {
     "Agregar una nota de contacto.",
     "Abrir Actividad / Historial y confirmar que registra pagos, anulaciones, desembolsos y notas.",
     "Exportar CSV de cuentas, pagos, cuotas virtuales y socios.",
-    "Entrar como Agent y confirmar que acciones Admin-only están ocultas o bloqueadas.",
-    "Entrar como Partner y confirmar que solo ve lo que corresponde.",
+    "Confirmar que el administrador operativo puede registrar y anular pagos.",
+    "Confirmar que los socios pueden operar, pero no administrar el acceso ni restablecer datos.",
   ];
   return items.map((item, index) => `<label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0;"><input type="checkbox" data-manual-check="${index}" style="width:auto;margin:2px 0 0 0;" /><span>${item}</span></label>`).join("");
 }

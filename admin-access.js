@@ -1,5 +1,5 @@
 import { floatingHeader, openFloatingPanel } from './floating-panel.js?v=1';
-import { esc } from './combined-workspace-ui.js?v=1';
+import { esc } from './combined-workspace-ui.js?v=2';
 
 export const ACCESS_OWNER_ID = '984c2e7c-2506-4c7a-8510-15d1a14815b0';
 

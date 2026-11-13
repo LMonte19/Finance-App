@@ -4,6 +4,7 @@ declare
   admin_id uuid; agent_id uuid; partner_id uuid;
   b uuid; l1 uuid; l2 uuid; p_current uuid; p_older uuid; p_custom uuid; p_mixed uuid;
   earlier date; later date; current_cycle date; remaining date;
+  carlos uuid; saved_payment uuid;
   rejected boolean; passed boolean:=false;
 begin
   select user_id into admin_id from public.profiles where role='ADMIN' order by created_at limit 1;
@@ -73,16 +74,12 @@ begin
     p_mixed:=public.record_borrower_payment(b,current_date,150,'MIXED',null,50,100,array[remaining],null);
     assert (select applied_interest=50 and applied_principal=100 from public.payments where id=p_mixed);
     assert (select amount=35 from public.payment_allocations where payment_id=p_mixed and allocation_type='PARTNER_DISTRIBUTION' and partner_user_id=partner_id);
-    if agent_id is not null then
-      perform set_config('request.jwt.claim.sub',agent_id::text,true);
-      rejected:=false;
-      begin
-        perform public.void_payment(p_mixed,'Pago duplicado');
-      exception when raise_exception then
-        rejected:=sqlerrm='Solo un administrador o socio puede anular pagos.';
-      end;
-      assert rejected,'Agents must not gain void permissions';
-    end if;
+    select id into carlos from public.operational_administrators
+    where full_name='Carlos' and receives_management_fee and user_id is null;
+    assert carlos is not null,'Carlos must not need an Auth account';
+    assert exists(select 1 from public.partner_allocation_details
+      where payment_id=p_mixed and partner_user_id=carlos and partner_name='Carlos'
+        and allocation_type='MANAGEMENT_FEE' and amount=15);
     perform set_config('request.jwt.claim.sub',partner_id::text,true);
     assert not has_function_privilege('authenticated','finance_workflow_private.restore_voided_payment_dues(uuid,date,date,boolean)','EXECUTE');
     assert not has_function_privilege('anon','public.void_payment(uuid,text)','EXECUTE');
@@ -108,24 +105,33 @@ begin
     exception when raise_exception then rejected:=true;
     end;
     assert rejected,'Only real installments on this account can be linked';
-    if agent_id is not null then
-      perform set_config('request.jwt.claim.sub',agent_id::text,true);
-      rejected:=false;
-      begin
-        perform public.update_loan_contributions(l1,jsonb_build_array(jsonb_build_object('partner_user_id',agent_id,'amount',1000)));
-      exception when raise_exception then rejected:=true;
-      end;
-      assert rejected,'Existing admin-only funding permissions must be retained';
-      p_mixed:=public.record_borrower_payment(b,current_date,1,'INSTALLMENT',null,null,null,array[remaining],null);
-      assert (select amount=1 from public.payments where id=p_mixed),'Agents retain payment entry';
-    end if;
     perform set_config('request.jwt.claim.sub',partner_id::text,true);
+    perform public.set_app_setting('loan_defaults','{"default_total_monthly_rate":10,"default_management_rate":3}'::jsonb);
+    assert (select setting_value->>'default_total_monthly_rate'='10' from public.app_settings where setting_key='loan_defaults');
+    update public.borrowers set notes='Editado por socio' where id=b;
+    assert (select notes='Editado por socio' from public.borrowers where id=b);
+    perform public.update_loan_contributions(l1,jsonb_build_array(jsonb_build_object('partner_user_id',partner_id,'amount',1000)));
+    saved_payment:=public.record_borrower_payment(b,current_date,1,'INSTALLMENT',null,null,null,array[remaining],null);
+    assert (select created_by=partner_id from public.payments where id=saved_payment);
+    insert into public.borrower_contact_log(borrower_id,contact_date,contact_type,notes,created_by)
+      values(b,current_date,'NOTE','Registro de socio',partner_id);
     rejected:=false;
     begin
-      perform public.record_borrower_payment(b,current_date,1,'INSTALLMENT',null,null,null,array[remaining],null);
-    exception when raise_exception then rejected:=true;
+      perform public.update_profile_admin(partner_id,'Intento no autorizado','ADMIN');
+    exception when raise_exception then rejected:=sqlerrm='Only Admin can update profiles';
     end;
-    assert rejected,'Read-only partners must not record payments';
+    assert rejected,'Socios cannot edit roles';
+    rejected:=false;
+    begin
+      perform public.reset_test_data();
+    exception when raise_exception then rejected:=sqlerrm='Only Admin can reset test data';
+    end;
+    assert rejected,'Socios cannot reset';
+    if agent_id is not null then
+      perform set_config('request.jwt.claim.sub',agent_id::text,true);
+      perform public.void_payment(saved_payment,'Pago duplicado');
+      assert (select voided_by=agent_id from public.payments where id=saved_payment);
+    end if;
     assert not has_table_privilege('anon','public.borrower_followups_view','SELECT')
        and not has_table_privilege('anon','public.activity_log_view','SELECT');
     assert not has_function_privilege('anon','public.record_borrower_payment(uuid,date,numeric,text,text,numeric,numeric,date[],jsonb)','EXECUTE');

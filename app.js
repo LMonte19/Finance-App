@@ -1,6 +1,6 @@
 import { setPageSession, invalidatePageReads, readPageQuery, getPageSessionId, isStalePageSession } from './page-read-runtime.js?v=1';
-import { ACCESS_OWNER_ID, openAdminAccess } from './admin-access.js?v=1';
-import { esc } from './combined-workspace-ui.js?v=1';
+import { ACCESS_OWNER_ID, openAdminAccess } from './admin-access.js?v=2';
+import { esc, roleName } from './combined-workspace-ui.js?v=2';
 import { floatingHeader, openFloatingPanel } from './floating-panel.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -208,7 +208,7 @@ function addPendingLoanFunding(event) {
   renderPendingNewLoanFunding();
 }
 async function addBorrower() {
-  if (!currentProfile || !["ADMIN", "AGENT"].includes(currentProfile.role)) return alert("Solo Admin/Agente puede agregar clientes.");
+  if (!currentProfile || !["ADMIN", "AGENT", "PARTNER"].includes(currentProfile.role)) return alert("Tu cuenta no tiene permiso para agregar clientes.");
   const full_name = qs("bName")?.value.trim();
   if (!full_name) return alert("Nombre requerido.");
   const { data: userData } = await supabase.auth.getUser();
@@ -219,7 +219,7 @@ async function addBorrower() {
   await refreshBorrowers();
 }
 async function saveDefaultRates() {
-  if (!currentProfile || currentProfile.role !== "ADMIN") return alert("Solo Admin puede actualizar valores predeterminados.");
+  if (!["ADMIN", "AGENT", "PARTNER"].includes(currentProfile?.role)) return alert("Tu cuenta no tiene permiso para actualizar valores predeterminados.");
   const default_total_monthly_rate = Number(qs("defaultInterestRate")?.value || 0);
   const default_management_rate = Number(qs("defaultManagementRate")?.value || 0);
   if (!default_total_monthly_rate || default_management_rate < 0) return alert("Ingresa tasas válidas.");
@@ -304,7 +304,7 @@ window.addEventListener('loan-ledger:defaults-updated',()=>prefillLoanDefaults(t
 window.addEventListener('loan-ledger:profile-updated',async()=>{
   const id=getPageSessionId();if(!id)return;
   try{const profile=await loadProfileByUserId(id);if(getPageSessionId()!==id||!profile)return;currentProfile=profile;
-    if(qs('whoami'))qs('whoami').textContent=`${profile.full_name??'Usuario'} • ${profile.role}`;
+    if(qs('whoami'))qs('whoami').textContent=`${profile.full_name??'Usuario'} • ${roleName(profile.role)}`;
     if(qs('rolePill'))qs('rolePill').textContent=profile.role;
     syncAccessMenu();
     await refreshFundingPartnerSelects();
@@ -325,7 +325,7 @@ async function setSignedInUI(profile) {
   qs("app").style.display = "block";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "inline-block";
   showThemeButton(true);
-  if (qs("whoami")) qs("whoami").textContent = `${profile.full_name ?? "Usuario"} • ${profile.role}`;
+  if (qs("whoami")) qs("whoami").textContent = `${profile.full_name ?? "Usuario"} • ${roleName(profile.role)}`;
   if (qs("rolePill")) qs("rolePill").textContent = profile.role;
   ensureDefaultsButtons();
   initTabs();

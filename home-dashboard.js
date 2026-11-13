@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
 import { openQuickAction } from './quick-actions.js?v=6';
-import { openActivityDetails, openActivityEntry } from './activity-details.js?v=6';
+import { openActivityDetails, openActivityEntry } from './activity-details.js?v=7';
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",
