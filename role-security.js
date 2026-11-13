@@ -1,4 +1,6 @@
-import { roleName } from './combined-workspace-ui.js?v=2';
+import { roleName, readViewer } from './combined-workspace-ui.js?v=2';
+import { getPageSessionId } from './page-read-runtime.js?v=1';
+import { ACCESS_OWNER_ID } from './admin-access.js?v=2';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
@@ -19,6 +21,9 @@ const qs = (id) => document.getElementById(id);
 let currentRole = null;
 let currentName = null;
 let guardTimer = null;
+let loadedSession = null;
+let profileRead = null;
+let profileGeneration = 0;
 
 function setRestricted(element, restricted) {
   if (!element) return;
@@ -32,24 +37,24 @@ function setRestricted(element, restricted) {
 }
 
 async function loadCurrentProfile() {
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData?.user;
-  if (!user) return null;
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (error) throw error;
+  const session = getPageSessionId();
+  if (!session) return null;
+  if (loadedSession === session) return;
+  if (profileRead) return profileRead;
+  const generation = profileGeneration;
+  profileRead = (async () => {
+  const data = await readViewer(supabase);
+  if (generation !== profileGeneration || session !== getPageSessionId()) return;
   currentRole = data?.role || null;
-  currentName = data?.full_name || user.email || "Usuario";
+  currentName = data?.full_name || "Usuario";
+  loadedSession = session;
   return data;
+  })().finally(() => { profileRead = null; });
+  return profileRead;
 }
 
 function applyOwnerOnlyVisibility() {
-  const restricted = currentRole !== "ADMIN";
+  const restricted = currentRole !== "ADMIN" || getPageSessionId() !== ACCESS_OWNER_ID;
   for (const id of ["menuMaintenance", "btnResetTestData"]) setRestricted(qs(id), restricted);
 }
 
@@ -77,8 +82,15 @@ function addRoleBanner() {
 
 async function applyRoleGuards() {
   try {
-    if (!currentRole) await loadCurrentProfile();
-    if (!currentRole) return;
+    if (!getPageSessionId()) {
+      currentRole = null;
+      currentName = null;
+      loadedSession = null;
+      applyOwnerOnlyVisibility();
+      qs("roleSecurityBanner")?.remove();
+      return;
+    }
+    await loadCurrentProfile();
 
     addRoleBanner();
     applyOwnerOnlyVisibility();
@@ -87,12 +99,18 @@ async function applyRoleGuards() {
   }
 }
 
-supabase.auth.onAuthStateChange(() => {
+function resetProfileGuard() {
+  profileGeneration++;
+  loadedSession = null;
   currentRole = null;
   currentName = null;
+  qs("roleSecurityBanner")?.remove();
   setTimeout(applyRoleGuards, 500);
+}
+supabase.auth.onAuthStateChange((event) => {
+  if (["SIGNED_OUT", "INITIAL_SESSION", "USER_UPDATED"].includes(event)) resetProfileGuard();
 });
-window.addEventListener('loan-ledger:profile-updated',()=>{currentRole=null;currentName=null;setTimeout(applyRoleGuards,0);});
+window.addEventListener('loan-ledger:profile-updated', resetProfileGuard);
 
 const observer = new MutationObserver(() => {
   clearTimeout(guardTimer);

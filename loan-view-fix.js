@@ -151,7 +151,7 @@ function paymentHtml(payment) {
   const voided = payment.is_voided;
   const badge = voided ? "<span class='acct-pill acct-danger'>ANULADO</span>" : "<span class='acct-pill acct-ok'>ACTIVO</span>";
   const voidBtn = voided ? "" : `<button type="button" class="acctVoidPaymentBtn" data-payment-id="${payment.id}" style="background:#7a2b2b;margin-top:10px;">Anular pago</button>`;
-  return `<div class="compact-card" style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;"><strong>${payment.paid_on}</strong> — ${money(payment.amount)} <span class="acct-pill">${typeLabel(payment.payment_type)}</span> ${badge}<br>Cuota/interés: ${money(payment.applied_interest)} | Capital: ${money(payment.applied_principal)}<br>Administración: ${money(payment.applied_mgmt)} | Socios: ${money(payment.applied_funders)}${payment.notes ? `<br><span class="muted">${payment.notes}</span>` : ""}${voided ? `<br><span class="muted">Motivo de anulación: ${esc(payment.void_reason?.trim() || "Sin motivo registrado")}</span>` : ""}${voidBtn}</div>`;
+  return `<div class="compact-card" style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;"><strong>${payment.paid_on}</strong> — ${money(payment.amount)} <span class="acct-pill">${esc(typeLabel(payment.payment_type))}</span> ${badge}<br>Cuota/interés: ${money(payment.applied_interest)} | Capital: ${money(payment.applied_principal)}<br>Administración: ${money(payment.applied_mgmt)} | Socios: ${money(payment.applied_funders)}${payment.notes ? `<br><span class="muted">${esc(payment.notes)}</span>` : ""}${voided ? `<br><span class="muted">Motivo de anulación: ${esc(payment.void_reason?.trim() || "Sin motivo registrado")}</span>` : ""}${voidBtn}</div>`;
 }
 async function renderPaymentHistory(force = false) {
   if (!accountPageActive() || !currentBorrowerId || historyBusy) return;
@@ -239,10 +239,19 @@ async function createVirtualDisbursement(event) {
     const fundingTotal = newDisbursementFunding.reduce((s, r) => s + Number(r.funding_percent || 0), 0);
     if (!newDisbursementFunding.length) return alert("Agrega la distribución de inversión antes de guardar el desembolso.");
     if (Math.abs(fundingTotal - 1) > 0.001) return alert("La distribución de inversión debe sumar 100%.");
-    const { data: loan, error: loanErr } = await db.from("loans").insert({ borrower_id, created_by, start_date, principal_original: principal, principal_outstanding: principal, monthly_rate_total, monthly_rate_mgmt, status: "ACTIVE" }).select("id").single();
+    let assignedCents = 0;
+    const totalCents = Math.round(principal * 100);
+    const contributions = newDisbursementFunding.map((row, index) => {
+      const cents = index === newDisbursementFunding.length - 1 ? totalCents - assignedCents : Math.round(totalCents * row.funding_percent);
+      assignedCents += cents;
+      return { partner_user_id: row.partner_user_id, amount: cents / 100 };
+    });
+    const { error: loanErr } = await db.rpc("create_funded_disbursement", {
+      p_borrower_id: borrower_id, p_start_date: start_date, p_principal: principal,
+      p_rate_total: monthly_rate_total, p_rate_mgmt: monthly_rate_mgmt,
+      p_notes: null, p_contributions: contributions,
+    });
     if (loanErr) throw loanErr;
-    const { error: fundErr } = await db.from("loan_funding").insert(newDisbursementFunding.map(r => ({ loan_id: loan.id, partner_user_id: r.partner_user_id, funding_percent: r.funding_percent })));
-    if (fundErr) throw fundErr;
     ["principal", "startDate", "newBorrowerName", "newBorrowerPhone", "newBorrowerNotes"].forEach(id => { if (byId(id)) byId(id).value = ""; });
     if (newFields) newFields.style.display = "none";
     if (byId("btnToggleNewBorrower")) byId("btnToggleNewBorrower").textContent = "+ Nuevo cliente";

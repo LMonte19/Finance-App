@@ -402,7 +402,7 @@ async function renderFollowups(force = false) {
   } catch (error) {
     if (isStalePageSession(error)) return;
     console.error(error);
-    qs("followupList").innerHTML = error.message || String(error);
+    qs("followupList").textContent = error.message || String(error);
   } finally {
     followupBusy = false;
     finishPageLoading("followupsPage");
@@ -596,14 +596,14 @@ async function refreshBorrowerContactSection(borrowerId) {
 
     qs("borrowerContactHistory").innerHTML = (contactsRes.data || []).length
       ? contactsRes.data.map((c) => card(`
-          <strong>${c.contact_type}</strong> <span class="muted">${c.contact_date}</span><br>
-          <span class="muted">${c.outcome || "—"}</span><br>
-          <span>${c.notes || ""}</span>
+          <strong>${esc(c.contact_type)}</strong> <span class="muted">${esc(c.contact_date)}</span><br>
+          <span class="muted">${esc(c.outcome || "—")}</span><br>
+          <span>${esc(c.notes || "")}</span>
         `)).join("")
       : "No contact notes yet.";
   } catch (error) {
     console.error(error);
-    if (qs("borrowerContactHistory")) qs("borrowerContactHistory").innerHTML = error.message || String(error);
+    if (qs("borrowerContactHistory")) qs("borrowerContactHistory").textContent = error.message || String(error);
   } finally {
     borrowerContactBusy = false;
   }

@@ -200,9 +200,9 @@ async function injectBorrowerEdit() {
     box.style.maxWidth = "100%";
     box.innerHTML = `
       <div style="font-weight:800;">Edit Borrower</div>
-      <input id="editBorrowerName" value="${borrower.full_name ?? ""}" placeholder="Full name" />
-      <input id="editBorrowerPhone" value="${borrower.phone ?? ""}" placeholder="Phone" />
-      <input id="editBorrowerNotes" value="${borrower.notes ?? ""}" placeholder="Notes" />
+      <input id="editBorrowerName" value="${esc(borrower.full_name ?? "")}" placeholder="Full name" />
+      <input id="editBorrowerPhone" value="${esc(borrower.phone ?? "")}" placeholder="Phone" />
+      <input id="editBorrowerNotes" value="${esc(borrower.notes ?? "")}" placeholder="Notes" />
       <button id="btnSaveBorrowerEdit" class="batch-action-button" type="button">Save Borrower</button>
     `;
     header.appendChild(box);

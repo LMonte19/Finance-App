@@ -185,14 +185,14 @@ async function refreshBorrowers() {
   if (error) throw error;
   if (qs("borrowerList")) {
     qs("borrowerList").innerHTML = (data ?? []).map((b) => `
-      <div class="compact-card" style="cursor:pointer" data-borrower-id="${b.id}">
-        <strong>${b.full_name}</strong><br>
-        <span class="muted">${b.phone ?? "Sin teléfono"}${b.notes ? ` | ${b.notes}` : ""}</span>
+      <div class="compact-card" style="cursor:pointer" data-borrower-id="${esc(b.id)}">
+        <strong>${esc(b.full_name)}</strong><br>
+        <span class="muted">${esc(b.phone ?? "Sin teléfono")}${b.notes ? ` | ${esc(b.notes)}` : ""}</span>
       </div>
     `).join("") || "No hay clientes todavía.";
     document.querySelectorAll("[data-borrower-id]").forEach((el) => { el.onclick = () => window.dispatchEvent(new CustomEvent("loan-ledger:open-account", { detail: { borrowerId: el.dataset.borrowerId } })); });
   }
-  if (qs("loanBorrower")) qs("loanBorrower").innerHTML = (data ?? []).map((b) => `<option value="${b.id}">${b.full_name}</option>`).join("");
+  if (qs("loanBorrower")) qs("loanBorrower").innerHTML = (data ?? []).map((b) => `<option value="${esc(b.id)}">${esc(b.full_name)}</option>`).join("");
 }
 function addPendingLoanFunding(event) {
   event?.preventDefault?.();

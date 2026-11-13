@@ -1,5 +1,6 @@
 import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, invalidatePageReads, loadingRows, getPageSessionId } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ACCESS_OWNER_ID } from './admin-access.js?v=2';
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q";
@@ -10,6 +11,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 const qs = (id) => document.getElementById(id);
 let currentProfile = null;
+let currentProfileSession = null;
 let adminRefreshTimer = null;
 
 function activePage(id) { return qs(id)?.classList.contains("active-page"); }
@@ -33,12 +35,14 @@ function ensureStyles() {
 }
 
 async function getMyProfile(force = false) {
-  if (currentProfile && !force) return currentProfile;
   const userId = getPageSessionId();
   if (!userId) return null;
+  if (currentProfile && currentProfileSession === userId && !force) return currentProfile;
   const { data, error } = await readPageQuery("my-profile:"+userId, () => supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(), {force});
   if (error) throw error;
+  if (getPageSessionId() !== userId) return null;
   currentProfile = data;
+  currentProfileSession = userId;
   return data;
 }
 
@@ -87,7 +91,7 @@ async function refreshMaintenancePage({ force = false } = {}) {
   if (!force && content.dataset.loaded === "true") return;
   const profile = await getMyProfile();
   content.dataset.loaded = "true";
-  content.innerHTML = `<div class="card"><div style="font-weight:800;">Maintenance</div><div class="muted">Admin-only maintenance tools.</div></div><div class="card"><div style="font-weight:800;">Reset Test Data</div><div class="muted">This clears borrowers, loans, due events, payments, payment allocations, and funding splits. It keeps profiles and defaults/settings.</div>${profile?.role === "ADMIN" ? `<button id="btnResetTestData" class="admin-tools-button admin-danger" type="button">Reset Test Data</button>` : `<div style="color:#ffd27a;">Only Admin can reset test data.</div>`}</div>`;
+  content.innerHTML = `<div class="card"><div style="font-weight:800;">Maintenance</div><div class="muted">Admin-only maintenance tools.</div></div><div class="card"><div style="font-weight:800;">Reset Test Data</div><div class="muted">This clears borrowers, loans, due events, payments, payment allocations, and funding splits. It keeps profiles and defaults/settings.</div>${profile?.role === "ADMIN" && getPageSessionId() === ACCESS_OWNER_ID ? `<button id="btnResetTestData" class="admin-tools-button admin-danger" type="button">Reset Test Data</button>` : `<div style="color:#ffd27a;">Only Admin can reset test data.</div>`}</div>`;
   const btn = qs("btnResetTestData");
   if (btn) {
     btn.onclick = async () => {

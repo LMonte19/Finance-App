@@ -118,7 +118,7 @@ begin
     rejected:=false;
     begin
       perform public.update_profile_admin(partner_id,'Intento no autorizado','ADMIN');
-    exception when raise_exception then rejected:=sqlerrm='Only Admin can update profiles';
+    exception when insufficient_privilege then rejected:=true;
     end;
     assert rejected,'Socios cannot edit roles';
     rejected:=false;
