@@ -69,7 +69,7 @@ function showThemeButton(show) {
 }
 async function openSignInMethods(trigger, returned = false) {
   const owner = getPageSessionId();
-  if (!owner || !currentProfile) return;
+  if (!owner || currentProfile?.role !== "ADMIN") return;
   const panel = openFloatingPanel({
     label: "Métodos de acceso", trigger,
     html: `${floatingHeader("Métodos de acceso")}<div class="ll-floating-scroll">
@@ -93,6 +93,7 @@ async function openSignInMethods(trigger, returned = false) {
     : "Elige tu cuenta de Google para entrar al mismo perfil. Tu acceso con correo y contraseña seguirá funcionando.";
   button.disabled = false;
   button.onclick = async () => {
+    if (getPageSessionId() !== owner || currentProfile?.role !== "ADMIN") return;
     button.disabled = true;
     const redirect = new URL(window.location.href);
     redirect.hash = "";
@@ -310,16 +311,18 @@ window.addEventListener('loan-ledger:profile-updated',async()=>{
   }catch(error){if(!isStalePageSession(error))console.error(error);}
 });
 function syncAccessMenu() {
-  const button = qs("btnManageAppAccess");
-  const available = currentProfile?.role === "ADMIN" && getPageSessionId() === ACCESS_OWNER_ID;
-  if (button && button.hidden === available) button.hidden = !available;
+  const admin = currentProfile?.role === "ADMIN";
+  const methods = qs("btnSignInMethods");
+  const manage = qs("btnManageAppAccess");
+  if (methods && methods.hidden === admin) methods.hidden = !admin;
+  const owner = admin && getPageSessionId() === ACCESS_OWNER_ID;
+  if (manage && manage.hidden === owner) manage.hidden = !owner;
 }
 async function setSignedInUI(profile) {
   currentProfile = profile;
   qs("authCard").style.display = "none";
   qs("app").style.display = "block";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "inline-block";
-  qs("btnSignInMethods").hidden = false;
   syncAccessMenu();
   showThemeButton(true);
   if (qs("whoami")) qs("whoami").textContent = `${profile.full_name ?? "Usuario"} • ${profile.role}`;
@@ -341,7 +344,6 @@ function setSignedOutUI() {
   if (qs("authCard")) qs("authCard").style.display = "block";
   if (qs("app")) qs("app").style.display = "none";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "none";
-  qs("btnSignInMethods").hidden = true;
   syncAccessMenu();
   showThemeButton(false);
   if (qs("whoami")) qs("whoami").textContent = "Sesión no iniciada";

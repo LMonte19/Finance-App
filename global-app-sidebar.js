@@ -77,7 +77,7 @@ function createSidebar(){
     <div class="ll-global-spacer"></div>
     <div class="ll-global-footer">
       <button type="button" class="ll-global-action" data-manage-app-access hidden style="display:none!important">${svg('users')}<span>Administrar acceso</span></button>
-      <button type="button" class="ll-global-action" data-global-action="sign-in-methods">${svg('key')}<span>Métodos de acceso</span></button>
+      <button type="button" class="ll-global-action" data-global-action="sign-in-methods" hidden style="display:none!important">${svg('key')}<span>Métodos de acceso</span></button>
       <button type="button" class="ll-global-action" data-global-action="theme">${svg('theme')}<span>Tema</span></button>
       <button type="button" class="ll-global-action" data-global-action="language">${svg('language')}<span>Idioma</span><em id="llGlobalLang">EN</em></button>
       <button type="button" class="ll-global-action ll-global-logout" data-global-action="logout">${svg('logout')}<span>Cerrar sesión</span></button>
@@ -156,12 +156,17 @@ function syncUser(){
   const who=(document.getElementById('whoami')?.textContent||'').trim();
   const el=document.getElementById('llGlobalUser');
   if(el&&who&&who!=='Sesión no iniciada')el.textContent=who;
-  const access = document.querySelector('#llGlobalSidebar [data-manage-app-access]');
-  const hidden = document.getElementById('btnManageAppAccess')?.hidden ?? true;
-  if (access && access.hidden !== hidden) {
-    access.hidden = hidden;
-    if (hidden) access.style.setProperty('display', 'none', 'important');
-    else access.style.removeProperty('display');
+  for (const [selector, sourceId] of [
+    ['[data-manage-app-access]', 'btnManageAppAccess'],
+    ['[data-global-action="sign-in-methods"]', 'btnSignInMethods'],
+  ]) {
+    const access = document.querySelector('#llGlobalSidebar ' + selector);
+    const hidden = document.getElementById(sourceId)?.hidden ?? true;
+    if (access && access.hidden !== hidden) {
+      access.hidden = hidden;
+      if (hidden) access.style.setProperty('display', 'none', 'important');
+      else access.style.removeProperty('display');
+    }
   }
   const lang=document.getElementById('btnLangToggle');
   const langEl=document.getElementById('llGlobalLang');
@@ -212,6 +217,10 @@ document.addEventListener('click',event=>{
 ensureStyle();
 const observer=new MutationObserver(()=>{clearTimeout(window.__llGlobalNavTimer);window.__llGlobalNavTimer=setTimeout(syncShell,80);});
 observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+for (const id of ['btnManageAppAccess', 'btnSignInMethods']) {
+  const source = document.getElementById(id);
+  if (source) observer.observe(source, {attributes:true,attributeFilter:['hidden']});
+}
 document.addEventListener('DOMContentLoaded',syncShell);
 window.addEventListener('loan-ledger:account-rendered',()=>setTimeout(syncShell,120));
 window.addEventListener('loan-ledger:open-account',()=>setTimeout(syncShell,120));
