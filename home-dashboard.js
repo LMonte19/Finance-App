@@ -1,8 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
-import { openQuickAction } from './quick-actions.js?v=6';
-import { openActivityDetails, openActivityEntry } from './activity-details.js?v=8';
+import { openQuickAction } from './quick-actions.js?v=7';
+import { openActivityDetails, openActivityEntry } from './activity-details.js?v=9';
+
+import { openMonthlySummary } from './home-monthly-summary.js?v=1';
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",
@@ -91,7 +93,7 @@ function ensureDom(){
     <section class="ll-home-analytics">
       <article class="ll-home-portfolio"><div class="ll-analytics-title"><h3>Estado de cartera</h3><p>Distribución de cartera</p></div><div id="homePortfolioChart"></div></article>
       <article class="ll-home-recovery"><div class="ll-analytics-title"><h3>Recuperación del mes</h3><p>Pagos recibidos</p></div><div id="homeRecoveryChart"></div><div id="homeRecoveryGoal"></div></article>
-      <article class="ll-home-monthly"><div class="ll-analytics-title"><h3>Resumen mensual</h3></div><div id="homeMonthlySummary"></div></article>
+      <article class="ll-home-monthly"><div class="ll-analytics-title ll-month-card-title"><h3>Resumen mensual</h3><button type="button" data-home-monthly aria-haspopup="dialog">Ver detalle</button></div><div id="homeMonthlySummary"></div></article>
     </section>
 
     <section class="ll-home-middle">
@@ -108,6 +110,8 @@ function kpiSkeleton(){return `<article class="ll-home-kpi is-loading"><div clas
 function wire(){
   const root=qs("homeDashboard");if(!root||root.dataset.bound==="1")return;root.dataset.bound="1";
   root.addEventListener("click",event=>{
+    const monthly=event.target.closest("[data-home-monthly]");
+    if(monthly){openMonthlySummary(supabase,monthly,monthKey());return;}
     const action=event.target.closest("[data-home-action]")?.dataset.homeAction;
     if(action){runQuickAction(action);return;}
     const tab=event.target.closest("[data-operation-tab]")?.dataset.operationTab;

@@ -323,6 +323,7 @@ function renderPayments() {
 }
 function paymentRowHtml(p) {
   const voided = !!p.is_voided;
+  const historicalManager = p.operationalAdministrator && allocs.some(row=>row.allocation_type==='MANAGEMENT_FEE' && row.partner_name && row.partner_name!==p.operationalAdministrator);
   return `<div class="ll-payment-row ${voided ? "is-voided" : ""}" role="button" tabindex="0" data-account-payment-id="${esc(p.id)}">
     <span class="ll-payment-date">${esc(fmtDate(p.paid_on))}</span>
     <span class="ll-payment-client"><i>${esc(initials(p.borrower_name || "Cliente"))}</i><b>${esc(p.borrower_name || "Cliente")}</b></span>
@@ -489,30 +490,32 @@ async function applyAccountPayment() {
 
 export async function openPaymentDetails(paymentId, record = null) {
   if(paymentSaving)return;
-  const cached=record&&Array.isArray(record.due_applications)&&Array.isArray(record.principal_applications)&&Array.isArray(record.allocations);
+  const cached=record&&Object.hasOwn(record,'operationalAdministrator')&&Array.isArray(record.due_applications)&&Array.isArray(record.principal_applications)&&Array.isArray(record.allocations);
   const initial=cached?detailDrawerHtml(record,record.due_applications.map(row=>({...row,borrower_due_events:{due_date:row.due_date,status:row.status}})),record.principal_applications,record.allocations):`<div class="ll-payment-drawer-inner"><header class="ll-payment-drawer-head"><div><h2>Detalle del pago</h2><p>${record?esc(fmtDate(record.paid_on)):'Desglose y aplicaciones del movimiento.'}</p></div><button type="button" data-close-payment-drawer aria-label="Cerrar">${svg("close", 17)}</button></header><div class="ll-payment-detail-loading">Consultando aplicaciones del pago…</div></div>`;
   const panel=mountPaymentPanel(initial,'Detalle del pago','detail',paymentId);
   if(!panel||cached)return;
   const drawer=qs('paymentDrawer');
   try {
-    const [paymentRes, dueRes, principalRes, allocRes, legacyRes] = await Promise.all([
+    const [paymentRes, dueRes, principalRes, allocRes, legacyRes, managerRes] = await Promise.all([
       supabase.from("borrower_account_payments_view").select("*").eq("id", paymentId).single(),
       supabase.from("payment_borrower_due_applications").select("applied_total, applied_mgmt, applied_funders, borrower_due_event_id, borrower_due_events(due_date,status)").eq("payment_id", paymentId),
       supabase.from("payment_principal_applications").select("amount, loan_id").eq("payment_id", paymentId),
       supabase.from("partner_allocation_details").select("partner_name, allocation_type, amount, is_voided").eq("payment_id", paymentId),
       supabase.from("payment_due_applications").select("applied_total, applied_mgmt, applied_funders, loan_due_events(due_date,status)").eq("payment_id", paymentId),
+      supabase.from("operational_administrators").select("full_name").eq("receives_management_fee",true).maybeSingle(),
     ]);
     for(const result of [paymentRes,dueRes,principalRes,allocRes,legacyRes])if(result.error)throw result.error;
     if (!panel.isCurrent() || activeDetailId !== paymentId) return;
     const dues=[...(dueRes.data||[]),...(legacyRes.data||[]).map(row=>({...row,borrower_due_events:row.loan_due_events}))].sort((a,b)=>String(a.borrower_due_events?.due_date).localeCompare(String(b.borrower_due_events?.due_date)));
     const principals=principalRes.data?.length?principalRes.data:Number(paymentRes.data.applied_principal)>0?[{loan_id:paymentRes.data.loan_id,amount:paymentRes.data.applied_principal}]:[];
-    drawer.innerHTML = detailDrawerHtml(paymentRes.data, dues, principals, allocRes.data || []);
+    drawer.innerHTML = detailDrawerHtml({...paymentRes.data,operationalAdministrator:managerRes.data?.full_name??null}, dues, principals, allocRes.data || []);
   } catch (error) {
     if (panel.isCurrent()) drawer.innerHTML = `<div class="ll-payment-drawer-inner"><header class="ll-payment-drawer-head"><div><h2>Detalle del pago</h2></div><button type="button" data-close-payment-drawer aria-label="Cerrar">${svg("close", 17)}</button></header><div class="ll-payment-detail-loading error">${esc(error.message || error)}</div></div>`;
   }
 }
 function detailDrawerHtml(p, dues, principals, allocs) {
   const voided = !!p.is_voided;
+  const historicalManager = p.operationalAdministrator && allocs.some(row=>row.allocation_type==='MANAGEMENT_FEE' && row.partner_name && row.partner_name!==p.operationalAdministrator);
   return `<div class="ll-payment-drawer-inner">
     <header class="ll-payment-drawer-head"><div><h2>Detalle del pago</h2><p>${esc(fmtDate(p.paid_on))}</p></div><button type="button" data-close-payment-drawer aria-label="Cerrar">${svg("close", 17)}</button></header>
     <div class="ll-payment-drawer-scroll ll-payment-detail-scroll">
@@ -522,7 +525,7 @@ function detailDrawerHtml(p, dues, principals, allocs) {
       ${voided ? `<section class="ll-payment-detail-section danger"><h3>Motivo de anulación</h3><p>${esc(p.void_reason?.trim() || "Sin motivo registrado")}</p></section>` : ""}
       <section class="ll-payment-detail-section"><h3>Cuotas afectadas</h3>${dues.length ? dues.map((row) => `<div class="ll-detail-line"><span><strong>${esc(fmtDate(row.borrower_due_events?.due_date))}</strong><small>Monto aplicado a esta cuota</small></span><b>${money(row.applied_total)}</b></div>`).join("") : `<p class="ll-detail-empty">No afectó cuotas.</p>`}</section>
       <section class="ll-payment-detail-section"><h3>Capital afectado</h3>${principals.length ? principals.map((row) => `<div class="ll-detail-line"><span><strong>Abono a capital</strong><small>Desembolso ${esc(String(row.loan_id || "").slice(0, 8))}…</small></span><b>${money(row.amount)}</b></div>`).join("") : `<p class="ll-detail-empty">No afectó capital.</p>`}</section>
-      <section class="ll-payment-detail-section"><h3>Distribuciones</h3>${allocs.length ? allocs.map((row) => `<div class="ll-detail-line"><span><strong>${esc(row.partner_name || "Socio")}</strong><small>${String(row.allocation_type).includes('MANAGEMENT')?'Administración':'Ingreso de socio'}${row.is_voided ? " · ANULADO" : ""}</small></span><b>${money(row.amount)}</b></div>`).join("") : `<p class="ll-detail-empty">No hay distribuciones.</p>`}</section>
+      <section class="ll-payment-detail-section"><h3>Distribuciones</h3>${historicalManager ? `<p class="ll-detail-empty">Administrador operativo actual: <strong>${esc(p.operationalAdministrator)}</strong>. La comisión de este pago conserva el destinatario registrado.</p>` : ""}${allocs.length ? allocs.map((row) => `<div class="ll-detail-line"><span><strong>${esc(row.partner_name || "Socio")}</strong><small>${String(row.allocation_type).includes('MANAGEMENT')?'Comisión de administración':'Ingreso de socio aportante'}${row.is_voided ? " · ANULADO" : ""}</small></span><b>${money(row.amount)}</b></div>`).join("") : `<p class="ll-detail-empty">No hay distribuciones.</p>`}</section>
       <div id="paymentActionStatus" class="ll-payment-form-status"></div>
     </div>
     <footer class="ll-payment-drawer-foot ll-detail-foot"><button id="btnVoidPaymentDetail" type="button" class="ll-payment-danger-btn" ${voided ? "disabled" : ""}>${voided ? "Pago anulado" : "Anular pago"}</button></footer>

@@ -1,10 +1,10 @@
-import { openQuickAction } from './quick-actions.js?v=6';
+import { openQuickAction } from './quick-actions.js?v=7';
 import { openNewClientPanel } from './client-form.js?v=1';
 import { CLIENT_CHANGED, mergeClientAccount } from './client-directory.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { readPageQuery, watchPage, isStalePageSession, loadingRows } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
-import { openActivityDetails } from './activity-details.js?v=8';
+import { openActivityDetails } from './activity-details.js?v=9';
 
 const db = createClient(
   'https://eatxkhhpjruwwibhcubf.supabase.co',

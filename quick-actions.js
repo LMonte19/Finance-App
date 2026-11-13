@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { readPageQuery, invalidatePageReads, getPageSessionId } from './page-read-runtime.js?v=1';
 import { openFloatingPanel, floatingHeader } from './floating-panel.js?v=1';
-import { openRegisterDrawer } from './payment-management.js?v=15';
+import { openRegisterDrawer } from './payment-management.js?v=16';
 import { CLIENT_CHANGED, escapeText as esc, fillClientSelect, mergeClientAccount, clientWriter } from './client-directory.js?v=1';
 import { attachNewClientForm } from './client-form.js?v=1';
 import { attachFundingEditor } from './funding-editor.js?v=1';
