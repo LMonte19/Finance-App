@@ -21,6 +21,7 @@ const ICONS={
   theme:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
   language:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9S14.5 18.4 12 21M12 3c-2.5 2.6-3.7 5.6-3.7 9S9.5 18.4 12 21"/>',
   logout:'<path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/>',
+  key:'<circle cx="8" cy="9" r="4"/><path d="m11 12 8 8m-3-3 2-2m-5-1 2-2"/>',
   chevron:'<path d="m9 6 6 6-6 6"/>'
 };
 
@@ -75,6 +76,7 @@ function createSidebar(){
     <nav class="ll-global-secondary" aria-label="Más herramientas"></nav>
     <div class="ll-global-spacer"></div>
     <div class="ll-global-footer">
+      <button type="button" class="ll-global-action" data-global-action="sign-in-methods">${svg('key')}<span>Métodos de acceso</span></button>
       <button type="button" class="ll-global-action" data-global-action="theme">${svg('theme')}<span>Tema</span></button>
       <button type="button" class="ll-global-action" data-global-action="language">${svg('language')}<span>Idioma</span><em id="llGlobalLang">EN</em></button>
       <button type="button" class="ll-global-action ll-global-logout" data-global-action="logout">${svg('logout')}<span>Cerrar sesión</span></button>

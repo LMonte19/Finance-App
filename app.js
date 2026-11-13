@@ -1,5 +1,6 @@
 import { setPageSession, invalidatePageReads, readPageQuery, getPageSessionId, isStalePageSession } from './page-read-runtime.js?v=1';
 import { esc } from './combined-workspace-ui.js?v=1';
+import { floatingHeader, openFloatingPanel } from './floating-panel.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
@@ -64,6 +65,55 @@ function showThemeButton(show) {
   if (!btn) return;
   btn.style.display = show ? "inline-block" : "none";
   window.loanLedgerTheme?.initThemeButton?.();
+}
+async function openSignInMethods(trigger, returned = false) {
+  const owner = getPageSessionId();
+  if (!owner || !currentProfile) return;
+  const panel = openFloatingPanel({
+    label: "Métodos de acceso", trigger,
+    html: `${floatingHeader("Métodos de acceso")}<div class="ll-floating-scroll">
+      <p id="signInMethodsStatus" class="ll-floating-help" role="status">Consultando métodos de acceso…</p>
+      <div class="ll-floating-actions" style="margin-top:18px"><button id="btnLinkGoogle" type="button" disabled>Conectar Google</button></div>
+    </div>`,
+  });
+  if (!panel) return;
+  const status = qs("signInMethodsStatus"), button = qs("btnLinkGoogle");
+  const { data, error } = await supabase.auth.getUserIdentities();
+  if (!panel.isCurrent()) return;
+  if (error) { status.textContent = "No se pudieron consultar tus métodos de acceso. Vuelve a abrir este panel."; return; }
+  const google = data.identities.find(identity => identity.provider === "google");
+  if (google) {
+    button.hidden = true;
+    status.textContent = `Google está conectado${google.identity_data?.email ? " como " + google.identity_data.email : ""}. Ya puedes usar «Continuar con Google» para entrar a este mismo perfil.`;
+    return;
+  }
+  status.textContent = returned
+    ? "No se conectó Google. Si ese correo ya se usó para entrar por separado, pide al administrador que revise la cuenta duplicada."
+    : "Elige tu cuenta de Google para entrar al mismo perfil. Tu acceso con correo y contraseña seguirá funcionando.";
+  button.disabled = false;
+  button.onclick = async () => {
+    button.disabled = true;
+    const redirect = new URL(window.location.href);
+    redirect.hash = "";
+    redirect.search = "";
+    try {
+      sessionStorage.setItem("loanLedger.googleLinkPending", owner);
+      const { data: link, error: linkError } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options: { redirectTo: redirect.toString(), queryParams: { prompt: "select_account" }, skipBrowserRedirect: true },
+      });
+      if (linkError) throw linkError;
+      if (!link?.url || !panel.isCurrent()) throw new Error("Link unavailable");
+      window.location.assign(link.url);
+    } catch (failure) {
+      sessionStorage.removeItem("loanLedger.googleLinkPending");
+      if (!panel.isCurrent()) return;
+      status.textContent = failure.code === "manual_linking_disabled"
+        ? "La conexión con Google aún no está habilitada. Pide al administrador que la active."
+        : "No se pudo abrir Google. Inténtalo de nuevo.";
+      button.disabled = false;
+    }
+  };
 }
 async function loadProfileByUserId(userId) {
   if (!userId) throw new Error("Missing userId for profile lookup.");
@@ -262,12 +312,16 @@ async function setSignedInUI(profile) {
   qs("authCard").style.display = "none";
   qs("app").style.display = "block";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "inline-block";
+  qs("btnSignInMethods").hidden = false;
   showThemeButton(true);
   if (qs("whoami")) qs("whoami").textContent = `${profile.full_name ?? "Usuario"} • ${profile.role}`;
   if (qs("rolePill")) qs("rolePill").textContent = profile.role;
   ensureDefaultsButtons();
   initTabs();
   initHandlers();
+  const pendingGoogleLink = sessionStorage.getItem("loanLedger.googleLinkPending");
+  if (pendingGoogleLink) sessionStorage.removeItem("loanLedger.googleLinkPending");
+  if (pendingGoogleLink === getPageSessionId()) openSignInMethods(undefined, true);
   qs("loanTotalRate") && (qs("loanTotalRate").oninput = updateLoanFunderRatePreview);
   qs("loanMgmtRate") && (qs("loanMgmtRate").oninput = updateLoanFunderRatePreview);
   await Promise.all([refreshBorrowers(), refreshFundingPartnerSelects(), loadDefaultsIntoSettingsUI(), prefillLoanDefaults(true)]);
@@ -279,6 +333,7 @@ function setSignedOutUI() {
   if (qs("authCard")) qs("authCard").style.display = "block";
   if (qs("app")) qs("app").style.display = "none";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "none";
+  qs("btnSignInMethods").hidden = true;
   showThemeButton(false);
   if (qs("whoami")) qs("whoami").textContent = "Sesión no iniciada";
   if (qs("rolePill")) qs("rolePill").textContent = "rol";
@@ -335,3 +390,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 initTabs();
 initHandlers();
 window.loanLedgerTheme?.initThemeButton?.();
+document.addEventListener("click", event => {
+  const trigger = event.target.closest?.('[data-global-action="sign-in-methods"]');
+  if (trigger) openSignInMethods(trigger);
+});
