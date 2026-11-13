@@ -21,7 +21,6 @@ let guardTimer = null;
 
 const ADMIN_ONLY_IDS = new Set([
   "btnVoidLoan",
-  "btnVoidPaymentDetail",
   "btnSaveLoanActionEdit",
   "btnMarkPaidOff",
   "btnCloseLoan",
@@ -58,7 +57,6 @@ const PARTNER_BLOCKED_IDS = new Set([
   "btnMarkPaidOff",
   "btnCloseLoan",
   "btnVoidLoan",
-  "btnVoidPaymentDetail",
   "btnAddFollowup",
   "btnAddContactLog",
   "btnBorrowerSaveContact",
@@ -139,6 +137,8 @@ function protectButtons() {
 
   document.querySelectorAll("button").forEach((btn) => {
     const id = btn.id || "";
+    // Payment details follow the signed-in profile directly. The void RPC also checks the role.
+    if (id === "btnVoidPaymentDetail" || btn.hasAttribute("data-void-payment")) return;
     const text = (btn.textContent || "").trim().toLowerCase();
 
     if (currentRole !== "ADMIN" && ADMIN_ONLY_IDS.has(id)) {

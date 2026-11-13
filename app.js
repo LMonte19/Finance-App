@@ -312,6 +312,7 @@ window.addEventListener('loan-ledger:profile-updated',async()=>{
 });
 function syncAccessMenu() {
   const admin = currentProfile?.role === "ADMIN";
+  qs("app").toggleAttribute("data-admin-session", admin);
   const methods = qs("btnSignInMethods");
   const manage = qs("btnManageAppAccess");
   if (methods && methods.hidden === admin) methods.hidden = !admin;
@@ -320,10 +321,10 @@ function syncAccessMenu() {
 }
 async function setSignedInUI(profile) {
   currentProfile = profile;
+  syncAccessMenu();
   qs("authCard").style.display = "none";
   qs("app").style.display = "block";
   if (qs("btnSignOut")) qs("btnSignOut").style.display = "inline-block";
-  syncAccessMenu();
   showThemeButton(true);
   if (qs("whoami")) qs("whoami").textContent = `${profile.full_name ?? "Usuario"} • ${profile.role}`;
   if (qs("rolePill")) qs("rolePill").textContent = profile.role;
