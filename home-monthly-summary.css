@@ -1,14 +1,14 @@
 #app .ll-month-card-title{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 12px}
 #app [data-home-monthly]{width:auto;margin:0;padding:4px 0;border:0;background:transparent;color:var(--ui-purple);font:inherit;font-size:var(--ui-caption, .85rem);font-weight:700;white-space:nowrap;cursor:pointer}
 #app [data-home-monthly]:hover{text-decoration:underline}
-#app .ll-month-dialog{box-sizing:border-box;position:fixed;inset:0;margin:auto;padding:0;width:min(1050px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 32px);overflow:hidden;border:1px solid var(--ui-line);border-radius:20px;color:var(--ui-ink);background:var(--ui-surface);box-shadow:0 24px 80px #0005}
+#app .ll-month-dialog{box-sizing:border-box;position:fixed;inset:0;margin:auto;padding:0;width:min(1050px,calc(100% - 32px));max-width:none;height:min(760px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);overflow:hidden;border:1px solid var(--ui-line);border-radius:20px;color:var(--ui-ink);background:var(--ui-surface);box-shadow:0 24px 80px #0005}
 #app .ll-month-dialog[open]{display:flex;flex-direction:column}
 #app .ll-month-dialog::backdrop{background:rgb(15 19 30 / 54%)}
 #app .ll-month-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px clamp(16px,3vw,26px);border-bottom:1px solid var(--ui-line)}
 #app .ll-month-dialog h2{font-size:clamp(1.25rem,3vw,1.55rem);margin:0;color:var(--ui-ink)}
 #app .ll-month-dialog h3{font-size:1rem;margin:0 0 8px;color:var(--ui-ink)}
 #app .ll-month-dialog p{font-size:.875rem;margin:0 0 12px;color:var(--ui-muted);line-height:1.5}
-#app .ll-month-scroll{overflow:auto;overscroll-behavior:contain;padding:18px clamp(16px,3vw,26px) 24px}
+#app .ll-month-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:18px clamp(16px,3vw,26px) 24px}
 #app .ll-month-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px}
 #app .ll-month-controls label{display:flex;align-items:center;gap:8px;margin:0;color:var(--ui-ink);font-size:.875rem;font-weight:650}
 #app .ll-month-dialog :is(button,input){width:auto;min-height:38px;margin:0;padding:6px 10px;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);font:inherit;box-shadow:none}
@@ -25,3 +25,18 @@
 #app .ll-month-table th{background:var(--ui-bg);font-weight:650}
 #app .ll-month-table tr:last-child td{border-bottom:0}
 @media(max-width:600px){#app .ll-month-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+#app .ll-month-period{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+#app .ll-month-period button[aria-pressed=true]{background:var(--ui-purple-soft);color:var(--ui-purple);border-color:var(--ui-purple);font-weight:700}
+#app .ll-month-placeholder>div,#app .ll-month-placeholder-table{min-height:70px;background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:12px}
+#app .ll-month-placeholder-table{min-height:180px;margin-top:20px}
+#systemCheckPage [data-review-body]{display:grid;gap:16px}
+#systemCheckPage .ll-review-role{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid var(--ui-line)}
+#systemCheckPage .ll-review-role strong{min-width:145px}
+#systemCheckPage .ll-review-check{border-top:1px solid var(--ui-line);padding:12px 0}
+#systemCheckPage .ll-review-check summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+#systemCheckPage .ll-review-check summary::after{content:'▾';margin-inline-start:3px;color:var(--ui-muted)}
+#systemCheckPage .ll-review-check summary span{margin-inline-start:auto;color:var(--ui-muted)}
+#systemCheckPage .ll-review-check p{margin:8px 0}
+#dueOverduePage details.cw-card{margin-block:12px}
+#dueOverduePage details.cw-card summary{cursor:pointer;padding:6px}

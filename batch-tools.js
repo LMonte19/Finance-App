@@ -1,4 +1,6 @@
-import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows } from './page-read-runtime.js?v=1';
+import { esc, dateLabel } from './combined-workspace-ui.js?v=2';
+import { collectRows } from './report-exports.js?v=2';
+import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows, getPageSessionId } from './page-read-runtime.js?v=1';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://eatxkhhpjruwwibhcubf.supabase.co";
@@ -15,8 +17,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 const qs = (id) => document.getElementById(id);
-const money = (n) => `$${Number(n || 0).toFixed(2)}`;
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const money = (n) => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(n||0));
+
 
 let currentBorrowerId = null;
 let borrowerEditInFlight = false;
@@ -24,10 +26,6 @@ let enhancementTimer = null;
 
 function activePage(id) {
   return qs(id)?.classList.contains("active-page");
-}
-
-function compactCard(html, extraAttrs = "") {
-  return `<div class="compact-card" ${extraAttrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:10px;margin:8px 0;box-sizing:border-box;max-width:100%;">${html}</div>`;
 }
 
 function ensureEnhancementStyles() {
@@ -57,7 +55,7 @@ function ensurePage(id, title) {
   if (!app) return null;
   const page = document.createElement("div");
   page.id = id;
-  page.className = "page";
+  page.className = "page ll-combined-page";
   page.innerHTML = `<div class="card"><div style="font-weight:800;">${title}</div><div id="${id}Content" class="muted">Loading...</div></div>`;
   app.appendChild(page);
   return page;
@@ -78,9 +76,11 @@ function ensureMenuItem() {
   const btn = document.createElement("button");
   btn.id = "menuDueOverdue";
   btn.className = "menu-link batch-action-button";
-  btn.textContent = "Due / Overdue";
+  btn.textContent = "Cuotas / vencimientos";
+  btn.dataset.page="dueOverduePage";
+  ensurePage("dueOverduePage","Cuotas y vencimientos");
   btn.onclick = async () => {
-    ensurePage("dueOverduePage", "Due / Overdue");
+    ensurePage("dueOverduePage", "Cuotas y vencimientos");
     openPage("dueOverduePage");
     await refreshDueOverduePage();
   };
@@ -126,53 +126,43 @@ document.addEventListener("click", (event) => {
   if (borrowerCard?.dataset?.borrowerId) currentBorrowerId = borrowerCard.dataset.borrowerId;
 });
 
+const readDues=()=>readPageQuery("portfolio-open-installments",async()=>({
+  data:await collectRows(()=>supabase.rpc('get_portfolio_open_installments').order('due_date').order('borrower_id'))
+}));
+function dueRows(rows,empty){
+  if(!rows.length)return `<p>${empty}</p>`;
+  return `<div class="cw-table-scroll"><table class="cw-table"><thead><tr><th>Vence</th><th>Cliente</th><th>Cuota</th><th>Abonado</th><th>Pendiente</th></tr></thead><tbody>${rows.map(d=>`<tr><td>${esc(dateLabel(d.due_date))}</td><td><button class="cw-link" type="button" data-due-borrower="${esc(d.borrower_id)}" data-due-date="${esc(d.due_date)}">${esc(d.borrower_name)}</button></td><td>${money(d.expected_total)}</td><td>${money(d.paid_total)}</td><td><strong>${money(d.amount_due)}</strong></td></tr>`).join('')}</tbody></table></div>`;
+}
 async function refreshDueOverduePage() {
-  const page = ensurePage("dueOverduePage", "Due / Overdue");
-  if (!page) return;
-  const content = qs("dueOverduePageContent");
-  if (!content) return;
-
-  const { data, error } = await readPageQuery("due-overdue", () => supabase
-    .from("loan_due_events")
-    .select("id, due_date, expected_total, paid_total, status, loans(id,status,borrowers(full_name))")
-    .in("status", ["DUE", "PARTIAL"])
-    .order("due_date", { ascending: true }));
-
-  if (error) throw error;
-
-  const today = todayIso();
-  const rows = (data ?? []).map((d) => ({
-    ...d,
-    remaining: Math.max(0, Number(d.expected_total || 0) - Number(d.paid_total || 0)),
-    borrower: d.loans?.borrowers?.full_name ?? "Unknown",
-    loanStatus: d.loans?.status ?? "UNKNOWN",
-  })).filter((d) => d.remaining > 0 && d.loanStatus !== "PAID_OFF");
-
-  const overdue = rows.filter((d) => d.due_date < today);
-  const upcoming = rows.filter((d) => d.due_date >= today).slice(0, 25);
-  const overdueTotal = overdue.reduce((sum, d) => sum + d.remaining, 0);
-  const upcomingTotal = upcoming.reduce((sum, d) => sum + d.remaining, 0);
-
-  const html = `
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-label">Overdue Items</div><div class="stat-value">${overdue.length}</div></div>
-      <div class="stat-card"><div class="stat-label">Overdue Amount</div><div class="stat-value">${money(overdueTotal)}</div></div>
-      <div class="stat-card"><div class="stat-label">Upcoming Shown</div><div class="stat-value">${upcoming.length}</div></div>
-      <div class="stat-card"><div class="stat-label">Upcoming Amount</div><div class="stat-value">${money(upcomingTotal)}</div></div>
-    </div>
-
-    <div class="card">
-      <div style="font-weight:800;">Overdue</div>
-      ${overdue.length ? overdue.map((d) => compactCard(`<strong>${d.borrower}</strong> — ${money(d.remaining)}<br><span class="muted">Due ${d.due_date} | ${d.status} | Loan ${String(d.loans?.id || "").slice(0, 6)}…</span>`)).join("") : "No overdue due dates."}
-    </div>
-
-    <div class="card">
-      <div style="font-weight:800;">Upcoming Due</div>
-      ${upcoming.length ? upcoming.map((d) => compactCard(`<strong>${d.borrower}</strong> — ${money(d.remaining)}<br><span class="muted">Due ${d.due_date} | ${d.status} | Loan ${String(d.loans?.id || "").slice(0, 6)}…</span>`)).join("") : "No upcoming due dates."}
-    </div>
-  `;
-  if(content.dataset.lastMarkup!==html){content.innerHTML=html;content.dataset.lastMarkup=html;}
-  finishPageLoading("dueOverduePage");
+  const page=ensurePage("dueOverduePage","Cuotas y vencimientos"),owner=getPageSessionId();
+  const content=qs("dueOverduePageContent");
+  if(!page||!content||!owner)return;
+  if(!content.dataset.bound){
+    content.dataset.bound='true';
+    content.addEventListener('click',event=>{
+      const due=event.target.closest('[data-due-borrower]');
+      if(due)window.dispatchEvent(new CustomEvent('loan-ledger:open-account',{detail:{borrowerId:due.dataset.dueBorrower,dueDate:due.dataset.dueDate}}));
+      if(event.target.closest('[data-due-retry]'))refreshDueOverduePage();
+    });
+  }
+  try {
+    const {data}=await readDues();
+    if(owner!==getPageSessionId())return;
+    const overdue=data.filter(d=>d.timing_status==='OVERDUE');
+    const dueToday=data.filter(d=>d.timing_status==='DUE_TODAY');
+    const upcoming=data.filter(d=>d.timing_status==='UPCOMING');
+    const sum=rows=>rows.reduce((n,d)=>n+Number(d.amount_due),0);
+    const stat=(label,rows)=>`<div class="stat-card"><div class="stat-label">${label} · ${rows.length}</div><div class="stat-value">${money(sum(rows))}</div></div>`;
+    const html=`<div class="stats-grid">${stat('Atrasadas',overdue)}${stat('Vencen hoy',dueToday)}${stat('Próximos 60 días',upcoming)}</div>
+      <details class="cw-card" open><summary><strong>Vencen hoy (${dueToday.length})</strong></summary>${dueRows(dueToday,'No hay cuotas pendientes para hoy.')}</details>
+      <details class="cw-card" open><summary><strong>Próximos 60 días (${upcoming.length})</strong></summary>${dueRows(upcoming,'No hay cuotas pendientes en los próximos 60 días.')}</details>
+      <details class="cw-card"><summary><strong>Atrasadas (${overdue.length})</strong></summary>${dueRows(overdue,'No hay cuotas atrasadas.')}</details>`;
+    if(content.dataset.lastMarkup!==html){content.innerHTML=html;content.dataset.lastMarkup=html;}
+  }catch(error){
+    if(owner!==getPageSessionId()||isStalePageSession(error))return;
+    delete content.dataset.lastMarkup;
+    content.innerHTML='<p>No se pudieron consultar los vencimientos.</p><button type="button" data-due-retry>Volver a intentar</button>';
+  }finally{if(owner===getPageSessionId())finishPageLoading("dueOverduePage");}
 }
 
 async function injectBorrowerEdit() {
@@ -255,9 +245,5 @@ async function refreshVisibleEnhancements() {
 
 refreshVisibleEnhancements();
 fillInitialLoading("dueOverduePageContent");
-watchPage("dueOverduePage", refreshVisibleEnhancements, {prefetch: () => readPageQuery("due-overdue", () => supabase
-    .from("loan_due_events")
-    .select("id, due_date, expected_total, paid_total, status, loans(id,status,borrowers(full_name))")
-    .in("status", ["DUE", "PARTIAL"])
-    .order("due_date", { ascending: true })), reset: () => {const n=qs("dueOverduePageContent");if(n){delete n.dataset.lastMarkup;n.innerHTML=loadingRows();}}});
+watchPage("dueOverduePage", refreshVisibleEnhancements, {prefetch: readDues, reset: () => {const n=qs("dueOverduePageContent");if(n){delete n.dataset.lastMarkup;n.innerHTML=loadingRows();}}});
 watchPage("borrowerDetailsPage", refreshVisibleEnhancements);

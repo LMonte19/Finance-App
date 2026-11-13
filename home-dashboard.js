@@ -1,10 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { readPageQuery, watchPage, isStalePageSession } from './page-read-runtime.js?v=1';
 import { setStableMarkup } from './dashboard-presentation.js?v=1';
-import { openQuickAction } from './quick-actions.js?v=7';
-import { openActivityDetails, openActivityEntry } from './activity-details.js?v=9';
+import { openQuickAction } from './quick-actions.js?v=8';
+import { openActivityDetails, openActivityEntry } from './activity-details.js?v=10';
 
-import { openMonthlySummary } from './home-monthly-summary.js?v=1';
+import { openMonthlySummary, preloadMonthlySummary } from './home-monthly-summary.js?v=2';
 
 const supabase=createClient(
   "https://eatxkhhpjruwwibhcubf.supabase.co",
@@ -109,6 +109,10 @@ function kpiSkeleton(){return `<article class="ll-home-kpi is-loading"><div clas
 
 function wire(){
   const root=qs("homeDashboard");if(!root||root.dataset.bound==="1")return;root.dataset.bound="1";
+  const preload=()=>{preloadMonthlySummary(supabase,monthKey()).catch(()=>{});};
+  const reportButton=root.querySelector('[data-home-monthly]');
+  reportButton?.addEventListener('pointerenter',preload);
+  reportButton?.addEventListener('focus',preload);
   root.addEventListener("click",event=>{
     const monthly=event.target.closest("[data-home-monthly]");
     if(monthly){openMonthlySummary(supabase,monthly,monthKey());return;}

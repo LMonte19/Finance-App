@@ -8,7 +8,7 @@ import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
 import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
-import { openActivityDetails } from './activity-details.js?v=9';
+import { openActivityDetails } from './activity-details.js?v=10';
 import { openClientInstallmentPicker } from './client-installment-picker.js?v=1';
 
 const db=createClient(
@@ -199,7 +199,7 @@ async function loadProfileData(borrowerId,{includeAccounts=false}={}){
     calendarRows:calendarRes.data.rows||[],
     calendarAsOf:calendarRes.data.as_of_date||today(),
     disbursements:(disbRes.data||[]).map(row=>({...row,funding:fundingByLoan.get(row.id)||[],operationalAdministrator:managerRes.data?.full_name??null})),
-    payments:(calendarRes.data.payments||[]).map(row=>({...row,operationalAdministrator:managerRes.data?.full_name??null})),
+    payments:calendarRes.data.payments||[],
     contacts:contactRes.data||[],
     followups:followRes.data||[],
     defaults:settings.loan_defaults||{default_total_monthly_rate:10,default_management_rate:3},
@@ -245,10 +245,9 @@ function calendarBalance(data,iso){
   return {row,arrears,overdue,total:Math.round((Number(row.amount_due||0)+overdue)*100)/100};
 }
 function calendarReceiptHtml(payment,iso){
-  const historicalManager=payment.operationalAdministrator&&(payment.allocations||[]).some(row=>row.allocation_type==='MANAGEMENT_FEE'&&row.partner_name&&row.partner_name!==payment.operationalAdministrator);
   const applied=(payment.due_applications||[]).filter(a=>a.due_date===iso).reduce((sum,a)=>sum+Number(a.applied_total||0),0);
   const line=(label,value)=>`<div><span>${label}</span><strong>${calendarMoney(value)}</strong></div>`;
-  return `<details class="cp-calendar-receipt" data-payment-receipt="${esc(payment.id)}"><summary><span><strong>Pago del ${fmtDate(payment.paid_on)}</strong><small>${esc(paymentTypeLabel(payment.payment_type))} · Aplicado a esta cuota</small></span><strong>${calendarMoney(applied)}</strong>${svg('chevronDown')}</summary><div class="cp-receipt-body"><div class="cp-receipt-heading"><span>Importe del pago</span><strong>${calendarMoney(payment.amount)}</strong><span class="ll-status-pill ok">APLICADO</span></div><div class="cp-receipt-amounts">${line('Cuota / interés',payment.applied_interest)}${line('Capital',payment.applied_principal)}${line('Administración',payment.applied_mgmt)}${line('Socios',payment.applied_funders)}</div>${payment.notes?`<p class="cp-calendar-note">${esc(payment.notes)}</p>`:''}<h4>Cuotas afectadas</h4>${(payment.due_applications||[]).map(a=>`<div class="cp-calendar-line"><span>${fmtDate(a.due_date)}${a.due_date===iso?' · Esta cuota':''}</span><strong>${calendarMoney(a.applied_total)}</strong></div>`).join('')}<h4>Capital afectado</h4>${(payment.principal_applications||[]).map(a=>{const loan=currentData?.disbursements.find(l=>l.id===a.loan_id);return `<div class="cp-calendar-line"><span>Desembolso${loan?' del '+fmtDate(loan.start_date):' '+esc(String(a.loan_id).slice(0,8))}</span><strong>${calendarMoney(a.amount)}</strong></div>`;}).join('')||'<p class="cp-calendar-note">No afectó capital.</p>'}<h4>Distribuciones</h4>${historicalManager?`<p class="cp-calendar-note">Administrador operativo actual: <strong>${esc(payment.operationalAdministrator)}</strong>. La comisión de este pago conserva el destinatario registrado.</p>`:''}${(payment.allocations||[]).map(a=>`<div class="cp-calendar-line"><span>${esc(a.partner_name||'Socio')}<small>${String(a.allocation_type).includes('MANAGEMENT')?'Comisión de administración':'Ingreso de socio aportante'}${a.is_voided?' · Anulada':''}</small></span><strong>${calendarMoney(a.amount)}</strong></div>`).join('')||'<p class="cp-calendar-note">No hay distribuciones vinculadas.</p>'}</div></details>`;
+  return `<details class="cp-calendar-receipt" data-payment-receipt="${esc(payment.id)}"><summary><span><strong>Pago del ${fmtDate(payment.paid_on)}</strong><small>${esc(paymentTypeLabel(payment.payment_type))} · Aplicado a esta cuota</small></span><strong>${calendarMoney(applied)}</strong>${svg('chevronDown')}</summary><div class="cp-receipt-body"><div class="cp-receipt-heading"><span>Importe del pago</span><strong>${calendarMoney(payment.amount)}</strong><span class="ll-status-pill ok">APLICADO</span></div><div class="cp-receipt-amounts">${line('Cuota / interés',payment.applied_interest)}${line('Capital',payment.applied_principal)}${line('Administración',payment.applied_mgmt)}${line('Socios',payment.applied_funders)}</div>${payment.notes?`<p class="cp-calendar-note">${esc(payment.notes)}</p>`:''}<h4>Cuotas afectadas</h4>${(payment.due_applications||[]).map(a=>`<div class="cp-calendar-line"><span>${fmtDate(a.due_date)}${a.due_date===iso?' · Esta cuota':''}</span><strong>${calendarMoney(a.applied_total)}</strong></div>`).join('')}<h4>Capital afectado</h4>${(payment.principal_applications||[]).map(a=>{const loan=currentData?.disbursements.find(l=>l.id===a.loan_id);return `<div class="cp-calendar-line"><span>Desembolso${loan?' del '+fmtDate(loan.start_date):' '+esc(String(a.loan_id).slice(0,8))}</span><strong>${calendarMoney(a.amount)}</strong></div>`;}).join('')||'<p class="cp-calendar-note">No afectó capital.</p>'}<h4>Distribuciones</h4>${(payment.allocations||[]).map(a=>`<div class="cp-calendar-line"><span>${esc(a.partner_name||'Socio')}<small>${String(a.allocation_type).includes('MANAGEMENT')?'Comisión de administración':'Ingreso de socio aportante'}${a.is_voided?' · Anulada':''}</small></span><strong>${calendarMoney(a.amount)}</strong></div>`).join('')||'<p class="cp-calendar-note">No hay distribuciones vinculadas.</p>'}</div></details>`;
 }
 function calendarDetailHtml(data,iso){
   const {row,arrears}=calendarBalance(data,iso);
@@ -1169,9 +1168,25 @@ window.addEventListener('click',event=>{
   event.preventDefault();event.stopImmediatePropagation();selectClient(id,{initial:!mounted});
 },true);
 
-window.addEventListener('loan-ledger:account-rendered',event=>{
-  const id=event.detail?.borrowerId;
-  if(id)selectClient(id,{initial:!mounted});
+window.addEventListener('loan-ledger:account-rendered',async event=>{
+  const {borrowerId:id,dueDate,loanId,editFunding,overdue}=event.detail||{};
+  if(!id)return;
+  const request=selectClient(id,{initial:!mounted}),sequence=requestSequence;
+  await request;
+  if(sequence!==requestSequence||String(currentBorrowerId)!==String(id)||!document.getElementById('borrowerAccountPage')?.classList.contains('active-page'))return;
+  const root=document.querySelector('#borrowerAccountContent .ll-account-shell');
+  if(!root)return;
+  const installment=dueDate||(overdue?currentData?.calendarRows.find(r=>r.timing_status==='OVERDUE'&&Number(r.amount_due)>0)?.due_date:null);
+  if(installment){showTab('summary');await jumpCalendar(root,installment);const details=root.querySelector('.cp-due-details');if(details)details.open=true;}
+  if(loanId){
+    showTab('disbursements');
+    const record=[...root.querySelectorAll('[data-history-row="disbursements"]')].find(el=>el.dataset.profileRecord===loanId);
+    if(!record)return;
+    record.open=true;
+    const button=record.querySelector('[data-edit-contributions]');
+    if(editFunding&&button)button.click();
+    else focusProfileControl(root,`[data-history-row="disbursements"][data-profile-record="${CSS.escape(loanId)}"] summary`);
+  }
 });
 window.addEventListener('loan-ledger:account-changed',event=>{
   const id=event.detail?.borrowerId;

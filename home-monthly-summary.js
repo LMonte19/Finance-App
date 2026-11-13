@@ -1,6 +1,6 @@
 import { esc } from './combined-workspace-ui.js?v=2';
 import { collectRows } from './report-exports.js?v=2';
-import { getPageSessionId } from './page-read-runtime.js?v=1';
+import { getPageSessionId, readPageQuery } from './page-read-runtime.js?v=1';
 
 const money = value => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(value||0)/100);
 const cents = value => Math.round(Number(value||0)*100);
@@ -11,7 +11,8 @@ function endOfMonth(month) {
   return month+'-'+String(new Date(Date.UTC(y,m,0)).getUTCDate());
 }
 
-export function monthlySummary(month, workspaces, loans, funding, names, manager) {
+export function monthlySummary(month, workspaces, loans, funding, names, manager, half = 0) {
+  const inPeriod = date => date?.startsWith(month) && (!half || (Number(date.slice(8,10))<=15 ? 1 : 2)===half);
   const dues=[], receipts=[], parties=new Map();
   let expected=0,paid=0,pending=0,cash=0,unassigned=0;
   const payout=(name,kind)=> {
@@ -30,7 +31,7 @@ export function monthlySummary(month, workspaces, loans, funding, names, manager
         if(!moves.has(a.loan_id))moves.set(a.loan_id,[]);
         moves.get(a.loan_id).push({date:p.paid_on,amount:cents(a.amount)});
       }
-      if(p.paid_on?.startsWith(month)){
+      if(inPeriod(p.paid_on)){
         cash+=cents(p.amount);receipts.push(p);
         for(const a of p.allocations||[]){
           if(a.is_voided)continue;
@@ -39,7 +40,7 @@ export function monthlySummary(month, workspaces, loans, funding, names, manager
         }
       }
     }
-    for(const row of rows.filter(r=>r.due_date?.startsWith(month)&&r.status!=='CANCELLED')){
+    for(const row of rows.filter(r=>inPeriod(r.due_date)&&r.status!=='CANCELLED')){
       const original=cents(row.expected_total), collected=cents(row.paid_total), left=cents(row.amount_due);
       if(!(original||collected||left))continue;
       const applied=valid.flatMap(p=>(p.due_applications||[]).filter(a=>a.due_date===row.due_date)
@@ -104,21 +105,25 @@ async function readMonth(db,month){
       return {id:account.id,rows:data.rows||[],payments:(data.payments||[]).map(p=>({...p,borrower_name:p.borrower_name||account.full_name}))};
     })));
   }
-  return monthlySummary(month,workspaces,loans,funding,new Map(profiles.map(p=>[p.user_id,p.full_name])),admin.data?.full_name);
+  return {workspaces,loans,funding,names:new Map(profiles.map(p=>[p.user_id,p.full_name])),manager:admin.data?.full_name};
 }
 
 const table=(head,rows,empty)=>rows.length?`<div class="ll-month-table"><table><thead><tr>${head.map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`:`<p>${empty}</p>`;
 const cells=(...values)=>`<tr>${values.map(v=>`<td>${v}</td>`).join('')}</tr>`;
 function reportHtml(r){
-  const metrics=[['Cuotas del mes',r.expected],['Aplicado a esas cuotas',r.paid],['Pendiente de esas cuotas',r.pending],['Cobrado en el mes',r.cash]];
+  const metrics=[['Cuotas del período',r.expected],['Aplicado a esas cuotas',r.paid],['Pendiente de esas cuotas',r.pending],['Cobrado en el período',r.cash]];
   return `<div class="ll-month-metrics">${metrics.map(([label,value])=>`<div><small>${label}</small><strong>${money(value)}</strong></div>`).join('')}</div>
-    <section><h3>Distribución por persona</h3><p>Lo cobrado se agrupa por fecha de pago; la proyección solo incluye lo pendiente de las cuotas de este mes. Los abonos a capital se muestran por separado. Las asignaciones no confirman transferencias.</p>
-    ${table(['Persona','Concepto','Asignado en cobros del mes','Previsto por cobrar','Total estimado'],[
+    <section><h3>Distribución por persona</h3><p>Lo cobrado se agrupa por fecha de pago; la proyección solo incluye lo pendiente de las cuotas del período. Los abonos a capital se muestran por separado. Las asignaciones no confirman transferencias.</p>
+    ${table(['Persona','Concepto','Asignado en el período','Previsto por cobrar','Total estimado'],[
       ...r.parties.map(p=>cells(esc(p.name),p.kind,money(p.collected),money(p.projected),money(p.collected+p.projected))),
       ...(r.unassigned?[cells('Por asignar','Distribución incompleta','—',money(r.unassigned),money(r.unassigned))]:[])
-    ],'No hay distribuciones para este mes.')}</section>
-    <section><h3>Cuotas con vencimiento en el mes</h3>${table(['Vence','Cliente','Cuota','Aplicado','Pendiente','Pagos aplicados'],r.dues.map(d=>cells(day(d.due_date),esc(d.borrower_name),money(d.original),money(d.collected),money(d.left),d.applied.map(a=>`${day(a.date)} · ${money(a.amount)}`).join('<br>')||(d.collected?'Sin recibo vinculado':'—'))),'No hay cuotas en este mes.')}</section>
-    <section><h3>Pagos cobrados en el mes</h3>${table(['Fecha','Cliente','Pago','Capital','Cuotas cubiertas'],r.receipts.map(p=>cells(day(p.paid_on),esc(p.borrower_name||'Cliente'),money(cents(p.amount)),money(cents(p.applied_principal)),(p.due_applications||[]).map(a=>`<span title="${esc(a.due_date)}">${day(a.due_date)} · ${money(cents(a.applied_total))}</span>`).join('<br>')||'—')),'No hay pagos cobrados en este mes.')}</section>`;
+    ],'No hay distribuciones para este período.')}</section>
+    <section><h3>Cuotas con vencimiento en el período</h3>${table(['Vence','Cliente','Cuota','Aplicado','Pendiente','Pagos aplicados'],r.dues.map(d=>cells(day(d.due_date),esc(d.borrower_name),money(d.original),money(d.collected),money(d.left),d.applied.map(a=>`${day(a.date)} · ${money(a.amount)}`).join('<br>')||(d.collected?'Sin recibo vinculado':'—'))),'No hay cuotas en este período.')}</section>
+    <section><h3>Pagos cobrados en el período</h3>${table(['Fecha','Cliente','Pago','Capital','Cuotas cubiertas'],r.receipts.map(p=>cells(day(p.paid_on),esc(p.borrower_name||'Cliente'),money(cents(p.amount)),money(cents(p.applied_principal)),(p.due_applications||[]).map(a=>`<span title="${esc(a.due_date)}">${day(a.due_date)} · ${money(cents(a.applied_total))}</span>`).join('<br>')||'—')),'No hay pagos cobrados en este período.')}</section>`;
+}
+
+export function preloadMonthlySummary(db,month){
+  return readPageQuery('monthly-summary:'+month,async()=>({data:await readMonth(db,month)}));
 }
 
 export function openMonthlySummary(db,trigger,month){
@@ -128,23 +133,37 @@ export function openMonthlySummary(db,trigger,month){
   dialog.className='ll-month-dialog';dialog.setAttribute('aria-labelledby','llMonthlyTitle');
   dialog.innerHTML=`<header><h2 id="llMonthlyTitle">Resumen mensual</h2><button type="button" data-month-close aria-label="Cerrar" autofocus>×</button></header>
     <div class="ll-month-scroll"><div class="ll-month-controls"><button type="button" data-month-step="-1" aria-label="Mes anterior">‹</button><label>Mes <input type="month" value="${esc(month)}" aria-label="Mes del resumen"></label><button type="button" data-month-step="1" aria-label="Mes siguiente">›</button></div>
-    <p data-month-status role="status"></p><div data-month-report></div></div>`;
+    <div class="ll-month-period" role="group" aria-label="Período del resumen"><button type="button" data-month-half="0" aria-pressed="true">Mes completo</button><button type="button" data-month-half="1" aria-pressed="false">1–15</button><button type="button" data-month-half="2" aria-pressed="false">16–fin de mes</button></div>
+    <p data-month-status role="status"></p><div data-month-report aria-busy="true"></div></div>`;
   const report=dialog.querySelector('[data-month-report]'),status=dialog.querySelector('[data-month-status]');
-  let sequence=0;
+  let sequence=0,half=0,loaded=null;
+  function render(){
+    if(!loaded)return;
+    const {workspaces,loans,funding,names,manager}=loaded.data;
+    report.innerHTML=reportHtml(monthlySummary(loaded.month,workspaces,loans,funding,names,manager,half));
+    report.setAttribute('aria-busy','false');
+  }
   const observer=new MutationObserver(()=>{if(getPageSessionId()!==owner)dialog.close();});
   dialog.querySelector('[data-month-close]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{sequence++;observer.disconnect();dialog.remove();trigger?.focus({preventScroll:true});},{once:true});
   async function load(value){
     const request=++sequence;
+    loaded=null;
     report.replaceChildren();
-    if(!validMonth(value)){status.textContent='Selecciona un mes válido.';return;}
+    if(!validMonth(value)){report.setAttribute('aria-busy','false');status.textContent='Selecciona un mes válido.';return;}
+    report.setAttribute('aria-busy','true');
+    report.innerHTML='<div class="ll-month-metrics ll-month-placeholder" aria-hidden="true"><div></div><div></div><div></div><div></div></div><div class="ll-month-placeholder ll-month-placeholder-table" aria-hidden="true"></div>';
     status.textContent='Consultando cuotas y pagos…';
     try{
-      const summary=await readMonth(db,value);
+      const {data}=await preloadMonthlySummary(db,value);
       if(request!==sequence||owner!==getPageSessionId())return;
-      status.textContent='';report.innerHTML=reportHtml(summary);
+      status.textContent='';loaded={month:value,data};render();
     }catch{
-      if(request===sequence&&owner===getPageSessionId())status.textContent='No se pudo cargar el resumen. Cierra la ventana y vuelve a intentarlo.';
+      if(request===sequence&&owner===getPageSessionId()){
+        report.setAttribute('aria-busy','false');report.replaceChildren();
+        status.textContent='No se pudo cargar el resumen.';
+        const retry=document.createElement('button');retry.type='button';retry.textContent='Volver a intentar';retry.onclick=()=>load(value);report.append(retry);
+      }
     }
   }
   const input=dialog.querySelector('input');
@@ -154,6 +173,12 @@ export function openMonthlySummary(db,trigger,month){
     const target=new Date(Date.UTC(year,selected-1+Number(button.dataset.monthStep),1));
     const next=target.toISOString().slice(0,7);
     if(validMonth(next)){input.value=next;load(next);}
+  };
+  const periods=[...dialog.querySelectorAll('[data-month-half]')];
+  for(const button of periods)button.onclick=()=>{
+    half=Number(button.dataset.monthHalf);
+    periods.forEach(option=>option.setAttribute('aria-pressed',String(button===option)));
+    render();
   };
   app.append(dialog);
   observer.observe(app,{attributes:true,attributeFilter:['style']});

@@ -22,12 +22,12 @@ function openPage(id){
   $('menuOverlay')?.classList.remove('open');
 }
 
-function requestAccount(borrowerId){
+function requestAccount(borrowerId, target={}){
   if(!borrowerId) return;
   ensureAccountPage();
   openPage('borrowerAccountPage');
   window.dispatchEvent(new CustomEvent('loan-ledger:account-rendered',{
-    detail:{borrowerId,source:'account-router'}
+    detail:{...target,borrowerId,source:'account-router'}
   }));
 }
 
@@ -41,7 +41,7 @@ document.addEventListener('click',event=>{
 
 window.addEventListener('loan-ledger:open-account',event=>{
   const id=event.detail?.borrowerId;
-  if(id) requestAccount(id);
+  if(id) requestAccount(id,event.detail);
 });
 
 ensureAccountPage();

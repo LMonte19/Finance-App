@@ -1,149 +1,96 @@
-import { readPageQuery, watchPage, isStalePageSession, fillInitialLoading, finishPageLoading, loadingRows } from './page-read-runtime.js?v=1';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getPageSessionId, readPageQuery, watchPage, invalidatePageReads, isStalePageSession, loadingRows } from './page-read-runtime.js?v=1';
+import { ACCESS_OWNER_ID } from './admin-access.js?v=2';
+import { esc, roleName } from './combined-workspace-ui.js?v=2';
+import { openPaymentDetails } from './payment-management.js?v=17';
 
-const supabase = createClient("https://eatxkhhpjruwwibhcubf.supabase.co", "sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q", {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: "loan-ledger-auth" },
-});
+const db=createClient('https://eatxkhhpjruwwibhcubf.supabase.co','sb_publishable_cPGND1hI2aEkXRJE5XfmUA_COxH8A7q',
+  {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage,storageKey:'loan-ledger-auth'}});
+const qs=id=>document.getElementById(id);
+const owner=()=>getPageSessionId()===ACCESS_OWNER_ID;
+let approved=false,busy=false,current=null,sessionVersion=0;
+const read=force=>readPageQuery('owner-review',()=>db.rpc('get_owner_review'),{force});
+const section=(title,content)=>`<section class="cw-card"><h2>${title}</h2>${content}</section>`;
 
-const qs = (id) => document.getElementById(id);
-let timer = null;
-let busy = false;
-let lastHtml = "";
+function reset(){
+  approved=false;current=null;busy=false;sessionVersion++;
+  if(qs('systemCheckPage')?.classList.contains('active-page'))document.querySelector('.tab-btn[data-page="dashboardPage"]')?.click();
+  qs('menuSystemCheck')?.remove();qs('systemCheckPage')?.remove();
+}
+function mount(){
+  if(!owner()||!approved||qs('systemCheckPage'))return;
+  const app=qs('app'),menu=qs('sideMenu');if(!app||!menu)return;
+  const page=document.createElement('div');page.id='systemCheckPage';page.className='page ll-combined-page';page.dataset.combinedWorkspace='true';
+  page.innerHTML=`<div class="cw-header"><div><h1>Revisión del sistema</h1><p>Diagnóstico, registros que requieren atención y roles del equipo.</p></div><button type="button" class="cw-button" data-review-refresh>Actualizar</button></div><p data-review-status role="status"></p><div data-review-body>${loadingRows()}</div>`;
+  const btn=document.createElement('button');btn.type='button';btn.id='menuSystemCheck';btn.className='menu-link';btn.dataset.page=page.id;btn.textContent='Revisión del sistema';
+  btn.onclick=()=>{
+    if(!owner()||!approved)return;
+    document.querySelectorAll('.tab-btn.active,.page.active-page').forEach(el=>el.classList.remove('active','active-page'));
+    page.classList.add('active-page');menu.classList.remove('open');qs('menuOverlay')?.classList.remove('open');
+    refresh();
+  };
+  page.addEventListener('click',event=>{
+    if(!owner()||!approved)return;
+    if(event.target.closest('[data-review-refresh]')){refresh(true);return;}
+    const target=event.target.closest('[data-review-issue]');
+    const issue=target&&current?.issues[Number(target.dataset.reviewIssue)];
+    if(!issue)return;
+    if(issue.action==='payment'){openPaymentDetails(issue.payment_id);return;}
+    window.dispatchEvent(new CustomEvent('loan-ledger:open-account',{detail:{borrowerId:issue.borrower_id,loanId:issue.loan_id,editFunding:issue.action==='funding',overdue:issue.action==='account'}}));
+  });
+  page.addEventListener('submit',async event=>{
+    const form=event.target;
+    if(!form.matches('[data-review-role]'))return;
+    event.preventDefault();if(!owner()||!approved)return;
+    const profile=current?.profiles.find(p=>p.user_id===form.dataset.reviewRole);
+    const select=form.querySelector('select'),save=form.querySelector('button'),status=form.querySelector('[role=status]');
+    if(!profile||profile.user_id===ACCESS_OWNER_ID||!['AGENT','PARTNER'].includes(select.value))return;
+    save.disabled=true;select.disabled=true;status.textContent='Guardando…';
+    try{
+      const {error}=await db.rpc('update_profile_admin',{p_user_id:profile.user_id,p_full_name:profile.full_name,p_role:select.value});
+      if(error)throw error;
+      if(!owner()||!approved)return;
+      invalidatePageReads();
+      window.dispatchEvent(new CustomEvent('loan-ledger:profile-updated',{detail:{userId:profile.user_id}}));
+      await refresh();
+      if(owner()&&qs(page.id)===page)page.querySelector('[data-review-status]').textContent='Rol guardado.';
+    }catch(error){if(form.isConnected)status.textContent=error.message||'No se pudo guardar el rol.';}
+    finally{save.disabled=false;select.disabled=false;}
+  });
+  menu.append(btn);app.append(page);
+}
+function render(page,data){
+  const issues=data.issues||[];
+  const labels={payment:'Abrir detalle del pago',account:'Abrir calendario del cliente',funding:'Editar aportes',loan:'Abrir desembolso'};
+  const issueList=entries=>entries.map(({issue,i})=>`<article class="compact-card"><strong>${esc(issue.borrower_name||'Sin cliente')} · ${esc(issue.title)}</strong><p>${esc(issue.details)}</p><button type="button" class="cw-button" data-review-issue="${i}">${labels[issue.action]}</button></article>`).join('');
+  const all=issues.map((issue,i)=>({issue,i}));
+  const body=page.querySelector('[data-review-body]');
+  const html=section('Roles de acceso',`<p>Cambia quién entra como socio o administrador operativo. La cuenta propietaria está protegida.</p>${(data.profiles||[]).map(p=>p.user_id===ACCESS_OWNER_ID
+    ? `<div class="ll-review-role"><strong>${esc(p.full_name)}</strong><span>Propietaria de la app</span></div>`
+    : `<form class="ll-review-role" data-review-role="${esc(p.user_id)}"><strong>${esc(p.full_name||'Sin nombre')}</strong><select aria-label="Rol de ${esc(p.full_name||'usuario')}">${['PARTNER','AGENT'].map(role=>`<option value="${role}" ${p.role===role?'selected':''}>${roleName(role)}</option>`).join('')}</select><button type="submit" class="cw-button">Guardar rol</button><span role="status"></span></form>`).join('')}`)
+    +section('Resultados',`<p>${issues.length?issues.length+' registros para revisar.':'No se detectaron incidencias.'}</p>${(data.checks||[]).map(c=>{
+      const matches=all.filter(x=>x.issue.check_code===c.check_code);
+      return `<details class="ll-review-check" ${matches.length?'open':''}><summary><strong>${esc(c.summary)}</strong><span>${c.status==='PASS'?(matches.length?'Ver cuentas':'Bien'):c.status==='WARN'?'Revisar':'Falla'}</span></summary><p>${esc(c.details||'')}</p>${issueList(matches)}${c.check_code==='VIRTUAL_CALENDAR'?'<button type="button" class="cw-button" data-review-due>Ver cuotas y vencimientos</button>':''}</details>`;
+    }).join('')}`)
+    +`<details class="cw-card"><summary><strong>Permisos por rol</strong></summary>${['ADMIN','AGENT','PARTNER'].map(role=>`<h3>${roleName(role)}</h3><ul>${(data.permissions||[]).filter(p=>p.role===role).map(p=>`<li>${esc(p.capability)}: ${p.allowed?'Sí':'No'}</li>`).join('')}<li>Revisión del sistema: ${role==='ADMIN'?'Sí':'No'}</li></ul>`).join('')}</details>`;
+  if(body.dataset.markup!==html){body.innerHTML=html;body.dataset.markup=html;body.querySelector('[data-review-due]')?.addEventListener('click',()=>qs('menuDueOverdue')?.click());}
+}
+async function refresh(force=false){
+  if(!owner()||busy)return;
+  busy=true;const request=sessionVersion;
+  try{
+    const {data,error}=await read(force);
+    if(!owner()||request!==sessionVersion)return;
+    if(error)throw error;
+    approved=true;current=data;mount();
+    const page=qs('systemCheckPage');
+    if(page?.classList.contains('active-page'))render(page,data);
+  }catch(error){
+    if(!owner()||request!==sessionVersion||isStalePageSession(error))return;
+    const status=qs('systemCheckPage')?.querySelector('[data-review-status]');
+    if(status)status.textContent='No se pudo actualizar la revisión. Inténtalo de nuevo.';
+  }finally{if(request===sessionVersion)busy=false;}
+}
 
-function isPage(id) { return qs(id)?.classList.contains("active-page"); }
-function openPage(id) {
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-  document.querySelectorAll(".page").forEach((p) => p.classList.remove("active-page"));
-  qs(id)?.classList.add("active-page");
-  qs("sideMenu")?.classList.remove("open");
-  qs("menuOverlay")?.classList.remove("open");
-}
-function statusColor(status) { if (status === "PASS") return "#9ff5b2"; if (status === "WARN") return "#ffd27a"; return "#ff8b8b"; }
-function card(html, attrs = "") { return `<div class="compact-card" ${attrs} style="background:#0f0f11;border:1px solid #2a2a2e;border-radius:12px;padding:12px;margin:10px 0;box-sizing:border-box;">${html}</div>`; }
-function statusEs(status) { return { PASS: "BIEN", WARN: "REVISAR", FAIL: "FALLA" }[status] || status; }
-function severityEs(sev) { return { HIGH: "ALTA", MEDIUM: "MEDIA", LOW: "BAJA" }[sev] || sev; }
-function ensureSystemCheckPage() {
-  const app = qs("app");
-  if (!app) return null;
-  let page = qs("systemCheckPage");
-  if (!page) {
-    page = document.createElement("div");
-    page.id = "systemCheckPage";
-    page.className = "page";
-    page.innerHTML = `
-      <div class="card" data-no-translate="true">
-        <div style="font-weight:800;">Revisión del sistema</div>
-        <div class="muted">Lista de preparación antes de usar datos reales.</div>
-        <button id="btnRefreshSystemCheck" type="button">Actualizar revisión</button>
-      </div>
-      <div class="card" data-no-translate="true">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <div style="font-weight:800;">Resultados</div>
-          <span class="pill" id="systemCheckCount">0</span>
-        </div>
-        <div id="systemCheckList" class="muted">Cargando...</div>
-      </div>
-      <div class="card" data-no-translate="true">
-        <div style="font-weight:800;">Permisos por rol</div>
-        <div id="rolePermissionList" class="muted">Cargando...</div>
-      </div>
-      <div class="card" data-no-translate="true">
-        <div style="font-weight:800;">Checklist manual</div>
-        <div class="muted">Pruebas rápidas para confirmar que el flujo completo funciona.</div>
-        <div id="manualChecklist" class="muted"></div>
-      </div>
-    `;
-    app.appendChild(page);
-  }
-  const sideMenu = qs("sideMenu");
-  if (sideMenu && !qs("menuSystemCheck")) {
-    const btn = document.createElement("button");
-    btn.id = "menuSystemCheck";
-    btn.className = "menu-link";
-    btn.dataset.page = "systemCheckPage";
-    btn.textContent = "Revisión del sistema";
-    const activityBtn = qs("menuActivity");
-    const reportsBtn = qs("menuReports");
-    const defaultsBtn = sideMenu.querySelector('[data-page="defaultsPage"]');
-    sideMenu.insertBefore(btn, activityBtn || reportsBtn || defaultsBtn || null);
-  }
-  const menuBtn = qs("menuSystemCheck");
-  if (menuBtn && menuBtn.dataset.bound !== "true") {
-    menuBtn.dataset.bound = "true";
-    menuBtn.onclick = (event) => { event.preventDefault(); event.stopPropagation(); ensureSystemCheckPage(); openPage("systemCheckPage"); renderSystemCheck(false); };
-  }
-  const refreshBtn = qs("btnRefreshSystemCheck");
-  if (refreshBtn && refreshBtn.dataset.bound !== "true") { refreshBtn.dataset.bound = "true"; refreshBtn.onclick = () => renderSystemCheck(true); }
-  return page;
-}
-function renderCheck(row) {
-  return card(`
-    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
-      <div><strong>${row.summary}</strong><br><span class="muted">${row.details || "—"}</span></div>
-      <span class="pill" style="color:${statusColor(row.status)};">${statusEs(row.status)}</span>
-    </div>
-    <div class="muted" style="margin-top:6px;">${row.check_code} | ${severityEs(row.severity)}</div>
-  `);
-}
-function renderPermissions(rows) {
-  const labels = { ADMIN: "Propietario de la app", AGENT: "Administrador operativo", PARTNER: "Socio" };
-  const grouped = rows.reduce((acc, row) => { acc[row.role] ||= []; acc[row.role].push(row); return acc; }, {});
-  return ["ADMIN", "AGENT", "PARTNER"].map((role) => {
-    const list = grouped[role] || [];
-    return card(`<strong>${labels[role] || role}</strong>${list.map((row) => `<div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px;"><span>${row.capability}</span><span class="pill" style="color:${row.allowed ? "#9ff5b2" : "#ff8b8b"};">${row.allowed ? "SI" : "NO"}</span></div>`).join("")}`);
-  }).join("");
-}
-function manualChecklistHtml() {
-  const items = [
-    "Abrir Inicio/Home y confirmar que capital activo, atrasado y próximas cuotas cargan.",
-    "Crear un cliente nuevo desde Nuevo desembolso.",
-    "Crear un desembolso con tasas y distribución de inversión al 100%.",
-    "Entrar a Cuenta del cliente y confirmar que el calendario virtual muestra 15 y último día del mes.",
-    "Mover el calendario con las flechas hacia fechas futuras y pasadas.",
-    "Registrar un pago de cuota/interés y confirmar que no rebaja capital.",
-    "Registrar un abono a capital y confirmar que el balance baja.",
-    "Anular un pago como Admin y confirmar que cuota/capital/distribuciones se revierten.",
-    "Abrir Socios y confirmar capital activo, ganancias y distribuciones.",
-    "Abrir Revisión de sistema y confirmar que no hay alertas HIGH antes de usar datos reales.",
-    "Agregar un seguimiento y marcarlo completado.",
-    "Agregar una nota de contacto.",
-    "Abrir Actividad / Historial y confirmar que registra pagos, anulaciones, desembolsos y notas.",
-    "Exportar CSV de cuentas, pagos, cuotas virtuales y socios.",
-    "Confirmar que el administrador operativo puede registrar y anular pagos.",
-    "Confirmar que los socios pueden operar, pero no administrar el acceso ni restablecer datos.",
-  ];
-  return items.map((item, index) => `<label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0;"><input type="checkbox" data-manual-check="${index}" style="width:auto;margin:2px 0 0 0;" /><span>${item}</span></label>`).join("");
-}
-async function renderSystemCheck(force = false) {
-  ensureSystemCheckPage();
-  if (!isPage("systemCheckPage") || busy || !qs("systemCheckList")) return;
-  busy = true;
-  try {
-    const [checksRes, permissionsRes] = await Promise.all([
-      readPageQuery("system-checks", () => supabase.from("system_check_results").select("*").order("sort_order", { ascending: true }), {force: force}),
-      readPageQuery("role-permissions", () => supabase.from("role_permission_matrix").select("*").order("role", { ascending: true }).order("capability", { ascending: true }), {force: force}),
-    ]);
-    if (checksRes.error) throw checksRes.error;
-    if (permissionsRes.error) throw permissionsRes.error;
-    const checks = checksRes.data || [];
-    const permissions = permissionsRes.data || [];
-    const problemCount = checks.filter((c) => c.status !== "PASS").length;
-    const html = `${checks.map(renderCheck).join("")}---PERMS---${renderPermissions(permissions)}`;
-    qs("systemCheckCount").textContent = problemCount ? `${problemCount} revisar` : "Todo bien";
-    if (force || html !== lastHtml) {
-      qs("systemCheckList").innerHTML = checks.length ? checks.map(renderCheck).join("") : "No hay revisiones del sistema.";
-      qs("rolePermissionList").innerHTML = permissions.length ? renderPermissions(permissions) : "No hay matriz de permisos.";
-      if (!qs("manualChecklist").querySelector("[data-manual-check]")) qs("manualChecklist").innerHTML = manualChecklistHtml();
-      lastHtml = html;
-    }
-  } catch (error) { if(isStalePageSession(error))return;console.error(error); qs("systemCheckList").innerHTML = error.message || String(error); } finally { busy = false; finishPageLoading("systemCheckPage"); }
-}
-function tick() { ensureSystemCheckPage(); if (isPage("systemCheckPage")) renderSystemCheck(false); }
-tick();
-fillInitialLoading("systemCheckList");
-fillInitialLoading("rolePermissionList");
-if(qs("manualChecklist"))qs("manualChecklist").innerHTML=manualChecklistHtml();
-watchPage("systemCheckPage", tick, {prefetch: () => Promise.all([
-  readPageQuery("system-checks", () => supabase.from("system_check_results").select("*").order("sort_order", { ascending: true })),
-  readPageQuery("role-permissions", () => supabase.from("role_permission_matrix").select("*").order("role", { ascending: true }).order("capability", { ascending: true }))
-]), reset: () => {lastHtml="";["systemCheckList","rolePermissionList"].forEach(id=>{const n=qs(id);if(n)n.innerHTML=loadingRows();});}});
+watchPage('systemCheckPage',refresh,{reset:()=>{reset();if(owner())queueMicrotask(()=>refresh());}});
+if(owner())refresh();
