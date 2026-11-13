@@ -173,6 +173,7 @@ function protectInputs() {
 
   if (currentRole === "PARTNER") {
     document.querySelectorAll("input, select, textarea").forEach((el) => {
+      if (el.matches('.ll-void-dialog select[name="reason"]')) return;
       const allowSearch = /search|filter/i.test(el.id || "") || /search/i.test(el.placeholder || "");
       if (!allowSearch) disableElement(el, "Partner is view-only");
     });

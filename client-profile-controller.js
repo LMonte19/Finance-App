@@ -8,7 +8,7 @@ import { invalidatePageReads } from './page-read-runtime.js?v=1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mixedPaymentMarkup, attachMixedPaymentSplit, mixedContextFromCalendar } from './mixed-payment-split.js?v=2';
 import { paymentCalendarMarkup, attachPaymentCalendar, paymentCalendarEnd } from './payment-calendar.js?v=2';
-import { openActivityDetails } from './activity-details.js?v=5';
+import { openActivityDetails } from './activity-details.js?v=6';
 import { openClientInstallmentPicker } from './client-installment-picker.js?v=1';
 
 const db=createClient(
@@ -364,7 +364,7 @@ function paymentRowsHtml(rows){
   return `<div class="cp-ledger-head cp-payment-columns" aria-hidden="true"><span>Fecha</span><span>Monto</span><span>Tipo de pago</span><span>Capital</span><span>Cuota/interés</span><span>Estado</span><span></span></div><div class="cp-record-list" data-list="payments">${rows.map(p=>`
     <details class="cp-record" data-profile-record="${esc(p.id)}" data-history-row="payments" data-payment-state="${p.is_voided?'voided':'active'}" data-history-search="${esc([p.paid_on,fmtDate(p.paid_on),p.amount,paymentTypeLabel(p.payment_type),p.notes,p.void_reason].join(' ').toLowerCase())}">
       <summary class="cp-payment-columns"><time datetime="${esc(p.paid_on)}">${fmtDate(p.paid_on)}</time><strong>${money(p.amount)}</strong><span>${esc(paymentTypeLabel(p.payment_type))}</span><span class="cp-row-amount">${money(p.applied_principal)}</span><span class="cp-row-amount">${money(p.applied_interest)}</span><span class="cp-record-state ${p.is_voided?'is-voided':'is-current'}">${p.is_voided?'Anulado':'Registrado'}</span><span class="cp-record-chevron">${svg('chevronDown')}</span></summary>
-      <div class="cp-record-detail"><dl><div><dt>Abono a capital</dt><dd>${money(p.applied_principal)}</dd></div><div><dt>Cuota/interés</dt><dd>${money(p.applied_interest)}</dd></div><div><dt>Administración</dt><dd>${money(p.applied_mgmt)}</dd></div><div><dt>Socios</dt><dd>${money(p.applied_funders)}</dd></div><div><dt>Notas</dt><dd>${esc(p.notes||'Sin notas')}</dd></div>${p.void_reason?`<div><dt>Motivo de anulación</dt><dd>${esc(p.void_reason)}</dd></div>`:''}</dl>${p.is_voided?'':`<button type="button" class="cp-action cp-danger" data-void-payment="${esc(p.id)}">Anular pago</button>`}</div>
+      <div class="cp-record-detail"><dl><div><dt>Abono a capital</dt><dd>${money(p.applied_principal)}</dd></div><div><dt>Cuota/interés</dt><dd>${money(p.applied_interest)}</dd></div><div><dt>Administración</dt><dd>${money(p.applied_mgmt)}</dd></div><div><dt>Socios</dt><dd>${money(p.applied_funders)}</dd></div><div><dt>Notas</dt><dd>${esc(p.notes||'Sin notas')}</dd></div>${p.is_voided?`<div><dt>Motivo de anulación</dt><dd>${esc(p.void_reason?.trim()||'Sin motivo registrado')}</dd></div>`:''}</dl>${p.is_voided?'':`<button type="button" class="cp-action cp-danger" data-void-payment="${esc(p.id)}">Anular pago</button>`}</div>
     </details>`).join('')}</div>`;
 }
 function disbursementRowsHtml(rows,canEdit=false){
